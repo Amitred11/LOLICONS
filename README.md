@@ -4,7 +4,9 @@ Welcome to LHA! This is our own private corner of the internet, built from the g
 
 This isn't a public app—it's our custom-built community hub, powered by React Native and packed with features and animations to make it feel uniquely ours.
 
-<img src="https://github.com/Amitred11/LOLICONS/blob/master/assets/LOGO.jpg?raw=true" alt="Project Banner" width="600"/>
+<p align="center">
+  <img src="https://github.com/Amitred11/LOLICONS/blob/master/assets/LOGO.jpg?raw=true" alt="Project Banner" width="350"/>
+</p>
 
 ---
 
