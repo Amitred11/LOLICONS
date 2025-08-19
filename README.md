@@ -86,4 +86,11 @@ To get this running on your phone, just follow these steps.
     ```sh
     npx expo start
     ```
-5.  Scan the QR code that appears in the terminal with your phone's camera (or the Expo Go app), and you're in.
+
+    or
+    
+    ```sh
+    npm start
+    ```
+    
+6.  Scan the QR code that appears in the terminal with your phone's camera (or the Expo Go app), and you're in.
