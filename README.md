@@ -1,4 +1,4 @@
-# LOLI HUNTER ASSOCIATION - Our Private Hub
+# LOLI HUNTER ASSOCIATION - Our Private Hub (ONGOING)
 
 Welcome to LHA! This is our own private corner of the internet, built from the ground up just for our group of friends. It's a place to hang out, see what everyone's up to, chat, and dive into our favorite comics and manga without any outside noise.
 
