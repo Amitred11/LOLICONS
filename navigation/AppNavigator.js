@@ -18,105 +18,100 @@ import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 // Core Tab screens (main sections of the app).
 import HomeScreen from '../screens/home/HomeScreen';
 import ComicsScreen from '../screens/comics/ComicsScreen';
-import CommunityScreen from '../screens/CommunityScreen';
+import CommunityScreen from '../screens/community/CommunityScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
-import ChatTabScreen from '../screens/chat/ChatTabScreen'; // The main "Social" tab screen.
+import HubScreen from '../screens/hub/Hub/HubScreen'; // The main "Social" tab screen.
 
 // Stack screens (screens navigated to from other parts of the app).
+// COMICS
 import ComicDetailScreen from '../screens/comics/ComicDetailScreen';
 import ReaderScreen from '../screens/comics/ReaderScreen';
 import SeeAllScreen from '../screens/comics/SeeAllScreen';
-import ChatScreen from '../screens/chat/ChatScreen'; // Screen for an individual chat conversation.
+
+// HOME
 import SearchScreen from '../screens/home/SearchScreen';
+import PostDetailScreen from '../screens/community/PostDetailScreen';
+import CreatePostScreen from '../screens/community/CreatePostScreen';
+// PROFILE
 import EditProfileScreen from '../screens/profile/EditProfileScreen';
 import AccountScreen from '../screens/profile/AccountScreen';
 import NotificationsScreen from '../screens/profile/NotificationsScreen';
 import HelpScreen from '../screens/profile/HelpScreen';
 import DataAndStorageScreen from '../screens/profile/DataAndStorageScreen';
 import PrivacyScreen from '../screens/profile/PrivacyScreen';
+import TrophyCaseScreen from '../screens/profile/TrophyCaseScreen';
+// HUB
+import MessagesScreen from '../screens/hub/Messages/MessagesScreen';
+import ChatScreen from '../screens/hub/Messages/ChatScreen';
+import EventDetailScreen from '../screens/hub/Event/EventDetailScreen';
+import FriendsScreen from '../screens/hub/Messages/FriendsScreen';
+import MediaScreen from '../screens/hub/Media/MediaScreen';
+import MediaDetailScreen from '../screens/hub/Media/MediaDetailScreen';
+import AddFriendScreen from '../screens/hub/Messages/AddFriendScreen';
+import UserProfileScreen from '../screens/hub/Messages/UserProfileScreen';
 
 // Initialize navigators.
 const AuthStackNav = createNativeStackNavigator();
 const AppStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-/**
- * A stack navigator for the authentication flow (Welcome, Login, Register).
- * This is shown to users who are not logged in.
- */
 const AuthStack = () => (
   <AuthStackNav.Navigator 
-    screenOptions={{ 
-      headerShown: false, // Hide the default header for all screens in this stack.
-      animation: 'slide_from_right', // Default transition animation.
-      contentStyle: { backgroundColor: Colors.background } // Apply a consistent background color.
-    }}
+    screenOptions={{ headerShown: false, animation: 'slide_from_right', contentStyle: { backgroundColor: Colors.background } }}
   >
-    {/* Using Math.random() as a key is unconventional; it forces a re-mount which might be intended to reset state when navigating back to Welcome. */}
-    <AuthStackNav.Screen name="Welcome" component={WelcomeScreen} key={Math.random()} />
+    <AuthStackNav.Screen name="Welcome" component={WelcomeScreen} />
     <AuthStackNav.Screen name="Login" component={LoginScreen} />
     <AuthStackNav.Screen name="Register" component={RegisterScreen} />
     <AuthStackNav.Screen name="ForgotPassword" component={ForgotPasswordScreen} /> 
   </AuthStackNav.Navigator>
 );
 
-/**
- * A bottom tab navigator for the main application screens.
- * Uses a custom component for the tab bar UI.
- */
 const MainTabs = () => (
   <Tab.Navigator
     screenOptions={{ headerShown: false }}
-    // Replace the default tab bar with our custom animated one.
     tabBar={(props) => <CustomTabBar {...props} />} 
   >
-    {/* Define each tab screen with custom props for the tab bar component. */}
     <Tab.Screen name="Dashboard" component={HomeScreen} options={{ customProps: { label: "Home", activeIcon: "home", inactiveIcon: "home-outline" }}} />
     <Tab.Screen name="Comics" component={ComicsScreen} options={{ customProps: { label: "Comics", activeIcon: "book", inactiveIcon: "book-outline" }}} />
     <Tab.Screen name="Community" component={CommunityScreen} options={{ customProps: { label: "Community", activeIcon: "people", inactiveIcon: "people-outline" }}} />
-    <Tab.Screen name="Social" component={ChatTabScreen} options={{ customProps: { label: "Social", activeIcon: "chatbubbles", inactiveIcon: "chatbubbles-outline" }}} />
+    <Tab.Screen name="Social" component={HubScreen} options={{ customProps: { label: "Social", activeIcon: "chatbubbles", inactiveIcon: "chatbubbles-outline" }}} />
     <Tab.Screen name="Profile" component={ProfileScreen} options={{ customProps: { label: "Profile", activeIcon: "person-circle", inactiveIcon: "person-circle-outline" }}} />
   </Tab.Navigator>
 );
 
-/**
- * A stack navigator for the main application flow, including the tab navigator and other screens
- * that can be navigated to from within the tabs (e.g., ComicDetail, Reader).
- */
 const AppStackScreens = () => (
   <AppStack.Navigator 
-    screenOptions={{ 
-      headerShown: false,
-      contentStyle: { backgroundColor: Colors.background } 
-    }}
+    screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.background } }}
   >
-    {/* The main screen is the tab navigator itself. */}
     <AppStack.Screen name="Main" component={MainTabs} />
-    {/* Other screens that can be pushed on top of the tab navigator. */}
+    {/* All screens are correctly registered here */}
     <AppStack.Screen name="ComicDetail" component={ComicDetailScreen} />
     <AppStack.Screen name="Reader" component={ReaderScreen} />
     <AppStack.Screen name="SeeAll" component={SeeAllScreen} />
     <AppStack.Screen name="Chat" component={ChatScreen} />
-    {/* Modal screens with specific animations. */}
+    <AppStack.Screen name="Messages" component={MessagesScreen} />
+    <AppStack.Screen name="EventDetail" component={EventDetailScreen} />
+    <AppStack.Screen name="TrophyCase" component={TrophyCaseScreen} />
+    <AppStack.Screen name="Friends" component={FriendsScreen} />
+    <AppStack.Screen name="Media" component={MediaScreen} />
+    <AppStack.Screen name="MediaDetail" component={MediaDetailScreen} />
+    <AppStack.Screen name="PostDetail" component={PostDetailScreen} />
+    <AppStack.Screen name="CreatePost" component={CreatePostScreen} options={{ presentation: 'modal'}} />
     <AppStack.Screen name="Search" component={SearchScreen} options={{ presentation: 'modal', animation: 'fade_from_bottom' }} />
     <AppStack.Screen name="EditProfile" component={EditProfileScreen} options={{ presentation: 'modal' }} />
-    {/* Screens with a standard slide animation. */}
     <AppStack.Screen name="Account" component={AccountScreen} options={{ animation: 'slide_from_right' }}/>
     <AppStack.Screen name="Notifications" component={NotificationsScreen} options={{ animation: 'slide_from_right' }}/>
     <AppStack.Screen name="Help" component={HelpScreen} options={{ animation: 'slide_from_right' }}/>
     <AppStack.Screen name="DataAndStorage" component={DataAndStorageScreen} options={{ animation: 'slide_from_right' }}/>
     <AppStack.Screen name="Privacy" component={PrivacyScreen} options={{ animation: 'slide_from_right' }}/>
+    <AppStack.Screen name="AddFriend" component={AddFriendScreen} />
+    <AppStack.Screen name="UserProfile" component={UserProfileScreen} />
   </AppStack.Navigator>
 );
 
-/**
- * The root navigator component. It decides whether to show the authentication flow
- * or the main app flow based on the user's login status.
- */
 const AppNavigator = () => {
-  const { isLoggedIn, isLoading } = useAuth(); // Get auth state.
+  const { isLoggedIn, isLoading } = useAuth();
 
-  // While the auth state is being determined (e.g., checking a token), show a loading indicator.
   if (isLoading) {
     return (
         <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background}}>
@@ -125,7 +120,6 @@ const AppNavigator = () => {
     );
   }
 
-  // Conditionally render the correct navigator.
   return isLoggedIn ? <AppStackScreens /> : <AuthStack />;
 };
 

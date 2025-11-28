@@ -178,7 +178,7 @@ const LoginScreen = ({ navigation }) => {
 
                 {/* Back button */}
                 <Animated.View style={[styles.backButtonContainer, headerAnimatedStyle]}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                    <TouchableOpacity onPress={() => navigation.navigate('Welcome')} style={styles.backButton}>
                         <Ionicons name="arrow-back" size={28} color={Colors.text} />
                     </TouchableOpacity>
                 </Animated.View>
