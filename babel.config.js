@@ -3,8 +3,23 @@ module.exports = function (api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
-      // This plugin has to be listed last.
-      'react-native-reanimated/plugin',
+      [
+        'module-resolver',
+        {
+          root: ['.'],
+          alias: {
+            '@assets': './src/assets',
+            '@components': './src/components',
+            '@features': './src/screens',
+            '@navigation': './src/navigation',
+            '@utils': './src/utils',
+            '@context': './src/context',
+            '@config': './src/constants',
+          },
+        },
+      ],
+      '@babel/plugin-transform-runtime',
+      'react-native-reanimated/plugin',  
     ],
   };
 };

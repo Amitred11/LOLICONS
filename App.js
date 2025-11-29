@@ -9,15 +9,15 @@ import { MenuProvider } from 'react-native-popup-menu';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 
 // Import Contexts
-import { AuthProvider } from './context/AuthContext';
-import { ModalProvider } from './context/ModalContext';
-import { LibraryProvider } from './context/LibraryContext'; 
-import { DownloadProvider } from './context/DownloadContext';
-import { AlertProvider } from './context/AlertContext';
+import { AuthProvider } from '@context/AuthContext';
+import { ModalProvider } from '@context/ModalContext';
+import { LibraryProvider } from '@context/LibraryContext'; 
+import { DownloadProvider } from '@context/DownloadContext';
+import { AlertProvider } from '@context/AlertContext';
 
 // Import App Logic
-import AppNavigator from './navigation/AppNavigator';
-import { Colors } from './constants/Colors';
+import AppNavigator from '@navigation/AppNavigator';
+import { Colors } from '@config/Colors';
 
 const AppDarkTheme = {
   ...DarkTheme,
