@@ -13,10 +13,6 @@ const TAB_BAR_HEIGHT = 65;
 /**
  * A custom tab bar component that displays and manages navigation tabs.
  * It's designed to be used with React Navigation's bottom tabs navigator.
- * @param {object} props - The props provided by React Navigation.
- * @param {object} props.state - The navigation state, including routes and the active index.
- * @param {object} props.descriptors - An object containing options for each screen.
- * @param {object} props.navigation - The navigation object to handle screen transitions.
  */
 const CustomTabBar = ({ state, descriptors, navigation }) => {
   return (
@@ -32,13 +28,28 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
           const { options } = descriptors[route.key];
           const item = options.customProps;
 
+          // Define the press handler
+          const onPress = () => {
+            // 1. Emit the 'tabPress' event. This allows listeners (like in AppNavigator) to run.
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
+            });
+
+            // 2. Only navigate if the event was NOT prevented (i.e., no Alert showed up)
+            if (!isFocused && !event.defaultPrevented) {
+              navigation.navigate(route.name);
+            }
+          };
+
           // Render an animated tab button for each route.
           return (
             <AnimatedTabButton
               key={index}
               item={item}
               isFocused={isFocused}
-              onPress={() => navigation.navigate(route.name)}
+              onPress={onPress} // Use our new handler logic
             />
           );
         })}
@@ -57,16 +68,15 @@ const styles = StyleSheet.create({
     alignSelf: 'center', // Center the tab bar horizontally.
   },
   backgroundPill: {
-    flex: 1, // Take up the full space of the container.
-    flexDirection: 'row', // Align tab buttons horizontally.
+    flex: 1, 
+    flexDirection: 'row', 
     backgroundColor: Colors.surface,
-    borderRadius: 40, // Create the rounded pill shape.
-    // Add shadow for a floating effect.
+    borderRadius: 40, 
     shadowColor: '#000',
     shadowOpacity: 0.2,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 5 },
-    elevation: 10, // Elevation for Android shadow.
+    elevation: 10, 
   },
 });
 

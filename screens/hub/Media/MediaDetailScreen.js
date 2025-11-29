@@ -1,19 +1,40 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, ImageBackground, TouchableOpacity, Dimensions, StatusBar } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, ImageBackground, TouchableOpacity, Dimensions, StatusBar, Modal } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '../../../constants/Colors'; // Adjust path
-import { mediaData } from '../../../constants/mockData'; // Adjust path
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { Colors } from '../../../constants/Colors';
+import { mediaData } from '../../../constants/mockData';
+import WatchSelectionModal from './components/WatchSelectionModal'; // Create this file next
 
 const { width, height } = Dimensions.get('window');
-const BACKDROP_HEIGHT = height * 0.5;
+const BACKDROP_HEIGHT = height * 0.55;
 
-// A simple card for the recommendations list
+// --- Smooth Touch Component ---
+const ScaleButton = ({ onPress, style, children }) => {
+    const scale = useSharedValue(1);
+    const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+    return (
+        <Animated.View style={[style, animatedStyle]}>
+            <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={onPress}
+                onPressIn={() => (scale.value = withSpring(0.96))}
+                onPressOut={() => (scale.value = withSpring(1))}
+            >
+                {children}
+            </TouchableOpacity>
+        </Animated.View>
+    );
+};
+
 const RecommendationCard = ({ item, onPress }) => (
-    <TouchableOpacity onPress={onPress} style={styles.recCard}>
-        <ImageBackground source={item.poster} style={styles.recImage} imageStyle={{ borderRadius: 10 }} />
+    <TouchableOpacity onPress={onPress} style={styles.recCard} activeOpacity={0.7}>
+        <ImageBackground source={item.poster} style={styles.recImage} imageStyle={{ borderRadius: 12 }} />
+        <Text style={styles.recTitle} numberOfLines={1}>{item.title}</Text>
     </TouchableOpacity>
 );
 
@@ -22,90 +43,91 @@ const MediaDetailScreen = () => {
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
     const { mediaId } = route.params;
-
-    // In a real app, you would fetch this data. Here, we find it in our mock data.
-    const mediaItem = mediaData.find(item => item.id === mediaId);
-
-    // This would typically come from a global state/context (like Redux or Zustand)
-    // For this example, we'll simulate it with local state.
-    const [isFavorite, setIsFavorite] = React.useState(false); 
     
-    const handleToggleFavorite = () => {
-        setIsFavorite(prev => !prev);
-        // In a real app, you would dispatch an action here to update the global state.
-    };
+    const [isFavorite, setIsFavorite] = useState(false);
+    const [showWatchModal, setShowWatchModal] = useState(false); // State for the new modal
 
-    // Find other items of the same type for the "More Like This" section
+    const mediaItem = mediaData.find(item => item.id === mediaId);
+    
+    // Recommendations Logic
     const recommendations = mediaData.filter(
         item => item.type === mediaItem?.type && item.id !== mediaItem?.id
-    ).slice(0, 5); // Show up to 5 recommendations
+    ).slice(0, 5);
 
-    if (!mediaItem) {
-        // Fallback for an invalid ID
-        return (
-            <View style={styles.container}>
-                <Text style={styles.title}>Media not found.</Text>
-            </View>
-        );
-    }
+    if (!mediaItem) return null;
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
-            <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Backdrop Image Header */}
+            <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+            
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
+                {/* Immersive Backdrop */}
                 <ImageBackground source={mediaItem.backdrop} style={styles.backdrop}>
                     <LinearGradient
-                        colors={['rgba(0,0,0,0.6)', 'transparent', Colors.darkBackground]}
+                        colors={['rgba(0,0,0,0.3)', 'transparent', Colors.darkBackground]}
                         style={styles.backdropGradient}
-                        locations={[0, 0.6, 1]}
+                        locations={[0, 0.5, 1]}
                     />
-                    <TouchableOpacity 
-                        style={[styles.backButton, { top: insets.top + 10 }]}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Ionicons name="arrow-back" size={24} color="#fff" />
-                    </TouchableOpacity>
+                    
+                    {/* Header Controls */}
+                    <View style={[styles.headerBar, { marginTop: insets.top }]}>
+                        <TouchableOpacity style={styles.glassButton} onPress={() => navigation.goBack()}>
+                            <Ionicons name="arrow-back" size={24} color="#fff" />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.glassButton}>
+                            <Ionicons name="share-outline" size={24} color="#fff" />
+                        </TouchableOpacity>
+                    </View>
                 </ImageBackground>
 
-                {/* Content Section */}
                 <View style={styles.contentContainer}>
+                    {/* Title & Metadata */}
                     <Text style={styles.title}>{mediaItem.title}</Text>
                     
-                    {/* Metadata Row */}
-                    <View style={styles.metadataRow}>
-                        <View style={styles.metadataItem}>
-                            <Ionicons name="star" size={14} color={Colors.primary} />
-                            <Text style={styles.metadataText}>{mediaItem.rating}</Text>
+                    <View style={styles.metaRow}>
+                        <View style={styles.ratingTag}>
+                            <Ionicons name="star" size={14} color={Colors.darkBackground} />
+                            <Text style={styles.ratingText}>{mediaItem.rating}</Text>
                         </View>
-                        <View style={styles.metadataItem}>
-                            <Ionicons name="film-outline" size={14} color={Colors.textSecondary} />
-                            <Text style={styles.metadataText}>{mediaItem.type}</Text>
-                        </View>
-                        {mediaItem.tags.slice(0, 2).map(tag => (
-                            <View key={tag} style={styles.tagBadge}>
-                                <Text style={styles.tagText}>{tag}</Text>
-                            </View>
-                        ))}
+                        <Text style={styles.metaText}>2024 • {mediaItem.type} • 2h 14m</Text>
                     </View>
 
-                    {/* Action Buttons */}
-                    <TouchableOpacity style={styles.playButton} activeOpacity={0.8}>
-                        <Ionicons name="play" size={20} color={Colors.darkBackground} />
-                        <Text style={styles.playButtonText}>Play</Text>
-                    </TouchableOpacity>
+                    {/* Smooth Play Button */}
+                    <ScaleButton 
+                        style={styles.playButtonWrapper} 
+                        onPress={() => setShowWatchModal(true)} // Open the modal
+                    >
+                        <LinearGradient 
+                            colors={[Colors.primary, '#FF6B6B']} 
+                            start={{x: 0, y: 0}} end={{x: 1, y: 0}}
+                            style={styles.playButtonGradient}
+                        >
+                            <Ionicons name="play" size={24} color="#fff" style={{ marginRight: 8 }} />
+                            <Text style={styles.playButtonText}>Watch Now</Text>
+                        </LinearGradient>
+                    </ScaleButton>
 
-                    {/* Description */}
                     <Text style={styles.description}>{mediaItem.description}</Text>
 
-                    <TouchableOpacity style={styles.myListButton} onPress={handleToggleFavorite}>
-                        <Ionicons name={isFavorite ? "checkmark" : "add"} size={20} color={Colors.text} />
-                        <Text style={styles.myListButtonText}>{isFavorite ? "On My List" : "Add to My List"}</Text>
-                    </TouchableOpacity>
+                    {/* Action Grid */}
+                    <View style={styles.actionGrid}>
+                        <TouchableOpacity style={styles.actionItem} onPress={() => setIsFavorite(!isFavorite)}>
+                            <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={26} color={isFavorite ? Colors.primary : Colors.textSecondary} />
+                            <Text style={styles.actionText}>My List</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.actionItem}>
+                            <Ionicons name="download-outline" size={26} color={Colors.textSecondary} />
+                            <Text style={styles.actionText}>Download</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.actionItem}>
+                            <Ionicons name="chatbubble-ellipses-outline" size={26} color={Colors.textSecondary} />
+                            <Text style={styles.actionText}>Reviews</Text>
+                        </TouchableOpacity>
+                    </View>
 
                     {/* Recommendations */}
                     {recommendations.length > 0 && (
-                        <View style={styles.recommendationsContainer}>
+                        <View style={styles.sectionContainer}>
                             <Text style={styles.sectionTitle}>More Like This</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                 {recommendations.map(item => (
@@ -120,31 +142,45 @@ const MediaDetailScreen = () => {
                     )}
                 </View>
             </ScrollView>
+
+            {/* The Watch Options Modal */}
+            <WatchSelectionModal 
+                visible={showWatchModal} 
+                onClose={() => setShowWatchModal(false)}
+                onSelectOption={(option) => {
+                    setShowWatchModal(false);
+                    // Navigate to player with the selected mode
+                    setTimeout(() => navigation.navigate('VideoPlayer', { mode: option, media: mediaItem }), 300);
+                }}
+            />
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.darkBackground },
-    backdrop: { width: width, height: BACKDROP_HEIGHT, justifyContent: 'flex-end' },
+    backdrop: { width: width, height: BACKDROP_HEIGHT, justifyContent: 'space-between' },
     backdropGradient: { ...StyleSheet.absoluteFillObject },
-    backButton: { position: 'absolute', left: 15, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20, width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-    contentContainer: { paddingHorizontal: 20, marginTop: -60 }, // Negative margin pulls content up
-    title: { fontFamily: 'Poppins_700Bold', color: Colors.text, fontSize: 32, marginBottom: 10 },
-    metadataRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-    metadataItem: { flexDirection: 'row', alignItems: 'center', marginRight: 15 },
-    metadataText: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 14, marginLeft: 5 },
-    tagBadge: { backgroundColor: Colors.surface, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, marginRight: 8 },
-    tagText: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 12 },
-    playButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 14, width: '100%', marginBottom: 20 },
-    playButtonText: { fontFamily: 'Poppins_600SemiBold', color: Colors.darkBackground, fontSize: 16, marginLeft: 8 },
-    description: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 15, lineHeight: 24, marginBottom: 20 },
-    myListButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surface, borderRadius: 12, paddingVertical: 14, width: '100%', marginBottom: 30 },
-    myListButtonText: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 16, marginLeft: 8 },
-    recommendationsContainer: { marginBottom: 30 },
-    sectionTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 20, marginBottom: 15 },
-    recCard: { width: width * 0.3, height: (width * 0.3) * 1.5, marginRight: 15 },
-    recImage: { width: '100%', height: '100%' },
+    headerBar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 10 },
+    glassButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    contentContainer: { paddingHorizontal: 24, marginTop: -80 },
+    title: { fontFamily: 'Poppins_700Bold', color: '#fff', fontSize: 36, lineHeight: 42, marginBottom: 10, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: {width: 0, height: 2}, textShadowRadius: 4 },
+    metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
+    ratingTag: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.primary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginRight: 12 },
+    ratingText: { fontFamily: 'Poppins_700Bold', color: Colors.darkBackground, fontSize: 12, marginLeft: 4 },
+    metaText: { color: 'rgba(255,255,255,0.7)', fontFamily: 'Poppins_500Medium', fontSize: 14 },
+    playButtonWrapper: { width: '100%', marginBottom: 24, borderRadius: 16, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 10 },
+    playButtonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, borderRadius: 16 },
+    playButtonText: { fontFamily: 'Poppins_600SemiBold', color: '#fff', fontSize: 18, letterSpacing: 0.5 },
+    description: { fontFamily: 'Poppins_400Regular', color: 'rgba(255,255,255,0.8)', fontSize: 15, lineHeight: 24, marginBottom: 24 },
+    actionGrid: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 20, borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginBottom: 30 },
+    actionItem: { alignItems: 'center' },
+    actionText: { color: Colors.textSecondary, fontFamily: 'Poppins_400Regular', fontSize: 12, marginTop: 6 },
+    sectionContainer: { marginBottom: 30 },
+    sectionTitle: { fontFamily: 'Poppins_600SemiBold', color: '#fff', fontSize: 20, marginBottom: 15 },
+    recCard: { width: 120, marginRight: 15 },
+    recImage: { width: 120, height: 180, marginBottom: 8, backgroundColor: '#333' },
+    recTitle: { color: '#fff', fontFamily: 'Poppins_500Medium', fontSize: 13 },
 });
 
 export default MediaDetailScreen;

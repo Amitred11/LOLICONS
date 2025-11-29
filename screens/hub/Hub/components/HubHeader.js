@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ImageBackground, Alert } from 'react-native'; // Added Alert here
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, interpolate, Extrapolate, useSharedValue, withSpring } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,6 +35,16 @@ const QuickActionButton = ({ icon, label, color, onPress }) => {
 const HubHeader = ({ scrollY }) => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation(); 
+  
+  // --- NEW: Helper for "Under Construction" Alert ---
+  const showConstructionAlert = (featureName) => {
+    Alert.alert(
+      "Under Construction 🚧", 
+      `The ${featureName} feature is currently being built by our engineering team. \n\nCheck back soon!`,
+      [{ text: "Got it", style: "default" }]
+    );
+  };
+
   const animatedHeaderStyle = useAnimatedStyle(() => ({
     height: interpolate(scrollY.value, [0, SCROLL_DISTANCE], [HEADER_EXPANDED_HEIGHT + insets.top, HEADER_COLLAPSED_HEIGHT + insets.top], Extrapolate.CLAMP),
   }));
@@ -80,11 +90,31 @@ const HubHeader = ({ scrollY }) => {
               <Ionicons name="notifications-outline" size={24} color={Colors.text} />
             </TouchableOpacity>
           </View>
+          
           <View style={styles.quickActionsRow}>
-            {/* Make Quick Actions functional */}
-            <QuickActionButton icon="compass-outline" label="Explore" color={['#ff7e5f', '#feb47b']} onPress={() => navigation.navigate('Community')} />
-            <QuickActionButton icon="chatbubbles-outline" label="Messages" color={['#7b4397', '#dc2430']} onPress={() => navigation.navigate('Messages')} />
-            <QuickActionButton icon="person-add-outline" label="Friends" color={['#8A2387', '#E94057', '#F27121']} onPress={() => navigation.navigate('Friends')} />
+            {/* Explore: Keeps working */}
+            <QuickActionButton 
+                icon="compass-outline" 
+                label="Explore" 
+                color={['#ff7e5f', '#feb47b']} 
+                onPress={() => navigation.navigate('Community')} 
+            />
+            
+            {/* Messages: Shows Alert */}
+            <QuickActionButton 
+                icon="chatbubbles-outline" 
+                label="Messages" 
+                color={['#7b4397', '#dc2430']} 
+                onPress={() => showConstructionAlert('Messages')} 
+            />
+            
+            {/* Friends: Shows Alert */}
+            <QuickActionButton 
+                icon="person-add-outline" 
+                label="Friends" 
+                color={['#8A2387', '#E94057', '#F27121']} 
+                onPress={() => showConstructionAlert('Friends')} 
+            />
           </View>
         </Animated.View>
 

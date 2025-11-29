@@ -10,7 +10,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
-import GlitchEffect from '../profile/components/GlitchEffect'; // Un-commented and restored
+import GlitchEffect from '../profile/components/ui/GlitchEffect'; 
 import { upcomingEvents, comicsData, ranks, userData } from '../../constants/mockData';
 
 // --- REFINE MOCK DATA FOR CLARITY ---
@@ -21,8 +21,8 @@ const friendlyGoals = [
 
 const friendlyActions = [
     { title: 'My Bookshelf', subtitle: 'Saved Comics', icon: 'bookmarks-outline', color: '#4A90E2', target: 'Comics' },
-    { title: 'Discussions', subtitle: 'Join the talk', icon: 'chatbubbles-outline', color: '#8E44AD', target: 'Community' },
-    { title: 'Inbox', subtitle: 'Messages', icon: 'mail-outline', color: '#FF5A5F', target: 'Chat' },
+    { title: 'Discussions', subtitle: 'Join the talk', icon: 'chatbubbles-outline', color: '#8E44AD', target: 'Community' }, // Will trigger Alert
+    { title: 'Inbox', subtitle: 'Messages', icon: 'mail-outline', color: '#FF5A5F', target: 'Chat' },           // Will trigger Alert
     { title: 'Account', subtitle: 'Settings', icon: 'settings-outline', color: '#27AE60', target: 'Profile' },
 ];
 
@@ -41,7 +41,6 @@ const getGreeting = () => {
     return "Good Evening";
 };
 
-// RESTORED: This function is required to determine if the Glitch should show
 const getCurrentRank = (xp) => { 
     const foundRank = ranks.slice().reverse().find(rank => xp >= rank.minXp);
     return foundRank || ranks[0];
@@ -190,8 +189,16 @@ const HomeScreen = () => {
   const greeting = getGreeting();
   const dailyProgress = 0.75; 
   
-  // FIXED: Ensure getCurrentRank is available
   const currentRank = useMemo(() => getCurrentRank(userData.xp), []);
+
+  // --- NEW: Helper for "Under Construction" Alert ---
+  const showConstructionAlert = (featureName) => {
+    Alert.alert(
+      "Under Construction 🚧", 
+      `The ${featureName} feature is currently being built by our engineering team. \n\nCheck back soon!`,
+      [{ text: "Got it", style: "default" }]
+    );
+  };
 
   const scrollHandler = useAnimatedScrollHandler((event) => { scrollY.value = event.contentOffset.y; });
   const parallaxScrollHandler = useAnimatedScrollHandler((event) => { scrollX.value = event.contentOffset.x; });
@@ -309,7 +316,18 @@ const HomeScreen = () => {
                 <Text style={[styles.sectionTitle, { paddingHorizontal: 20, marginBottom: 5 }]}>Explore & Connect</Text>
                 <View style={styles.actionGrid}>
                     {friendlyActions.map((item) => (
-                        <ActionButton key={item.title} item={item} onPress={() => navigation.navigate(item.target)} />
+                        <ActionButton 
+                            key={item.title} 
+                            item={item} 
+                            onPress={() => {
+                                // Logic: Trigger alert for Discussions and Inbox, Navigate for others
+                                if (item.target === 'Community' || item.target === 'Chat') {
+                                    showConstructionAlert(item.title);
+                                } else {
+                                    navigation.navigate(item.target);
+                                }
+                            }} 
+                        />
                     ))}
                 </View>
             </View>

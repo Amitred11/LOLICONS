@@ -1,11 +1,11 @@
 // Import necessary modules from React and modal components.
 import React, { createContext, useContext, useState } from 'react';
-import FilterModal from '../screens/comics/components/FilterModal';
-import ActionSheetModal from '../screens/comics/components/ActionSheetModal';
-import ChapterListModal from '../screens/comics/components/ChapterListModal';
-import DownloadModal from '../screens/comics/components/DownloadModal';
-import InfoModal from '../screens/profile/components/InfoModal';
-import QuietHoursModal from '../screens/profile/components/QuietHoursModal';
+import FilterModal from '../screens/comics/common/FilterModal';
+import ActionSheetModal from '../screens/comics/common/ActionSheetModal';
+import ChapterListModal from '../screens/comics/features/reader/ChapterListModal';
+import DownloadModal from '../screens/comics/common/DownloadModal';
+import InfoModal from '../screens/profile/components/modals/InfoModal';
+import QuietHoursModal from '../screens/profile/components/modals/QuietHoursModal';
 // Import other modals here in the future.
 
 // Create a context for global modal management.
