@@ -8,6 +8,7 @@ import { Colors } from '../../../../constants/Colors';
 import { userData } from '../../../../constants/mockData';
 import { HEADER_EXPANDED_HEIGHT, HEADER_COLLAPSED_HEIGHT } from './constants';
 import { useNavigation } from '@react-navigation/native';
+import { useAlert } from '../../../../context/AlertContext';
 
 const SCROLL_DISTANCE = HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT;
 
@@ -34,15 +35,16 @@ const QuickActionButton = ({ icon, label, color, onPress }) => {
 
 const HubHeader = ({ scrollY }) => {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation(); 
+  const navigation = useNavigation();
+  const { showAlert } = useAlert(); 
   
-  // --- NEW: Helper for "Under Construction" Alert ---
   const showConstructionAlert = (featureName) => {
-    Alert.alert(
-      "Under Construction 🚧", 
-      `The ${featureName} feature is currently being built by our engineering team. \n\nCheck back soon!`,
-      [{ text: "Got it", style: "default" }]
-    );
+    showAlert({
+        title: "Under Construction 🚧",
+        message: `The ${featureName} feature is currently being built by our engineering team.\n\nCheck back soon!`,
+        type: 'construction',
+        btnText: "Got it"
+    });
   };
 
   const animatedHeaderStyle = useAnimatedStyle(() => ({
@@ -97,7 +99,7 @@ const HubHeader = ({ scrollY }) => {
                 icon="compass-outline" 
                 label="Explore" 
                 color={['#ff7e5f', '#feb47b']} 
-                onPress={() => navigation.navigate('Community')} 
+                onPress={() => showConstructionAlert('Community')} 
             />
             
             {/* Messages: Shows Alert */}

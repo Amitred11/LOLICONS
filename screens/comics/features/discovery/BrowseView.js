@@ -91,7 +91,6 @@ const BrowseListItem = ({ item, index }) => {
                     <View style={styles.tagsContainer}>
                         <View style={[styles.tag, styles.statusTag(item.status)]}><Text style={styles.tagText}>{item.status}</Text></View>
                         <View style={styles.tag}><Text style={styles.tagText}>{item.type}</Text></View>
-                        {/* --- CRASH FIX: Use optional chaining or an empty array fallback to prevent crashing if `item.genres` is undefined. --- */}
                         {(item.genres || []).slice(0, 2).map(genre => (
                             <View key={genre} style={styles.tag}><Text style={styles.tagText}>{genre}</Text></View>
                         ))}

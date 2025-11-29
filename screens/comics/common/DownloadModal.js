@@ -9,6 +9,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useDownloads } from '../../../context/DownloadContext'; // Context for download state and logic.
 import Svg, { Circle } from 'react-native-svg';
+import { useAlert } from '../../../context/AlertContext';
 
 /**
  * A circular progress ring component built with SVG.
@@ -83,6 +84,7 @@ const DownloadModal = ({ isVisible, onClose, comic, comicPages }) => {
   const { downloadChapters, getChapterStatus } = useDownloads();
   const [selectedChapters, setSelectedChapters] = useState([]);
   const modalProgress = useSharedValue(0); // For the entry/exit animation.
+  const { showAlert } = useAlert();
 
   // Animate the modal in or out when `isVisible` changes.
   useEffect(() => {
@@ -105,11 +107,16 @@ const DownloadModal = ({ isVisible, onClose, comic, comicPages }) => {
   };
 
   // Initiates the download process with the selected chapters.
-  const handleDownload = () => {
+   const handleDownload = () => {
     if (selectedChapters.length > 0) {
       if (!comicPages) {
         console.error("DownloadModal: `comicPages` prop is missing.");
-        Alert.alert("Error", "Could not start download. Page data is missing.");
+        // Use the function from the hook
+        showAlert({
+           title: "Error",
+           message: "Could not start download. Page data is missing.",
+           type: "error"
+        });
         onClose();
         return;
       }
@@ -118,7 +125,6 @@ const DownloadModal = ({ isVisible, onClose, comic, comicPages }) => {
     onClose();
   };
   
-  // Selects all chapters that are not already downloaded or queued.
   const handleSelectAll = () => {
       const allUndownloadedIds = comic.chapters
         .filter(c => getChapterStatus(comic.id, c.id).status === 'none')
@@ -126,10 +132,14 @@ const DownloadModal = ({ isVisible, onClose, comic, comicPages }) => {
       setSelectedChapters(allUndownloadedIds);
   };
   
-  // Selects all available chapters between the first and last selected chapters.
   const handleSelectRange = () => {
       if (selectedChapters.length < 2) {
-          Alert.alert("Select Range", "Please select at least two chapters to define a range.");
+          // Use the function from the hook
+          showAlert({
+            title: "Select Range", 
+            message: "Please select at least two chapters to define a range.", 
+            type: "error"
+          });
           return;
       }
       // Create a map of chapter IDs to their index for efficient lookups.

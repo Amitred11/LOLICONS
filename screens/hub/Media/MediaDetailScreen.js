@@ -1,155 +1,167 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ImageBackground, TouchableOpacity, Dimensions, StatusBar, Modal } from 'react-native';
+import { 
+    View, Text, StyleSheet, ScrollView, ImageBackground, TouchableOpacity, 
+    Dimensions, StatusBar, Image 
+} from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
-import { Colors } from '../../../constants/Colors';
+import { BlurView } from 'expo-blur';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+
+// Import your modal
+import WatchSelectionModal from './components/WatchSelectionModal'; 
 import { mediaData } from '../../../constants/mockData';
-import WatchSelectionModal from './components/WatchSelectionModal'; // Create this file next
 
 const { width, height } = Dimensions.get('window');
-const BACKDROP_HEIGHT = height * 0.55;
 
-// --- Smooth Touch Component ---
-const ScaleButton = ({ onPress, style, children }) => {
-    const scale = useSharedValue(1);
-    const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-
-    return (
-        <Animated.View style={[style, animatedStyle]}>
-            <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={onPress}
-                onPressIn={() => (scale.value = withSpring(0.96))}
-                onPressOut={() => (scale.value = withSpring(1))}
-            >
-                {children}
-            </TouchableOpacity>
-        </Animated.View>
-    );
+// Theme Constants (keeping consistent)
+const Theme = {
+    background: '#09090b',
+    surface: '#18181b',
+    primary: '#E50914',
+    text: '#FFFFFF',
+    textSecondary: '#A1A1AA',
 };
-
-const RecommendationCard = ({ item, onPress }) => (
-    <TouchableOpacity onPress={onPress} style={styles.recCard} activeOpacity={0.7}>
-        <ImageBackground source={item.poster} style={styles.recImage} imageStyle={{ borderRadius: 12 }} />
-        <Text style={styles.recTitle} numberOfLines={1}>{item.title}</Text>
-    </TouchableOpacity>
-);
 
 const MediaDetailScreen = () => {
     const route = useRoute();
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
     const { mediaId } = route.params;
-    
+
     const [isFavorite, setIsFavorite] = useState(false);
-    const [showWatchModal, setShowWatchModal] = useState(false); // State for the new modal
+    const [showWatchModal, setShowWatchModal] = useState(false);
 
-    const mediaItem = mediaData.find(item => item.id === mediaId);
-    
-    // Recommendations Logic
-    const recommendations = mediaData.filter(
-        item => item.type === mediaItem?.type && item.id !== mediaItem?.id
-    ).slice(0, 5);
+    const mediaItem = mediaData.find(item => item.id === mediaId) || mediaData[0];
+    const recommendations = mediaData.filter(i => i.id !== mediaId).slice(0, 5);
 
-    if (!mediaItem) return null;
+    // Mock Cast Data
+    const castMembers = [1,2,3,4].map(i => ({ id: i, name: 'Actor Name', img: `https://i.pravatar.cc/100?img=${i+10}` }));
 
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-            
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
-                {/* Immersive Backdrop */}
-                <ImageBackground source={mediaItem.backdrop} style={styles.backdrop}>
-                    <LinearGradient
-                        colors={['rgba(0,0,0,0.3)', 'transparent', Colors.darkBackground]}
-                        style={styles.backdropGradient}
-                        locations={[0, 0.5, 1]}
-                    />
+
+            <ScrollView 
+                showsVerticalScrollIndicator={false} 
+                contentContainerStyle={{ paddingBottom: 100 }}
+                bounces={false}
+            >
+                {/* --- IMMERSIVE BACKDROP --- */}
+                <View style={styles.posterContainer}>
+                    <ImageBackground source={mediaItem.backdrop} style={styles.posterImage} resizeMode="cover">
+                        <LinearGradient 
+                            colors={['rgba(0,0,0,0.1)', Theme.background]} 
+                            style={styles.posterGradient}
+                            locations={[0.4, 1]}
+                        />
+                    </ImageBackground>
                     
-                    {/* Header Controls */}
-                    <View style={[styles.headerBar, { marginTop: insets.top }]}>
-                        <TouchableOpacity style={styles.glassButton} onPress={() => navigation.goBack()}>
+                    {/* Header Buttons (Absolute) */}
+                    <View style={[styles.headerActions, { top: insets.top }]}>
+                        <TouchableOpacity 
+                            style={styles.glassIconBtn} 
+                            onPress={() => navigation.goBack()}
+                        >
                             <Ionicons name="arrow-back" size={24} color="#fff" />
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.glassButton}>
-                            <Ionicons name="share-outline" size={24} color="#fff" />
+                        <TouchableOpacity style={styles.glassIconBtn}>
+                            <Ionicons name="share-social-outline" size={22} color="#fff" />
                         </TouchableOpacity>
                     </View>
-                </ImageBackground>
+                </View>
 
-                <View style={styles.contentContainer}>
-                    {/* Title & Metadata */}
-                    <Text style={styles.title}>{mediaItem.title}</Text>
-                    
-                    <View style={styles.metaRow}>
-                        <View style={styles.ratingTag}>
-                            <Ionicons name="star" size={14} color={Colors.darkBackground} />
-                            <Text style={styles.ratingText}>{mediaItem.rating}</Text>
+                {/* --- CONTENT INFO --- */}
+                <View style={styles.contentBody}>
+                    {/* Title Area */}
+                    <Animated.View entering={FadeInDown.duration(600).delay(100)}>
+                        <Text style={styles.title}>{mediaItem.title}</Text>
+                        
+                        <View style={styles.metaRow}>
+                            <Text style={styles.matchScore}>98% Match</Text>
+                            <Text style={styles.metaText}>2024</Text>
+                            <View style={styles.qualityBadge}><Text style={styles.qualityText}>4K</Text></View>
+                            <View style={styles.qualityBadge}><Text style={styles.qualityText}>HDR</Text></View>
+                            <Text style={styles.metaText}>{mediaItem.type}</Text>
                         </View>
-                        <Text style={styles.metaText}>2024 • {mediaItem.type} • 2h 14m</Text>
-                    </View>
+                    </Animated.View>
 
-                    {/* Smooth Play Button */}
-                    <ScaleButton 
-                        style={styles.playButtonWrapper} 
-                        onPress={() => setShowWatchModal(true)} // Open the modal
-                    >
-                        <LinearGradient 
-                            colors={[Colors.primary, '#FF6B6B']} 
-                            start={{x: 0, y: 0}} end={{x: 1, y: 0}}
-                            style={styles.playButtonGradient}
+                    {/* Action Buttons */}
+                    <Animated.View style={styles.actionRow} entering={FadeInDown.duration(600).delay(200)}>
+                        <TouchableOpacity 
+                            style={styles.playButton} 
+                            activeOpacity={0.9}
+                            onPress={() => setShowWatchModal(true)}
                         >
-                            <Ionicons name="play" size={24} color="#fff" style={{ marginRight: 8 }} />
-                            <Text style={styles.playButtonText}>Watch Now</Text>
-                        </LinearGradient>
-                    </ScaleButton>
-
-                    <Text style={styles.description}>{mediaItem.description}</Text>
-
-                    {/* Action Grid */}
-                    <View style={styles.actionGrid}>
-                        <TouchableOpacity style={styles.actionItem} onPress={() => setIsFavorite(!isFavorite)}>
-                            <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={26} color={isFavorite ? Colors.primary : Colors.textSecondary} />
-                            <Text style={styles.actionText}>My List</Text>
+                            <Ionicons name="play" size={24} color="#fff" />
+                            <Text style={styles.playText}>Play</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionItem}>
-                            <Ionicons name="download-outline" size={26} color={Colors.textSecondary} />
-                            <Text style={styles.actionText}>Download</Text>
+
+                        <TouchableOpacity style={styles.downloadButton} activeOpacity={0.7}>
+                            <Ionicons name="download-outline" size={24} color="#fff" />
+                            <Text style={styles.downloadText}>Download</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionItem}>
-                            <Ionicons name="chatbubble-ellipses-outline" size={26} color={Colors.textSecondary} />
-                            <Text style={styles.actionText}>Reviews</Text>
+                    </Animated.View>
+
+                    {/* Description */}
+                    <Text style={styles.description} numberOfLines={4}>
+                        {mediaItem.description || "In a world where technology rules, one hero rises to challenge the system. Experience the journey of a lifetime in this critically acclaimed masterpiece."}
+                    </Text>
+
+                    {/* Secondary Actions Grid */}
+                    <View style={styles.iconGrid}>
+                        <TouchableOpacity style={styles.gridAction} onPress={() => setIsFavorite(!isFavorite)}>
+                            <Ionicons name={isFavorite ? "checkmark" : "add"} size={26} color="#fff" />
+                            <Text style={styles.gridText}>My List</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.gridAction}>
+                            <Ionicons name="thumbs-up-outline" size={24} color="#fff" />
+                            <Text style={styles.gridText}>Rate</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.gridAction}>
+                            <Ionicons name="paper-plane-outline" size={24} color="#fff" />
+                            <Text style={styles.gridText}>Share</Text>
                         </TouchableOpacity>
                     </View>
 
-                    {/* Recommendations */}
-                    {recommendations.length > 0 && (
-                        <View style={styles.sectionContainer}>
-                            <Text style={styles.sectionTitle}>More Like This</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                {recommendations.map(item => (
-                                    <RecommendationCard 
-                                        key={item.id} 
-                                        item={item} 
-                                        onPress={() => navigation.push('MediaDetail', { mediaId: item.id })}
-                                    />
-                                ))}
-                            </ScrollView>
-                        </View>
-                    )}
+                    {/* Cast Section */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Cast & Crew</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.castScroll}>
+                            {castMembers.map(actor => (
+                                <View key={actor.id} style={styles.castCard}>
+                                    <Image source={{ uri: actor.img }} style={styles.castImg} />
+                                    <Text style={styles.castName} numberOfLines={1}>{actor.name}</Text>
+                                </View>
+                            ))}
+                        </ScrollView>
+                    </View>
+
+                    {/* More Like This */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>More Like This</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recScroll}>
+                            {recommendations.map(item => (
+                                <TouchableOpacity 
+                                    key={item.id} 
+                                    style={styles.recCard}
+                                    onPress={() => navigation.push('MediaDetail', { mediaId: item.id })}
+                                >
+                                    <Image source={item.poster} style={styles.recImg} />
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
                 </View>
             </ScrollView>
 
-            {/* The Watch Options Modal */}
             <WatchSelectionModal 
                 visible={showWatchModal} 
                 onClose={() => setShowWatchModal(false)}
                 onSelectOption={(option) => {
                     setShowWatchModal(false);
-                    // Navigate to player with the selected mode
                     setTimeout(() => navigation.navigate('VideoPlayer', { mode: option, media: mediaItem }), 300);
                 }}
             />
@@ -158,29 +170,54 @@ const MediaDetailScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.darkBackground },
-    backdrop: { width: width, height: BACKDROP_HEIGHT, justifyContent: 'space-between' },
-    backdropGradient: { ...StyleSheet.absoluteFillObject },
-    headerBar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 10 },
-    glassButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    contentContainer: { paddingHorizontal: 24, marginTop: -80 },
-    title: { fontFamily: 'Poppins_700Bold', color: '#fff', fontSize: 36, lineHeight: 42, marginBottom: 10, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: {width: 0, height: 2}, textShadowRadius: 4 },
-    metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
-    ratingTag: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.primary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginRight: 12 },
-    ratingText: { fontFamily: 'Poppins_700Bold', color: Colors.darkBackground, fontSize: 12, marginLeft: 4 },
-    metaText: { color: 'rgba(255,255,255,0.7)', fontFamily: 'Poppins_500Medium', fontSize: 14 },
-    playButtonWrapper: { width: '100%', marginBottom: 24, borderRadius: 16, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 10 },
-    playButtonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, borderRadius: 16 },
-    playButtonText: { fontFamily: 'Poppins_600SemiBold', color: '#fff', fontSize: 18, letterSpacing: 0.5 },
-    description: { fontFamily: 'Poppins_400Regular', color: 'rgba(255,255,255,0.8)', fontSize: 15, lineHeight: 24, marginBottom: 24 },
-    actionGrid: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 20, borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginBottom: 30 },
-    actionItem: { alignItems: 'center' },
-    actionText: { color: Colors.textSecondary, fontFamily: 'Poppins_400Regular', fontSize: 12, marginTop: 6 },
-    sectionContainer: { marginBottom: 30 },
-    sectionTitle: { fontFamily: 'Poppins_600SemiBold', color: '#fff', fontSize: 20, marginBottom: 15 },
-    recCard: { width: 120, marginRight: 15 },
-    recImage: { width: 120, height: 180, marginBottom: 8, backgroundColor: '#333' },
-    recTitle: { color: '#fff', fontFamily: 'Poppins_500Medium', fontSize: 13 },
+    container: { flex: 1, backgroundColor: Theme.background },
+    
+    // Header & Poster
+    posterContainer: { width: width, height: height * 0.6 },
+    posterImage: { width: '100%', height: '100%' },
+    posterGradient: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '60%' },
+    headerActions: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20 },
+    glassIconBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+
+    // Body
+    contentBody: { paddingHorizontal: 20, marginTop: -60 },
+    title: { fontSize: 36, fontWeight: '800', color: '#fff', marginBottom: 12, lineHeight: 40, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: {width: 0, height: 2}, textShadowRadius: 4 },
+    
+    // Meta
+    metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 10 },
+    matchScore: { color: '#46d369', fontWeight: 'bold', fontSize: 14 },
+    metaText: { color: Theme.textSecondary, fontSize: 14 },
+    qualityBadge: { borderWidth: 1, borderColor: Theme.textSecondary, borderRadius: 4, paddingHorizontal: 4, paddingTop: 1 },
+    qualityText: { color: Theme.textSecondary, fontSize: 10, fontWeight: 'bold' },
+
+    // Primary Actions
+    actionRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+    playButton: { flex: 1, flexDirection: 'row', backgroundColor: '#fff', paddingVertical: 14, borderRadius: 4, alignItems: 'center', justifyContent: 'center', gap: 8 },
+    playText: { color: '#000', fontSize: 16, fontWeight: '700' },
+    downloadButton: { flex: 1, flexDirection: 'row', backgroundColor: '#27272a', paddingVertical: 14, borderRadius: 4, alignItems: 'center', justifyContent: 'center', gap: 8 },
+    downloadText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+
+    description: { color: '#fff', fontSize: 14, lineHeight: 22, marginBottom: 24 },
+
+    // Grid Icons
+    iconGrid: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 30 },
+    gridAction: { alignItems: 'center', gap: 6 },
+    gridText: { color: Theme.textSecondary, fontSize: 12 },
+
+    // Sections
+    section: { marginBottom: 30 },
+    sectionTitle: { color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 15 },
+    
+    // Cast
+    castScroll: { gap: 15 },
+    castCard: { width: 80, alignItems: 'center' },
+    castImg: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#333', marginBottom: 6 },
+    castName: { color: Theme.textSecondary, fontSize: 11, textAlign: 'center' },
+
+    // Recommendations
+    recScroll: { gap: 12 },
+    recCard: { width: 110 },
+    recImg: { width: 110, height: 160, borderRadius: 6, backgroundColor: '#333' },
 });
 
 export default MediaDetailScreen;

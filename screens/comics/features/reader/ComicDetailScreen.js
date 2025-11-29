@@ -1,33 +1,27 @@
 // screens/comics/ComicDetailScreen.js
 
-// Import essential modules from React, React Native, and third-party libraries.
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ImageBackground, TouchableOpacity, StatusBar, Image, Share, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Image, Share } from 'react-native'; // Removed native Alert
 import { Colors } from '../../../../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { comicPagesData, comicsData } from '../../../../constants/mockData';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-// Import custom context hooks for managing global state.
+
+// Import Contexts
 import { useLibrary } from '../../../../context/LibraryContext';
 import { useDownloads } from '../../../../context/DownloadContext';
 import { useModal } from '../../../../context/ModalContext';
+import { useAlert } from '../../../../context/AlertContext'; // <--- 1. Import Custom Alert Hook
+
 import { formatChapterDate } from '../../../../utils/formatDate';
 import Animated, { useSharedValue, useAnimatedStyle, interpolate, Extrapolate, useAnimatedScrollHandler, withTiming } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import Svg, { Circle } from 'react-native-svg';
 
-// --- Constants & Components ---
-const HEADER_HEIGHT = 300; // Defines the height of the main hero image area.
+const HEADER_HEIGHT = 300; 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
-/**
- * A reusable circular progress ring component built with SVG.
- * Used to display download progress for individual chapters.
- * @param {object} props - The component's properties.
- * @param {number} props.progress - The progress value (0 to 1).
- * @param {number} [props.size=28] - The width and height of the ring.
- */
 const ProgressRing = ({ progress, size = 28 }) => {
     const strokeWidth = 3;
     const radius = (size - strokeWidth) / 2;
@@ -46,15 +40,13 @@ const ProgressRing = ({ progress, size = 28 }) => {
     )
 };
 
-/**
- * The main screen component that displays detailed information about a single comic.
- */
 const ComicDetailScreen = ({ route, navigation }) => {
   const { comicId } = route.params;
-  // Find the specific comic data from the mock data array.
   const comic = comicsData.find(c => c.id === comicId);
 
-  // If the comic is not found, display an error message.
+  // 2. Initialize Custom Alert
+  const { showAlert } = useAlert(); 
+
   if (!comic) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -63,68 +55,91 @@ const ComicDetailScreen = ({ route, navigation }) => {
     );
   }
 
-  // --- Hooks & State ---
   const insets = useSafeAreaInsets();
-  const scrollY = useSharedValue(0); // Tracks the vertical scroll position for animations.
-  // Custom context hooks
+  const scrollY = useSharedValue(0); 
   const { isInLibrary, addToLibrary, removeFromLibrary } = useLibrary();
   const modal = useModal();
   const { getChapterStatus, downloadChapters, deleteChapter, getDownloadInfo, getDownloadedCoverUri } = useDownloads();
-  // Local component state
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
   const [chapterSortOrder, setChapterSortOrder] = useState('desc');
 
-  // --- Data Derivation & Memos ---
-  // Get download info for the comic from the context.
   const { downloadedCount, progress } = getDownloadInfo(comic.id, comic.chapters.length);
   const isComicInLibrary = isInLibrary(comic.id);
-  // Check if a downloaded cover exists; otherwise, use the bundled source.
   const coverImageUri = getDownloadedCoverUri(comic.id);
   const imageSource = coverImageUri ? { uri: coverImageUri } : comic.localSource;
 
-  // Animate the download progress bar when the download count changes.
   const downloadProgress = useSharedValue(0);
+
   useEffect(() => {
     downloadProgress.value = withTiming(progress, { duration: 500 });
   }, [progress]);
   
-  // Memoize the sorted chapter list to prevent re-sorting on every render.
+  // --- DEFINITION FOR ANIMATED STYLE ---
+  const animatedProgressStyle = useAnimatedStyle(() => ({
+    width: `${downloadProgress.value * 100}%`,
+  }));
+
   const sortedChapters = useMemo(() => {
     if (!comic?.chapters) return [];
     const chaptersCopy = [...comic.chapters];
     return chapterSortOrder === 'asc' ? chaptersCopy.sort((a,b) => parseInt(a.id) - parseInt(b.id)) : chaptersCopy.sort((a,b) => parseInt(b.id) - parseInt(a.id));
   }, [comic?.chapters, chapterSortOrder]);
 
-  // --- Animations ---
-  // An animated scroll handler to connect the scroll view to the `scrollY` shared value.
   const scrollHandler = useAnimatedScrollHandler((event) => { scrollY.value = event.contentOffset.y; });
-  // Parallax effect for the hero image (scales as the user pulls down).
   const animatedHeroStyle = useAnimatedStyle(() => ({ transform: [{ scale: interpolate(scrollY.value, [-HEADER_HEIGHT, 0], [2, 1], Extrapolate.CLAMP) }] }));
-  // Fades in the blurred header background as the user scrolls up.
   const animatedHeaderStyle = useAnimatedStyle(() => ({ opacity: interpolate(scrollY.value, [HEADER_HEIGHT / 1.5, HEADER_HEIGHT - insets.top], [0, 1], Extrapolate.CLAMP) }));
-  // Fades in the compact header title as the user scrolls up.
   const animatedTitleStyle = useAnimatedStyle(() => ({ opacity: interpolate(scrollY.value, [HEADER_HEIGHT - insets.top, HEADER_HEIGHT - insets.top + 20], [0, 1], Extrapolate.CLAMP) }));
   
-  // --- Event Handlers ---
-  const handleLibraryToggle = () => { isComicInLibrary ? removeFromLibrary(comic.id) : addToLibrary(comic.id); };
+  const handleLibraryToggle = () => { 
+      if (isComicInLibrary) {
+          removeFromLibrary(comic.id);
+          // Optional: Show alert when removing
+          // showAlert({ title: "Removed", message: "Removed from library", type: "info" });
+      } else {
+          addToLibrary(comic.id);
+          showAlert({ title: "Added!", message: "Comic added to your library.", type: "success" });
+      }
+  };
+
   const handleReadPress = () => { if (sortedChapters.length > 0) { navigation.navigate('Reader', { comicId: comic.id, chapterId: sortedChapters[0].id }); } };
   const toggleSortOrder = () => { setChapterSortOrder(prev => (prev === 'desc' ? 'asc' : 'desc')); }; 
   const showDownloadModal = () => { modal.show('download', { comic, comicPages: comicPagesData }); };
+  
   const handleSingleChapterDownloadToggle = (chapterId) => {
     const { status } = getChapterStatus(comic.id, chapterId);
     if (status === 'downloaded') deleteChapter(comic.id, chapterId);
     else if (status === 'none') downloadChapters(comic.id, [chapterId], { cover: comic.localSource, pages: comicPagesData });
   };
+
   const showMoreOptions = () => {
     modal.show('actionSheet', {
       title: comic.title,
       options: [
-        { label: 'Share', onPress: async () => { try { await Share.share({ message: `Check out this comic: ${comic.title}!` }); } catch (error) { Alert.alert(error.message); }}, icon: 'share-social-outline' },
-        { label: 'Report', onPress: () => Alert.alert('Reported', 'Thank you for your feedback.'), icon: 'alert-circle-outline', isDestructive: true },
+        { 
+            label: 'Share', 
+            onPress: async () => { 
+                try { await Share.share({ message: `Check out this comic: ${comic.title}!` }); } 
+                catch (error) { 
+                    showAlert({ title: "Error", message: error.message, type: "error" }); 
+                }
+            }, 
+            icon: 'share-social-outline' 
+        },
+        { 
+            label: 'Report', 
+            onPress: () => showAlert({ 
+                title: 'Reported', 
+                message: 'Thank you for your feedback.', 
+                type: 'success' 
+            }), 
+            icon: 'alert-circle-outline', 
+            isDestructive: true 
+        },
         { label: 'Cancel', onPress: () => {}, isCancel: true },
       ]
     });
   };
+
   const showChapterListModal = () => {
     const handleSelectChapter = (selectedChapterId) => navigation.navigate('Reader', { comicId: comic.id, chapterId: selectedChapterId });
     modal.show('chapterList', { chapters: comic.chapters, currentChapterId: sortedChapters[0]?.id, onSelectChapter: handleSelectChapter });
@@ -134,7 +149,6 @@ const ComicDetailScreen = ({ route, navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      {/* The compact, sticky header that appears on scroll */}
       <Animated.View style={[styles.header, { height: insets.top + 60 }, animatedHeaderStyle]}>
         <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
         <TouchableOpacity style={styles.headerButton} onPress={() => navigation.goBack()}><Ionicons name="arrow-back-outline" size={28} color={Colors.text} /></TouchableOpacity>
@@ -143,13 +157,11 @@ const ComicDetailScreen = ({ route, navigation }) => {
       </Animated.View>
       
       <AnimatedScrollView onScroll={scrollHandler} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
-        {/* The large hero image at the top of the screen */}
         <View style={styles.heroContainer}>
             <Animated.Image source={imageSource} style={[styles.heroImage, animatedHeroStyle]} resizeMode="cover"/>
             <LinearGradient colors={['transparent', Colors.background]} style={styles.heroOverlay} locations={[0.5, 1]} />
         </View>
         
-        {/* The main content area with cover image and comic info */}
         <View style={styles.mainContent}>
           <Image source={imageSource} style={styles.coverImage} />
           <View style={styles.infoContainer}>
@@ -163,13 +175,11 @@ const ComicDetailScreen = ({ route, navigation }) => {
           </View>
         </View>
 
-        {/* Action buttons (Read, Add to Library) */}
         <View style={styles.actionsContainer}>
             <TouchableOpacity style={styles.readButton} onPress={handleReadPress}><Ionicons name="book-outline" size={20} color={Colors.background} /><Text style={styles.readButtonText}>Start Reading</Text></TouchableOpacity>
             <TouchableOpacity style={styles.libraryButton} onPress={handleLibraryToggle}><Ionicons name={isComicInLibrary ? "checkmark-circle" : "add-circle-outline"} size={32} color={isComicInLibrary ? Colors.secondary : Colors.textSecondary} /></TouchableOpacity>
         </View>
         
-        {/* The rest of the details: synopsis, genres, and chapter list */}
         <View style={styles.detailsContainer}>
           <Text style={styles.sectionHeader}>Synopsis</Text>
           <Text style={styles.synopsis} numberOfLines={isSynopsisExpanded ? undefined : 3}>{comic.synopsis}</Text>
@@ -187,15 +197,14 @@ const ComicDetailScreen = ({ route, navigation }) => {
             </View>
           </View>
 
-          {/* Download progress bar, visible only if there are downloaded chapters */}
           {downloadedCount > 0 && (
             <View style={styles.downloadProgressContainer}>
+                {/* animatedProgressStyle is used here */}
                 <View style={styles.progressBarTrack}><Animated.View style={[styles.progressBarFill, animatedProgressStyle]} /></View>
                 <Text style={styles.downloadCountText}>{`${downloadedCount} / ${comic.chapters.length}`} Downloaded</Text>
             </View>
           )}
           
-          {/* Map through the sorted chapters to render each chapter row */}
           {sortedChapters.map((chapter) => {
             const { status, progress } = getChapterStatus(comic.id, chapter.id);
             const isProcessing = status === 'queued' || status === 'downloading';
@@ -219,7 +228,6 @@ const ComicDetailScreen = ({ route, navigation }) => {
   );
 };
 
-// --- Stylesheet ---
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background },
     errorText: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 24, textAlign: 'center' },

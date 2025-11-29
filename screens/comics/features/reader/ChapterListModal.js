@@ -1,170 +1,194 @@
-// screens/comics/components/ChapterListModal.js
-
-// Import essential modules from React, React Native, and third-party libraries.
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, FlatList, TouchableOpacity } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
-import { Colors } from '../../../../constants/Colors';
-import { BlurView } from 'expo-blur';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 
-/**
- * A UI component for a single chapter item within the list.
- * @param {object} props - The component's properties.
- * @param {object} props.item - The chapter data object (e.g., { id, title }).
- * @param {boolean} props.isCurrent - True if this is the currently active chapter.
- * @param {function} props.onSelect - Callback function to execute when this chapter is selected.
- */
-const ChapterItem = ({ item, isCurrent, onSelect }) => (
-  <TouchableOpacity onPress={onSelect} style={styles.chapterButton}>
-    <Text style={[styles.chapterLabel, isCurrent && styles.chapterLabelActive]} numberOfLines={1}>
-      {item.title}
-    </Text>
-    {/* Display an icon to indicate the currently selected chapter. */}
-    {isCurrent && <Ionicons name="radio-button-on" size={20} color={Colors.secondary} />}
-  </TouchableOpacity>
-);
-
-/**
- * A modal that displays a scrollable list of a comic's chapters.
- * It animates in with a spring effect and allows the user to select a chapter.
- * @param {object} props - The component's properties.
- * @param {function} props.onClose - A callback function to close the modal.
- * @param {Array<object>} props.chapters - The array of chapter objects to display.
- * @param {string} props.currentChapterId - The ID of the currently active chapter to highlight.
- * @param {function} props.onSelectChapter - A callback that is fired with the selected chapter's ID.
- */
-const ChapterListModal = ({ onClose, chapters, currentChapterId, onSelectChapter }) => {
-  // Shared values to drive the modal's entry and exit animations.
-  const scale = useSharedValue(0.8);
-  const opacity = useSharedValue(0);
-
-  // Trigger the "animate in" effect when the component first mounts.
-  useEffect(() => {
-    scale.value = withSpring(1, { damping: 18, stiffness: 250 });
-    opacity.value = withTiming(1);
-  }, []);
-
-  // Animated styles that are derived from the shared values.
-  const animatedModalStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
-  const animatedBackdropStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
-
-  // Function to animate the modal out and then call the onClose callback.
-  const handleClose = (callback) => {
-    scale.value = withSpring(0.8, { damping: 18, stiffness: 250 });
-    opacity.value = withTiming(0, {}, () => {
-      // `runOnJS` safely executes a JS-thread function (like a state update) after a UI-thread animation completes.
-      runOnJS(onClose)();
-      if (callback) runOnJS(callback)();
-    });
-  };
-  
-  // Handles selecting a chapter: closes the modal and then calls the parent's selection handler.
-  const handleSelect = (chapterId) => {
-    handleClose(() => {
-      onSelectChapter(chapterId);
-    });
-  };
-
-  return (
-    // The `onLayout` prop is a necessary workaround to ensure the inner Pressable can be pressed.
-    <View style={StyleSheet.absoluteFill} onLayout={() => {}}>
-      {/* The backdrop that closes the modal when pressed. */}
-      <Pressable onPress={() => handleClose()} style={StyleSheet.absoluteFill}>
-        <Animated.View style={[styles.backdrop, animatedBackdropStyle]} />
-      </Pressable>
-      
-      {/* A container to center the modal content. */}
-      <View style={styles.centeredContainer} pointerEvents="box-none">
-        <Animated.View style={[styles.modalContainer, animatedModalStyle]}>
-          <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill} />
-          
-          <View style={styles.header}>
-            <Text style={styles.modalTitle}>Chapters</Text>
-            <TouchableOpacity onPress={() => handleClose()} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={Colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          {/* The scrollable list of chapters. */}
-          <FlatList
-            data={chapters}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <ChapterItem 
-                item={item} 
-                isCurrent={item.id === currentChapterId} 
-                onSelect={() => handleSelect(item.id)}
-              />
-            )}
-            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
-          />
-        </Animated.View>
-      </View>
-    </View>
-  );
+const Colors = {
+    bg: '#1E2022',
+    accent: '#5EEAD4',
+    text: '#FFFFFF',
+    textDim: '#9CA3AF',
+    border: '#374151',
+    inputBg: '#111827',
+    primary: '#2563EB' 
 };
 
-// --- Stylesheet ---
+const ChapterListModal = ({ visible, onClose, comicTitle, currentChapter, onChapterChange }) => {
+    const [commentText, setCommentText] = useState('');
+
+    return (
+        <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+            <View style={styles.overlay}>
+                {/* Backdrop closes modal */}
+                <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
+                    <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+                </Pressable>
+
+                <View style={styles.modalContent}>
+                    {/* --- HEADER --- */}
+                    <View style={styles.header}>
+                        <View style={styles.logoRow}>
+                            <Ionicons name="flash-outline" size={20} color={Colors.accent} />
+                            <Text style={styles.logoText}>COMIX</Text>
+                        </View>
+                        <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                            <Ionicons name="close" size={20} color={Colors.textDim} />
+                        </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.comicTitle} numberOfLines={1}>{comicTitle || "Eternally Regressing Knight"}</Text>
+
+                    {/* --- NAV CONTROLS --- */}
+                    <View style={styles.navRow}>
+                        <TouchableOpacity 
+                            style={styles.navBtn} 
+                            onPress={() => onChapterChange && onChapterChange('prev')}
+                        >
+                            <Ionicons name="chevron-back" size={20} color={Colors.text} />
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity style={styles.chapterSelector}>
+                            <Text style={styles.chapterText}>Ch {currentChapter || "1"}</Text>
+                            <Ionicons name="chevron-down" size={16} color={Colors.text} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                            style={styles.navBtn}
+                            onPress={() => onChapterChange && onChapterChange('next')}
+                        >
+                            <Ionicons name="chevron-forward" size={20} color={Colors.text} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* --- META ACTIONS --- */}
+                    <View style={styles.metaRow}>
+                        <View style={styles.likeBox}>
+                            <Ionicons name="thumbs-up" size={16} color={Colors.textDim} />
+                            <Text style={styles.likeText}>Like this</Text>
+                            <View style={styles.likeCountBadge}>
+                                <Text style={styles.likeCountText}>2</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.sourceBox}>
+                            <Text style={styles.sourceText}>Asura Scans</Text>
+                            <Ionicons name="chevron-down" size={16} color={Colors.accent} />
+                        </View>
+                    </View>
+
+                    {/* --- COMMENTS SECTION --- */}
+                    <View style={styles.commentsContainer}>
+                        <View style={styles.commentHeader}>
+                            <Text style={styles.commentCount}>1 comments</Text>
+                            <View style={styles.sortRow}>
+                                <Text style={[styles.sortText, styles.activeSort]}>Best</Text>
+                                <Text style={styles.sortText}>Newest</Text>
+                                <Text style={styles.sortText}>Oldest</Text>
+                            </View>
+                        </View>
+
+                        {/* Input */}
+                        <View style={styles.inputRow}>
+                            <View style={styles.avatarPlaceholder} />
+                            <TextInput 
+                                style={styles.commentInput} 
+                                placeholder="Write your message" 
+                                placeholderTextColor={Colors.textDim}
+                                value={commentText}
+                                onChangeText={setCommentText}
+                            />
+                        </View>
+
+                        {/* Sample Comment */}
+                        <View style={styles.commentItem}>
+                            <View style={[styles.avatarPlaceholder, { backgroundColor: '#2563EB' }]}>
+                                <Ionicons name="power" size={16} color="#fff" />
+                            </View>
+                            <View style={styles.commentBody}>
+                                <View style={styles.commentMeta}>
+                                    <Text style={styles.userName}>shree00o</Text>
+                                    <Text style={styles.timeText}>3 hours ago</Text>
+                                </View>
+                                <Text style={styles.commentText}>
+                                    I know this is a weird comparison but reading this I can't help but be reminded of the skeleton knight who regressed the same way as this guy did
+                                </Text>
+                                <View style={styles.commentActions}>
+                                    <View style={styles.actionIconRow}>
+                                        <Ionicons name="thumbs-up" size={14} color={Colors.textDim} />
+                                        <Text style={styles.actionText}>0</Text>
+                                    </View>
+                                    <View style={styles.actionIconRow}>
+                                        <Ionicons name="thumbs-down" size={14} color={Colors.textDim} />
+                                        <Text style={styles.actionText}>0</Text>
+                                    </View>
+                                    <View style={styles.actionIconRow}>
+                                        <Ionicons name="arrow-undo" size={14} color={Colors.textDim} />
+                                        <Text style={styles.actionText}>Reply</Text>
+                                    </View>
+                                    <Ionicons name="ellipsis-horizontal" size={14} color={Colors.textDim} />
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+
+                </View>
+            </View>
+        </Modal>
+    );
+};
+
 const styles = StyleSheet.create({
-    backdrop: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.7)',
+    overlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
+    modalContent: { 
+        width: '90%', maxHeight: '80%', backgroundColor: Colors.bg, 
+        borderRadius: 8, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' 
     },
-    centeredContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
+    header: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, alignItems: 'center' },
+    logoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    logoText: { color: Colors.text, fontWeight: '800', fontSize: 16, letterSpacing: 1 },
+    closeBtn: { padding: 4, backgroundColor: Colors.border, borderRadius: 4 },
+    comicTitle: { color: Colors.text, fontSize: 16, fontWeight: '700', paddingHorizontal: 16, marginBottom: 16 },
+    navRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 12 },
+    navBtn: { backgroundColor: Colors.inputBg, padding: 12, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
+    chapterSelector: { 
+        flex: 1, flexDirection: 'row', backgroundColor: '#111827', alignItems: 'center', 
+        justifyContent: 'center', gap: 8, borderRadius: 4 
     },
-    modalContainer: { 
-        width: '90%', 
-        maxHeight: '70%', 
-        borderRadius: 24, 
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: Colors.surface + '80',
+    chapterText: { color: Colors.text, fontWeight: '600' },
+    metaRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 20 },
+    likeBox: { 
+        flex: 1, flexDirection: 'row', backgroundColor: '#111827', alignItems: 'center', 
+        paddingLeft: 12, borderRadius: 4, height: 40
     },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 15,
-        paddingHorizontal: 20,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: Colors.surface + '80',
+    likeText: { color: Colors.text, marginLeft: 8, fontSize: 13, flex: 1 },
+    likeCountBadge: { 
+        backgroundColor: '#1F2937', height: '100%', paddingHorizontal: 12, 
+        justifyContent: 'center', borderLeftWidth: 1, borderLeftColor: Colors.border 
     },
-    modalTitle: { 
-        fontFamily: 'Poppins_600SemiBold', 
-        color: Colors.text, 
-        fontSize: 18,
+    likeCountText: { color: Colors.accent, fontWeight: 'bold' },
+    sourceBox: { 
+        flex: 1, flexDirection: 'row', backgroundColor: '#111827', alignItems: 'center', 
+        justifyContent: 'space-between', paddingHorizontal: 12, borderRadius: 4 
     },
-    closeButton: {
-        padding: 5,
-    },
-    chapterButton: { 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        paddingVertical: 16, 
-        borderBottomWidth: StyleSheet.hairlineWidth, 
-        borderBottomColor: Colors.surface + '80' 
-    },
-    chapterLabel: { 
-        fontFamily: 'Poppins_400Regular', 
-        color: Colors.textSecondary, 
-        fontSize: 16,
-        flex: 1, // Ensures text doesn't push the icon off-screen.
-        marginRight: 10,
-    },
-    chapterLabelActive: { 
-        fontFamily: 'Poppins_600SemiBold', 
-        color: Colors.secondary 
-    },
+    sourceText: { color: Colors.accent, fontSize: 13 },
+    commentsContainer: { padding: 16, borderTopWidth: 1, borderTopColor: Colors.border, backgroundColor: '#161B22' },
+    commentHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+    commentCount: { color: Colors.textDim, fontSize: 13 },
+    sortRow: { flexDirection: 'row', gap: 12 },
+    sortText: { color: Colors.textDim, fontSize: 13, fontWeight: '600' },
+    activeSort: { color: Colors.accent, textDecorationLine: 'underline' },
+    inputRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+    avatarPlaceholder: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.textDim, alignItems: 'center', justifyContent: 'center' },
+    commentInput: { flex: 1, backgroundColor: '#0D1117', borderRadius: 4, paddingHorizontal: 12, color: Colors.text, height: 40 },
+    commentItem: { flexDirection: 'row', gap: 12 },
+    commentBody: { flex: 1 },
+    commentMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+    userName: { color: Colors.text, fontWeight: '700', fontSize: 13 },
+    timeText: { color: Colors.textDim, fontSize: 11 },
+    commentText: { color: Colors.textDim, fontSize: 13, lineHeight: 20, marginBottom: 8 },
+    commentActions: { flexDirection: 'row', gap: 16 },
+    actionIconRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    actionText: { color: Colors.textDim, fontSize: 11, fontWeight: '600' },
 });
 
 export default ChapterListModal;
