@@ -147,7 +147,11 @@ const LibraryView = ({ scrollHandler, headerHeight, searchQuery, filters }) => {
     };
     
     // 5. Set the final, structured data to state for the SectionList.
-    setLibrarySections([{ title: 'My Library', data: addPlaceholdersAndChunk(baseData) }]);
+    if (baseData.length > 0) {
+        setLibrarySections([{ title: 'My Library', data: addPlaceholdersAndChunk(baseData) }]);
+    } else {
+        setLibrarySections([]);
+    }
 
   }, [searchQuery, filters, library]);
 
@@ -158,6 +162,7 @@ const LibraryView = ({ scrollHandler, headerHeight, searchQuery, filters }) => {
       stickySectionHeadersEnabled={false}
       onScroll={scrollHandler}
       scrollEventThrottle={16}
+      ListHeaderComponent={() => <View style={{ height: 40 }} />}
       contentContainerStyle={[styles.listContainer, { paddingTop: headerHeight }]}
       showsVerticalScrollIndicator={false}
       renderSectionHeader={({ section: { title } }) => (

@@ -161,7 +161,7 @@ const HistoryView = ({ scrollHandler, headerHeight, searchQuery }) => {
       contentContainerStyle={[styles.listContainer, { paddingTop: headerHeight }]}
       showsVerticalScrollIndicator={false}
       stickySectionHeadersEnabled={false}
-      ListHeaderComponent={<View style={{ height: 20 }}/>}
+      ListHeaderComponent={() => <View style={{ height: 30 }}/>}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
       renderSectionHeader={({ section: { title } }) => (
         <Text style={styles.sectionHeader}>{title}</Text>

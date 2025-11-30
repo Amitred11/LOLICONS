@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   sectionHeader: { fontFamily: 'Poppins_700Bold', color: Colors.text, fontSize: 22 },
   seeAllText: { fontFamily: 'Poppins_500Medium', color: Colors.secondary, fontSize: 14 },
   columnWrapper: { justifyContent: 'space-between', paddingHorizontal: PADDING },
-  featuredContainer: { paddingTop: 20 },
+  featuredContainer: { paddingTop: 45 },
   gridItemContainer: { marginBottom: 20 },
   gridItemImage: { width: '100%', backgroundColor: Colors.surface, justifyContent: 'flex-end' },
   gridItemOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end', padding: 10, borderRadius: 12 },

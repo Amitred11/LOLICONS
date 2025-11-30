@@ -38,7 +38,9 @@ const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 100;
 const COLLAPSED_HEADER_HEIGHT = 60;
 const SCROLL_DISTANCE = HEADER_HEIGHT - COLLAPSED_HEADER_HEIGHT;
-
+const CARD_MARGIN = 12;
+const CARD_WIDTH = width - 48;
+const SNAP_SIZE = CARD_WIDTH + CARD_MARGIN; 
 // --- Helper Functions ---
 const getGreeting = () => {
     const hour = new Date().getHours();
@@ -48,6 +50,8 @@ const getGreeting = () => {
 };
 
 const getCurrentRank = (xp) => { 
+    // Guard clause to prevent crash if mockData is missing
+    if (!ranks) return { name: 'Novice' };
     const foundRank = ranks.slice().reverse().find(rank => xp >= rank.minXp);
     return foundRank || ranks[0];
 };
@@ -63,7 +67,9 @@ const HomeScreen = () => {
 
   const greeting = getGreeting();
   const dailyProgress = 0.75; 
-  const currentRank = useMemo(() => getCurrentRank(userData.xp), []);
+  // Safely fallback user name
+  const displayUser = user || userData || { name: 'Hunter', xp: 0, avatarUrl: null };
+  const currentRank = useMemo(() => getCurrentRank(displayUser.xp), [displayUser.xp]);
 
   // --- Alert Handlers ---
   const showConstructionAlert = (featureName) => {
@@ -112,13 +118,13 @@ const HomeScreen = () => {
   // Avatar Component (Local to header logic)
   const Avatar = ({ source, size = 48, onPress }) => (
       <TouchableOpacity onPress={onPress} style={[styles.avatarContainer, { width: size, height: size, borderRadius: size / 2 }]}>
-          <Image source={source} style={{ width: '100%', height: '100%' }} />
+          <Image source={source || { uri: 'https://via.placeholder.com/150' }} style={{ width: '100%', height: '100%' }} />
       </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       
       {currentRank.name === '¿¿' && (
           <View style={styles.glitchContainer} pointerEvents="none">
@@ -138,9 +144,9 @@ const HomeScreen = () => {
             <Animated.View style={[styles.largeHeaderContainer, animatedLargeHeaderStyle]}>
                 <View>
                     <Text style={styles.headerSubtitle}>{greeting},</Text>
-                    <Text style={styles.headerTitle}>{user?.username || userData.name}</Text>
+                    <Text style={styles.headerTitle}>{displayUser.username || displayUser.name}</Text>
                 </View>
-                <Avatar source={userData.avatarUrl} onPress={() => navigation.navigate('Profile')} />
+                <Avatar source={displayUser.avatarUrl} onPress={() => navigation.navigate('Profile')} />
             </Animated.View>
 
             {/* Compact Header */}
@@ -149,7 +155,7 @@ const HomeScreen = () => {
                     <Ionicons name="search" size={18} color={Colors.textSecondary} />
                     <Text style={styles.searchPlaceholder}>Find a story...</Text>
                 </TouchableOpacity>
-                <Avatar source={userData.avatarUrl} size={36} onPress={() => navigation.navigate('Profile')} />
+                <Avatar source={displayUser.avatarUrl} size={36} onPress={() => navigation.navigate('Profile')} />
             </Animated.View>
         </View>
       </Animated.View>
@@ -158,7 +164,11 @@ const HomeScreen = () => {
       <Animated.ScrollView
         onScroll={scrollHandler}
         scrollEventThrottle={16}
-        contentContainerStyle={[styles.scrollContainer, { paddingTop: insets.top + HEADER_HEIGHT }]}
+        style={{ flex: 1 }} // <--- FIX: Ensure ScrollView takes up space
+        contentContainerStyle={[
+            styles.scrollContainer, 
+            { paddingTop: insets.top + HEADER_HEIGHT, flexGrow: 1 } // <--- FIX: Ensure content container grows
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Featured Section */}
@@ -175,12 +185,13 @@ const HomeScreen = () => {
                 )} 
                 keyExtractor={item => item.id} 
                 horizontal 
-                pagingEnabled 
                 onScroll={parallaxScrollHandler} 
                 showsHorizontalScrollIndicator={false} 
-                contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 15 }} 
-                snapToInterval={width - 40} 
+                contentContainerStyle={{ paddingHorizontal: (width - CARD_WIDTH) / 2, paddingBottom: 15 }} 
+                snapToInterval={SNAP_SIZE} 
                 decelerationRate="fast"
+                snapToAlignment="center"
+
             />
         </AnimatedSection>
         
@@ -211,7 +222,6 @@ const HomeScreen = () => {
                 contentContainerStyle={{ paddingHorizontal: 20 }}
             />
         ) : (
-            /* EMPTY STATE RENDER */
             <EmptyState 
                 icon="book-outline"
                 title="No History Yet"
@@ -251,21 +261,18 @@ const HomeScreen = () => {
                     <Text style={styles.sectionTitle}>Upcoming Events</Text>
                 </View>
                 {upcomingEvents && upcomingEvents.length > 0 ? (
-            <FlatList 
-                data={upcomingEvents} 
-                renderItem={({ item }) => <EventCard item={item} />} 
-                keyExtractor={item => item.id} 
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
-                contentContainerStyle={{ paddingHorizontal: 20 }}
-            />
-        ) : (
-            <EmptyState 
-                icon="calendar-outline"
-                title="No Events Found"
-                message="Check back later for community meetups and releases."
-            />
-        )}
+                // Just render the FIRST item
+                <EventCard 
+                   item={upcomingEvents[0]} 
+                   onPress={() => navigation.navigate('Events')} 
+                />
+                ) : (
+                <EmptyState 
+                   icon="calendar-outline"
+                   title="No Events Found"
+                   message="Check back later for community meetups."
+               />
+            )}
             </View>
         </AnimatedSection>
       </Animated.ScrollView>

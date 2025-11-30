@@ -29,37 +29,7 @@ import Animated, {
     withSequence,
     interpolate,
 } from 'react-native-reanimated';
-
-/**
- * A reusable component for creating floating, animated background shapes.
- * These shapes move slowly to create a dynamic background effect.
- */
-const AnimatedShape = ({ size, color, initialX, initialY, delay, rotation }) => {
-    // Shared values for animating position, scale, and rotation.
-    const translateX = useSharedValue(initialX);
-    const translateY = useSharedValue(initialY);
-    const scale = useSharedValue(1);
-    const rotate = useSharedValue(0);
-
-    // Effect to start the continuous, looping animations.
-    useEffect(() => {
-        translateX.value = withDelay(delay, withRepeat(withTiming(initialX + 20, { duration: 8000 }), -1, true));
-        translateY.value = withDelay(delay, withRepeat(withTiming(initialY + 20, { duration: 7000 }), -1, true));
-        scale.value = withDelay(delay, withRepeat(withTiming(1.1, { duration: 10000 }), -1, true));
-        if (rotation) {
-            rotate.value = withDelay(delay, withRepeat(withTiming(360, { duration: 30000, easing: Easing.linear }), -1, false));
-        }
-    }, []);
-
-    // Create the animated style object.
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ translateX: translateX.value }, { translateY: translateY.value }, { scale: scale.value }, { rotate: `${rotate.value}deg` }],
-        position: 'absolute', width: size, height: size, backgroundColor: color, borderRadius: size / 2, opacity: 0.15,
-    }));
-
-    return <Animated.View style={animatedStyle} />;
-};
-
+import AnimatedShape from './components/AnimatedShape';
 
 // --- CONFIGURABLE VALUE ---
 // The amount (in pixels) the content should shift up when the keyboard is open.

@@ -16,35 +16,7 @@ import Animated, {
   withSequence,
   Easing,
 } from 'react-native-reanimated';
-
-// A reusable component for creating floating, animated background shapes.
-const AnimatedShape = ({ size, color, initialX, initialY, delay, rotation }) => {
-  // Shared values for animating position, scale, and rotation.
-  const translateX = useSharedValue(initialX);
-  const translateY = useSharedValue(initialY);
-  const scale = useSharedValue(1);
-  const rotate = useSharedValue(0);
-
-  // Effect to start the continuous, looping animations.
-  useEffect(() => {
-    // These animations create a slow, random-like floating effect.
-    translateX.value = withDelay(delay, withRepeat(withSequence(withTiming(initialX + Math.random() * 40 - 20, { duration: 4000, easing: Easing.inOut(Easing.quad) }), withTiming(initialX - Math.random() * 40 - 20, { duration: 4000, easing: Easing.inOut(Easing.quad) }), withTiming(initialX, { duration: 4000, easing: Easing.inOut(Easing.quad) })), -1, true));
-    translateY.value = withDelay(delay, withRepeat(withSequence(withTiming(initialY + Math.random() * 50 - 25, { duration: 3500, easing: Easing.inOut(Easing.quad) }), withTiming(initialY - Math.random() * 50 - 25, { duration: 3500, easing: Easing.inOut(Easing.quad) }), withTiming(initialY, { duration: 3500, easing: Easing.inOut(Easing.quad) })), -1, true));
-    scale.value = withDelay(delay, withRepeat(withSequence(withTiming(1.2, { duration: 5000, easing: Easing.inOut(Easing.quad) }), withTiming(1, { duration: 5000, easing: Easing.inOut(Easing.quad) })), -1, true));
-    if (rotation) {
-        rotate.value = withDelay(delay, withRepeat(withTiming(360, { duration: 20000, easing: Easing.linear }), -1, false));
-    }
-  }, []);
-
-  // Create the animated style object.
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }, { translateY: translateY.value }, { scale: scale.value }, { rotate: `${rotate.value}deg` }],
-    position: 'absolute', width: size, height: size, backgroundColor: color, borderRadius: size / 2, opacity: 0.15,
-  }));
-
-  return <Animated.View style={animatedStyle} />;
-};
-
+import AnimatedShape from './components/AnimatedShape';
 
 /**
  * The initial welcome screen of the application.

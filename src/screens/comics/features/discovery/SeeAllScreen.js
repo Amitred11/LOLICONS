@@ -166,7 +166,7 @@ const SeeAllScreen = () => {
   return (
     <View style={styles.container}>
         {/* The screen header, which is always visible. */}
-        <View style={[styles.header, { height: 60 + insets.top }]}>
+        <View style={[styles.header, { height: 130}]}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
                 <Ionicons name="arrow-back-outline" size={28} color={Colors.text} />
             </TouchableOpacity>
