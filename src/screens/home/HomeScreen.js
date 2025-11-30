@@ -41,6 +41,7 @@ const SCROLL_DISTANCE = HEADER_HEIGHT - COLLAPSED_HEADER_HEIGHT;
 const CARD_MARGIN = 12;
 const CARD_WIDTH = width - 48;
 const SNAP_SIZE = CARD_WIDTH + CARD_MARGIN; 
+
 // --- Helper Functions ---
 const getGreeting = () => {
     const hour = new Date().getHours();
@@ -50,10 +51,12 @@ const getGreeting = () => {
 };
 
 const getCurrentRank = (xp) => { 
-    // Guard clause to prevent crash if mockData is missing
-    if (!ranks) return { name: 'Novice' };
-    const foundRank = ranks.slice().reverse().find(rank => xp >= rank.minXp);
-    return foundRank || ranks[0];
+    // Guard clause: Safe fallback if ranks is undefined/empty
+    const safeRanks = ranks || [];
+    if (safeRanks.length === 0) return { name: 'Novice', color: Colors.textSecondary };
+    
+    const foundRank = safeRanks.slice().reverse().find(rank => xp >= rank.minXp);
+    return foundRank || safeRanks[0];
 };
 
 // --- Main HomeScreen ---
@@ -67,9 +70,18 @@ const HomeScreen = () => {
 
   const greeting = getGreeting();
   const dailyProgress = 0.75; 
+  
   // Safely fallback user name
-  const displayUser = user || userData || { name: 'Hunter', xp: 0, avatarUrl: null };
-  const currentRank = useMemo(() => getCurrentRank(displayUser.xp), [displayUser.xp]);
+  const displayUser = user || userData || { name: 'Hunter', xp: 0, avatarUrl: null, username: 'Guest' };
+  const currentRank = useMemo(() => getCurrentRank(displayUser.xp || 0), [displayUser.xp]);
+
+  // --- SAFE DATA HANDLING ---
+  // We create safe variables here. If the import is null/undefined, it defaults to empty array.
+  const safeComics = comicsData || [];
+  const featuredComics = safeComics.filter(c => c.isPopular);
+  const historyComics = safeComics.slice(0, 4); // Logic for history
+  const safeEvents = upcomingEvents || [];
+  const safeGoals = friendlyGoals || [];
 
   // --- Alert Handlers ---
   const showConstructionAlert = (featureName) => {
@@ -164,35 +176,45 @@ const HomeScreen = () => {
       <Animated.ScrollView
         onScroll={scrollHandler}
         scrollEventThrottle={16}
-        style={{ flex: 1 }} // <--- FIX: Ensure ScrollView takes up space
+        style={{ flex: 1 }} 
         contentContainerStyle={[
             styles.scrollContainer, 
-            { paddingTop: insets.top + HEADER_HEIGHT, flexGrow: 1 } // <--- FIX: Ensure content container grows
+            { paddingTop: insets.top + HEADER_HEIGHT, flexGrow: 1 }
         ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Featured Section */}
         <AnimatedSection index={0}>
-            <Animated.FlatList 
-                data={comicsData.filter(c => c.isPopular)} 
-                renderItem={({ item, index }) => (
-                    <FeaturedCard 
-                        item={item} 
-                        index={index} 
-                        scrollX={scrollX} 
-                        onPress={() => navigation.navigate('ComicDetail', { comicId: item.id })} 
+            {featuredComics.length > 0 ? (
+                <Animated.FlatList 
+                    data={featuredComics} 
+                    renderItem={({ item, index }) => (
+                        <FeaturedCard 
+                            item={item} 
+                            index={index} 
+                            scrollX={scrollX} 
+                            onPress={() => navigation.navigate('ComicDetail', { comicId: item.id })} 
+                        />
+                    )} 
+                    keyExtractor={item => item.id} 
+                    horizontal 
+                    onScroll={parallaxScrollHandler} 
+                    showsHorizontalScrollIndicator={false} 
+                    contentContainerStyle={{ paddingHorizontal: (width - CARD_WIDTH) / 2, paddingBottom: 15 }} 
+                    snapToInterval={SNAP_SIZE} 
+                    decelerationRate="fast"
+                    snapToAlignment="center"
+                />
+            ) : (
+                <View style={{ marginHorizontal: 20 }}>
+                    <EmptyState 
+                        icon="star-outline"
+                        title="No Featured Comics"
+                        message="We couldn't find any trending comics at the moment."
+                        style={{ paddingVertical: 40 }}
                     />
-                )} 
-                keyExtractor={item => item.id} 
-                horizontal 
-                onScroll={parallaxScrollHandler} 
-                showsHorizontalScrollIndicator={false} 
-                contentContainerStyle={{ paddingHorizontal: (width - CARD_WIDTH) / 2, paddingBottom: 15 }} 
-                snapToInterval={SNAP_SIZE} 
-                decelerationRate="fast"
-                snapToAlignment="center"
-
-            />
+                </View>
+            )}
         </AnimatedSection>
         
         {/* Continue Reading Section */}
@@ -207,40 +229,59 @@ const HomeScreen = () => {
                         <Text style={styles.seeAllText}>All</Text>
                     </TouchableOpacity>
                 </View>
-                {comicsData.slice(0, 4).length > 0 ? (
-            <FlatList 
-                data={comicsData.slice(0, 4)} 
-                renderItem={({ item }) => (
-                    <ContinueReadingCard 
-                        item={item} 
-                        onPress={() => navigation.navigate('Reader', { comicId: item.id, chapterId: item.chapters[0].id })} 
+
+                {/* Safe check for history items */}
+                {historyComics.length > 0 ? (
+                    <FlatList 
+                        data={historyComics} 
+                        renderItem={({ item }) => (
+                            <ContinueReadingCard 
+                                item={item} 
+                                // Safe check if chapters exist
+                                onPress={() => {
+                                    if (item.chapters && item.chapters.length > 0) {
+                                        navigation.navigate('Reader', { comicId: item.id, chapterId: item.chapters[0].id });
+                                    } else {
+                                        navigation.navigate('ComicDetail', { comicId: item.id });
+                                    }
+                                }} 
+                            />
+                        )} 
+                        keyExtractor={item => item.id} 
+                        horizontal 
+                        showsHorizontalScrollIndicator={false} 
+                        contentContainerStyle={{ paddingHorizontal: 20 }}
                     />
-                )} 
-                keyExtractor={item => item.id} 
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
-                contentContainerStyle={{ paddingHorizontal: 20 }}
-            />
-        ) : (
-            <EmptyState 
-                icon="book-outline"
-                title="No History Yet"
-                message="Start reading a comic to see your progress here."
-                actionLabel="Explore Comics"
-                onAction={() => navigation.navigate('Comics')}
-                style={{ paddingVertical: 10 }}
-            />
-        )}
+                ) : (
+                    <EmptyState 
+                        icon="book-outline"
+                        title="No History Yet"
+                        message="Start reading a comic to see your progress here."
+                        actionLabel="Explore Comics"
+                        onAction={() => navigation.navigate('Comics')}
+                        style={{ paddingVertical: 10 }}
+                    />
+                )}
             </View>
         </AnimatedSection>
 
         {/* Daily Goals Widget */}
         <AnimatedSection index={2}>
-            <DailyGoalsWidget 
-                goals={friendlyGoals}
-                dailyProgress={dailyProgress}
-                onGoalPress={showGoalAlert}
-            />
+            {safeGoals.length > 0 ? (
+                <DailyGoalsWidget 
+                    goals={safeGoals}
+                    dailyProgress={dailyProgress}
+                    onGoalPress={showGoalAlert}
+                />
+            ) : (
+                <View style={styles.section}>
+                    <EmptyState 
+                        icon="trophy-outline"
+                        title="No Active Goals"
+                        message="You're all caught up! Check back later for new missions."
+                    />
+                </View>
+            )}
         </AnimatedSection>
         
         {/* Explore & Connect Actions */}
@@ -260,19 +301,21 @@ const HomeScreen = () => {
                 <View style={styles.sectionHeaderContainer}>
                     <Text style={styles.sectionTitle}>Upcoming Events</Text>
                 </View>
-                {upcomingEvents && upcomingEvents.length > 0 ? (
-                // Just render the FIRST item
-                <EventCard 
-                   item={upcomingEvents[0]} 
-                   onPress={() => navigation.navigate('Events')} 
-                />
+                
+                {/* Safe check for Events */}
+                {safeEvents.length > 0 ? (
+                    // Just render the FIRST item
+                    <EventCard 
+                       item={safeEvents[0]} 
+                       onPress={() => navigation.navigate('Events')} 
+                    />
                 ) : (
-                <EmptyState 
-                   icon="calendar-outline"
-                   title="No Events Found"
-                   message="Check back later for community meetups."
-               />
-            )}
+                    <EmptyState 
+                       icon="calendar-outline"
+                       title="No Events Found"
+                       message="Check back later for community meetups."
+                   />
+                )}
             </View>
         </AnimatedSection>
       </Animated.ScrollView>

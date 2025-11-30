@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -19,6 +19,9 @@ import { AlertProvider } from '@context/AlertContext';
 import AppNavigator from '@navigation/AppNavigator';
 import { Colors } from '@config/Colors';
 
+// SECURITY IMPORT
+import PrivacyOverlay from '@components/overlays/PrivacyOverlay';
+
 const AppDarkTheme = {
   ...DarkTheme,
   colors: {
@@ -32,52 +35,64 @@ const AppDarkTheme = {
   },
 };
 
-/**
- * A single component that composes all the app's context providers.
- * This keeps the main App component clean.
- */
 const AppProviders = ({ children }) => (
-  <GestureHandlerRootView style={{ flex: 1 }}>
-    <SafeAreaProvider>
-      <ActionSheetProvider>
-        <MenuProvider>
-          <AlertProvider> 
-          <DownloadProvider>
-            <LibraryProvider>
-              <ModalProvider>
-                <AuthProvider>
-                  {children}
-                </AuthProvider>
-              </ModalProvider>
-            </LibraryProvider>
-          </DownloadProvider>
-          </AlertProvider> 
-        </MenuProvider>
-      </ActionSheetProvider>
-    </SafeAreaProvider>
-  </GestureHandlerRootView>
+  <SafeAreaProvider>
+    <ActionSheetProvider>
+      <MenuProvider>
+        <AlertProvider> 
+        <DownloadProvider>
+          <LibraryProvider>
+            <ModalProvider>
+              <AuthProvider>
+                {children}
+              </AuthProvider>
+            </ModalProvider>
+          </LibraryProvider>
+        </DownloadProvider>
+        </AlertProvider> 
+      </MenuProvider>
+    </ActionSheetProvider>
+  </SafeAreaProvider>
 );
 
-/**
- * The root component of the entire application.
- */
 export default function App() {
   let [fontsLoaded] = useFonts({ Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold });
 
   if (!fontsLoaded) {
     return (
-      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background}}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
 
   return (
-    <AppProviders>
-      <NavigationContainer theme={AppDarkTheme}>
-        <StatusBar style="light" />
-        <AppNavigator />
-      </NavigationContainer>
-    </AppProviders>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+        <AppProviders>
+          <NavigationContainer theme={AppDarkTheme}>
+            <StatusBar style="light" />
+            <AppNavigator />
+          </NavigationContainer>
+        </AppProviders>
+        
+        {/* VISUAL PRIVACY: High z-index ensures it covers Modals too */}
+        <View style={styles.privacyContainer} pointerEvents="none">
+           <PrivacyOverlay />
+        </View>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    backgroundColor: Colors.background
+  },
+  privacyContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 99999, // Ensure this is above everything, including Alerts/Modals
+    elevation: 99999, // Android elevation
+  }
+});

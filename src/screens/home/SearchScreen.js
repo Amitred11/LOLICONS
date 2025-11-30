@@ -22,14 +22,6 @@ const topGenres = [
 
 // --- Sub-components ---
 
-/**
- * A component to render a single item in the search results list.
- * It animates in with a staggered fade and slide effect.
- * @param {object} props - The component props.
- * @param {object} props.item - The comic data for the list item.
- * @param {number} props.index - The index of the item, used for staggering animations.
- * @param {object} props.navigation - The navigation object for handling presses.
- */
 const SearchResultItem = ({ item, index, navigation }) => {
     // Shared values for the entry animation.
     const opacity = useSharedValue(0);
@@ -63,12 +55,6 @@ const SearchResultItem = ({ item, index, navigation }) => {
     );
 };
 
-/**
- * A component that displays search recommendations (popular searches, top genres).
- * This is shown when the search input is empty.
- * @param {object} props - The component props.
- * @param {function} props.onTagPress - A function to call when a tag is pressed, which populates the search bar.
- */
 const Recommendations = ({ onTagPress }) => {
     // Animate the entire recommendations section fading in.
     const opacity = useSharedValue(0);
@@ -100,10 +86,6 @@ const Recommendations = ({ onTagPress }) => {
 };
 
 // --- Main Search Screen ---
-/**
- * A modal screen for searching comics and creators. It displays recommendations
- * when empty and a list of results as the user types.
- */
 const SearchScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
     const [searchQuery, setSearchQuery] = useState('');
@@ -118,10 +100,14 @@ const SearchScreen = ({ navigation }) => {
         if (isTyping) {
             // Animate the clear button into view.
             clearButtonOpacity.value = withTiming(1);
-            // Filter the mock data based on the query.
-            const filteredData = comicsData.filter(comic => 
-                comic.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                comic.author.toLowerCase().includes(searchQuery.toLowerCase())
+            
+            // --- SAFE FILTERING ---
+            // Fallback to empty array if comicsData is undefined
+            const safeData = comicsData || [];
+            
+            const filteredData = safeData.filter(comic => 
+                (comic.title && comic.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (comic.author && comic.author.toLowerCase().includes(searchQuery.toLowerCase()))
             );
             setResults(filteredData);
         } else {

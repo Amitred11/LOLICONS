@@ -2,7 +2,7 @@
 import React, { useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, StatusBar, Pressable } from 'react-native';
 import { Colors } from '@config/Colors';
-import StyledButton from '@components/StyledButton';
+import StyledButton from '@components/ui/StyledButton';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';

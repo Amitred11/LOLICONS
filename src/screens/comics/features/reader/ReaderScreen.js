@@ -8,7 +8,6 @@ import { useNavigation } from '@react-navigation/native';
 import { comicsData, comicPagesData } from '@config/mockData'; 
 import ReaderSettingsModal from './ReaderSettingsModal';
 import ChapterListModal from './ChapterListModal'; 
-import { Colors } from '@config/Colors'; 
 
 const { width, height } = Dimensions.get('window');
 

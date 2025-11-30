@@ -1,120 +1,123 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
   withRepeat, 
   withTiming, 
-  withSequence,
+  withDelay,
   Easing,
-  ZoomIn,
+  interpolate,
   FadeIn
 } from 'react-native-reanimated';
 import { Colors } from '../../constants/Colors';
 
 const { width } = Dimensions.get('window');
 
-const Loading = () => {
-  // Shared values for animations
-  const rotation = useSharedValue(0);
-  const pulse = useSharedValue(1);
-  const textOpacity = useSharedValue(0.5);
+// --- Configuration ---
+const CONFIG = {
+  iconSize: 40,
+  baseColor: Colors.primary,
+  rippleCount: 3,
+  duration: 2500, // Slower is more "premium"
+};
+
+// --- Sub-Component: A Single Expanding Ring ---
+const PulseRing = ({ delay, index }) => {
+  const ringParams = useSharedValue(0);
 
   useEffect(() => {
-    // 1. Infinite Rotation for the outer ring
-    rotation.value = withRepeat(
-      withTiming(360, {
-        duration: 1500,
-        easing: Easing.linear,
-      }),
-      -1 // Infinite loop
+    ringParams.value = withDelay(
+      delay,
+      withRepeat(
+        withTiming(1, { duration: CONFIG.duration, easing: Easing.out(Easing.ease) }),
+        -1,
+        false
+      )
     );
+  }, []);
 
-    // 2. Pulse effect for the center icon
-    pulse.value = withRepeat(
-      withSequence(
-        withTiming(1.2, { duration: 800 }),
-        withTiming(1, { duration: 800 })
-      ),
+  const ringStyle = useAnimatedStyle(() => {
+    return {
+      opacity: interpolate(ringParams.value, [0, 0.7, 1], [0.8, 0.2, 0]),
+      transform: [
+        { scale: interpolate(ringParams.value, [0, 1], [0.8, 4]) }, // Expands outward
+      ],
+    };
+  });
+
+  return <Animated.View style={[styles.ring, ringStyle]} />;
+};
+
+const Loading = ({ message = "Loading" }) => {
+  // Shared Values
+  const float = useSharedValue(0);
+  const glow = useSharedValue(0);
+
+  useEffect(() => {
+    // 1. Floating Effect (Anti-gravity bobbing)
+    float.value = withRepeat(
+      withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
       -1,
-      true // Reverse the animation (yoyo)
+      true
     );
 
-    // 3. Breathing effect for text
-    textOpacity.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1000 }),
-        withTiming(0.4, { duration: 1000 })
-      ),
+    // 2. Glow Intensity Pulse
+    glow.value = withRepeat(
+      withTiming(1, { duration: 1500, easing: Easing.linear }),
       -1,
       true
     );
   }, []);
 
   // Animated Styles
-  const rotateStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.value}deg` }],
+  const iconContainerStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: interpolate(float.value, [0, 1], [0, -10]) }, // Move up 10px
+      { scale: interpolate(float.value, [0, 1], [1, 1.05]) }      // Subtle scale up
+    ],
+    // Dynamic Shadow Glow
+    shadowOpacity: interpolate(glow.value, [0, 1], [0.3, 0.8]),
+    shadowRadius: interpolate(glow.value, [0, 1], [10, 25]),
   }));
 
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulse.value }],
-  }));
-
-  const textAnimStyle = useAnimatedStyle(() => ({
-    opacity: textOpacity.value,
+  const textStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(float.value, [0, 1], [0.5, 1]),
   }));
 
   return (
-    <Animated.View entering={FadeIn.duration(300)} style={styles.container}>
-      {/* 1. High Intensity Blur Background */}
-      <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+    <View style={styles.container}>
+      {/* 1. Immersive Background */}
+      <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
       
-      {/* Optional: Subtle background gradient overlay for atmosphere */}
-      <LinearGradient
-        colors={['rgba(0,0,0,0.2)', 'rgba(0,0,0,0.8)']}
-        style={StyleSheet.absoluteFill}
-      />
+      {/* Dark overlay to make the glow pop */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)' }]} />
 
-      {/* 2. The Glass Card with Entrance Animation */}
-      <Animated.View entering={ZoomIn.springify().damping(15)} style={styles.card}>
+      <View style={styles.contentWrapper}>
         
-        {/* Subtle Gradient Border */}
-        <LinearGradient
-          colors={[Colors.surface + '90', Colors.surface + '10']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.cardBorder}
-        />
-
-        {/* 3. The Custom Loader Graphic */}
-        <View style={styles.loaderContainer}>
-          {/* Outer Rotating Gradient Ring */}
-          <Animated.View style={[styles.spinnerRing, rotateStyle]}>
-            <LinearGradient
-              colors={[Colors.primary, 'transparent']}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
-              style={styles.spinnerGradient}
-            />
-          </Animated.View>
-
-          {/* Center Pulsing Icon */}
-          <Animated.View style={[styles.centerIcon, pulseStyle]}>
-            {/* You can change this icon to your app logo */}
-            <Ionicons name="sparkles" size={24} color={Colors.primary} />
-          </Animated.View>
+        {/* 2. Background Ripples (Rendered behind icon) */}
+        <View style={styles.rippleContainer}>
+            {[...Array(CONFIG.rippleCount)].map((_, i) => (
+                <PulseRing key={i} delay={i * 400} index={i} />
+            ))}
         </View>
 
-        {/* 4. Loading Text */}
-        <Animated.Text style={[styles.text, textAnimStyle]}>
-          Loading...
+        {/* 3. Floating Icon Container */}
+        <Animated.View style={[styles.iconContainer, iconContainerStyle]}>
+          <Ionicons name="planet" size={CONFIG.iconSize} color={Colors.text} />
+        </Animated.View>
+
+        {/* 4. Minimal Text */}
+        <Animated.Text 
+          entering={FadeIn.delay(500)} 
+          style={[styles.text, textStyle]}
+        >
+          {message}
         </Animated.Text>
-        
-      </Animated.View>
-    </Animated.View>
+      </View>
+    </View>
   );
 };
 
@@ -125,65 +128,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 9999,
   },
-  card: {
-    width: width * 0.45,
-    height: width * 0.45,
+  contentWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.surface + '80', // Hex opacity
-    borderRadius: 30,
-    // Modern Shadow/Glow
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 25,
-    elevation: 10,
-    overflow: 'hidden',
   },
-  cardBorder: {
+  rippleContainer: {
     position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  loaderContainer: {
+  ring: {
+    position: 'absolute',
     width: 80,
     height: 80,
+    borderRadius: 40,
+    borderWidth: 1.5,
+    borderColor: CONFIG.baseColor, // Primary Color Ring
+    zIndex: 0,
+  },
+  iconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.primary, // Solid circle bg
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
-  },
-  spinnerRing: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 40,
-    borderWidth: 3,
-    borderColor: 'transparent', 
-    position: 'absolute',
-  },
-  spinnerGradient: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 40,
-  },
-  centerIcon: {
-    width: 50,
-    height: 50,
-    backgroundColor: Colors.surface,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
-    // Inner shadow feel
-    borderWidth: 1,
-    borderColor: Colors.surface,
+    zIndex: 10,
+    // Base Shadow
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 15,
   },
   text: {
+    marginTop: 40,
     fontFamily: 'Poppins_600SemiBold',
     color: Colors.text,
-    fontSize: 14,
-    letterSpacing: 2, // Widespacing looks more "premium"
+    fontSize: 16,
+    letterSpacing: 4, // Very wide spacing for "Cinematic" look
     textTransform: 'uppercase',
   },
 });

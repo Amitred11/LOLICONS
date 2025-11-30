@@ -1,19 +1,21 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import CustomTabBar from '@components/CustomTabBar'; 
-import { useAlert } from '@context/AlertContext'; 
+import CustomTabBar from '@components/navigation/CustomTabBar'; 
+// import { useAlert } from '@context/AlertContext'; // No longer needed for this tab
 
 // Core Tab Screens
 import HomeScreen from '@features/home/HomeScreen';
 import ComicsScreen from '@features/comics/features/discovery/ComicsScreen';
-import CommunityScreen from '@features/community/screens/CommunityScreen';
 import HubScreen from '@features/hub/Hub/HubScreen';
 import ProfileScreen from '@features/profile/screens/ProfileScreen';
+
+// --- IMPORT THE NEW SCREEN ---
+import CommunityScreen from '@features/community/CommunityScreen'; 
 
 const Tab = createBottomTabNavigator();
 
 const BottomTabNavigator = () => {
-  const { showAlert } = useAlert(); 
+  // const { showAlert } = useAlert(); 
 
   return (
     <Tab.Navigator
@@ -31,21 +33,10 @@ const BottomTabNavigator = () => {
           options={{ customProps: { label: "Comics", activeIcon: "book", inactiveIcon: "book-outline" }}} 
       />
       
-      {/* Community Tab with Construction Alert */}
+      {/* UPDATED: Connected the real screen */}
       <Tab.Screen 
           name="Community" 
           component={CommunityScreen} 
-          listeners={{
-              tabPress: (e) => {
-                  e.preventDefault();
-                  showAlert({
-                    title: "Coming Soon!",
-                    message: "The Community feature is currently being built by our engineering team.\nCheck back soon!",
-                    type: "construction",
-                    btnText: "Can't Wait!"
-                  });
-              },
-          }}
           options={{ customProps: { label: "Community", activeIcon: "people", inactiveIcon: "people-outline" }}} 
       />
 

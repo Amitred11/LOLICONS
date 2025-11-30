@@ -14,8 +14,8 @@ import {
     Keyboard
 } from 'react-native';
 import { Colors } from '@config/Colors';
-import StyledInput from '@components/StyledInput';
-import StyledButton from '@components/StyledButton';
+import StyledInput from '@components/ui/StyledInput';
+import StyledButton from '@components/ui/StyledButton';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {

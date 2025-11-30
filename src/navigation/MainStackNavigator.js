@@ -16,8 +16,7 @@ import ReaderScreen from '@features/comics/features/reader/ReaderScreen';
 import SeeAllScreen from '@features/comics/features/discovery/SeeAllScreen';
 
 // COMMUNITY
-import PostDetailScreen from '@features/community/screens/PostDetailScreen';
-import CreatePostScreen from '@features/community/screens/CreatePostScreen';
+import MarketDetailScreen from '@features/community/MarketDetailScreen'; 
 
 // PROFILE SETTINGS
 import EditProfileScreen from '@features/profile/screens/EditProfileScreen';
@@ -29,11 +28,6 @@ import PrivacyScreen from '@features/profile/screens/settings/PrivacyScreen';
 import TrophyCaseScreen from '@features/profile/screens/TrophyCaseScreen';
 
 // HUB & MESSAGING
-import MessagesScreen from '@features/hub/Messages/MessagesScreen';
-import ChatScreen from '@features/hub/Messages/ChatScreen';
-import FriendsScreen from '@features/hub/Messages/FriendsScreen';
-import AddFriendScreen from '@features/hub/Messages/AddFriendScreen';
-import UserProfileScreen from '@features/hub/Messages/UserProfileScreen';
 
 // MEDIA & EVENTS
 import VideoPlayerScreen from '@features/hub/Media/VideoPlayerScreen';
@@ -59,9 +53,7 @@ const MainStackNavigator = () => {
       <AppStack.Screen name="Help" component={HelpScreen} options={{ animation: 'slide_from_right' }}/>
       <AppStack.Screen name="DataAndStorage" component={DataAndStorageScreen} options={{ animation: 'slide_from_right' }}/>
       <AppStack.Screen name="Privacy" component={PrivacyScreen} options={{ animation: 'slide_from_right' }}/>
-      <AppStack.Screen name="UserProfile" component={UserProfileScreen} />
       <AppStack.Screen name="TrophyCase" component={TrophyCaseScreen} />
-
       {/* COMICS */}
       <AppStack.Screen name="ComicDetail" component={ComicDetailScreen} />
       <AppStack.Screen name="Reader" component={ReaderScreen} />
@@ -71,17 +63,12 @@ const MainStackNavigator = () => {
       <AppStack.Screen name="EventDetail" component={EventDetailScreen} />
       <AppStack.Screen name="Events" component={EventsScreen} />
       <AppStack.Screen name="MediaDetail" component={MediaDetailScreen} />
-      <AppStack.Screen name="PostDetail" component={PostDetailScreen} />
-      <AppStack.Screen name="CreatePost" component={CreatePostScreen} options={{ presentation: 'modal'}} />
       <AppStack.Screen name="Search" component={SearchScreen} options={{ presentation: 'modal', animation: 'fade_from_bottom' }} />
       <AppStack.Screen name="Media" component={MediaScreen} />
       <AppStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
+      <AppStack.Screen name="MarketDetail" component={MarketDetailScreen} options={{ animation: 'slide_from_right' }}/>
 
       {/* CHATS */}
-      <AppStack.Screen name="Chat" component={ChatScreen} />
-      <AppStack.Screen name="Messages" component={MessagesScreen} />
-      <AppStack.Screen name="Friends" component={FriendsScreen} />
-      <AppStack.Screen name="AddFriend" component={AddFriendScreen} />
     </AppStack.Navigator>
   );
 };
