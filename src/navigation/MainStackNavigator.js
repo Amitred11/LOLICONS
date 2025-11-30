@@ -16,8 +16,10 @@ import ReaderScreen from '@features/comics/features/reader/ReaderScreen';
 import SeeAllScreen from '@features/comics/features/discovery/SeeAllScreen';
 
 // COMMUNITY
-import MarketDetailScreen from '@features/community/MarketDetailScreen'; 
-
+import MarketplaceScreen from '@features/community/screens/MarketplaceScreen';
+import GuildDetailScreen from '@features/community/screens/GuildDetailScreen';
+import MarketDetailScreen from '@features/community/screens/MarketDetailScreen'; 
+import DiscussionScreen from '@features/community/screens/DiscussionScreen';
 // PROFILE SETTINGS
 import EditProfileScreen from '@features/profile/screens/EditProfileScreen';
 import AccountScreen from '@features/profile/screens/settings/AccountScreen';
@@ -67,7 +69,21 @@ const MainStackNavigator = () => {
       <AppStack.Screen name="Media" component={MediaScreen} />
       <AppStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
       <AppStack.Screen name="MarketDetail" component={MarketDetailScreen} options={{ animation: 'slide_from_right' }}/>
-
+      <AppStack.Screen 
+        name="Marketplace" 
+        component={MarketplaceScreen} 
+        options={{ animation: 'slide_from_right' }}
+      />
+      <AppStack.Screen 
+        name="GuildDetail" 
+        component={GuildDetailScreen} 
+        options={{ animation: 'slide_from_right' }}
+      />
+      <AppStack.Screen 
+        name="Discussion" 
+        component={DiscussionScreen} 
+        options={{ animation: 'slide_from_right' }}
+      />
       {/* CHATS */}
     </AppStack.Navigator>
   );

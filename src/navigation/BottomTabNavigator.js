@@ -10,7 +10,7 @@ import HubScreen from '@features/hub/Hub/HubScreen';
 import ProfileScreen from '@features/profile/screens/ProfileScreen';
 
 // --- IMPORT THE NEW SCREEN ---
-import CommunityScreen from '@features/community/CommunityScreen'; 
+import CommunityScreen from '@features/community/screens/CommunityScreen'; 
 
 const Tab = createBottomTabNavigator();
 
