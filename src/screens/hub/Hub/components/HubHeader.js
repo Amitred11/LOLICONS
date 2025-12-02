@@ -8,7 +8,6 @@ import { Colors } from '@config/Colors';
 import { userData } from '@config/mockData';
 import { HEADER_EXPANDED_HEIGHT, HEADER_COLLAPSED_HEIGHT } from './constants';
 import { useNavigation } from '@react-navigation/native';
-import { useAlert } from '@context/AlertContext';
 
 const SCROLL_DISTANCE = HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT;
 
@@ -36,16 +35,6 @@ const QuickActionButton = ({ icon, label, color, onPress }) => {
 const HubHeader = ({ scrollY }) => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { showAlert } = useAlert(); 
-  
-  const showConstructionAlert = (featureName) => {
-    showAlert({
-        title: "Under Construction 🚧",
-        message: `The ${featureName} feature is currently being built by our engineering team.\n\nCheck back soon!`,
-        type: 'construction',
-        btnText: "Got it"
-    });
-  };
 
   const animatedHeaderStyle = useAnimatedStyle(() => ({
     height: interpolate(scrollY.value, [0, SCROLL_DISTANCE], [HEADER_EXPANDED_HEIGHT + insets.top, HEADER_COLLAPSED_HEIGHT + insets.top], Extrapolate.CLAMP),
@@ -99,23 +88,23 @@ const HubHeader = ({ scrollY }) => {
                 icon="compass-outline" 
                 label="Explore" 
                 color={['#ff7e5f', '#feb47b']} 
-                onPress={() => showConstructionAlert('Community')} 
+                onPress={() => navigation.navigate('Community')} 
             />
             
-            {/* Messages: Shows Alert */}
+            {/* Messages: UPDATED to Navigate */}
             <QuickActionButton 
                 icon="chatbubbles-outline" 
                 label="Messages" 
                 color={['#7b4397', '#dc2430']} 
-                onPress={() => showConstructionAlert('Messages')} 
+                onPress={() => navigation.navigate('ChatList')} 
             />
             
-            {/* Friends: Shows Alert */}
+            {/* Friends: UPDATED to Navigate */}
             <QuickActionButton 
                 icon="person-add-outline" 
                 label="Friends" 
                 color={['#8A2387', '#E94057', '#F27121']} 
-                onPress={() => showConstructionAlert('Friends')} 
+                onPress={() => navigation.navigate('Friends')} 
             />
           </View>
         </Animated.View>

@@ -14,6 +14,8 @@ import { ModalProvider } from '@context/ModalContext';
 import { LibraryProvider } from '@context/LibraryContext'; 
 import { DownloadProvider } from '@context/DownloadContext';
 import { AlertProvider } from '@context/AlertContext';
+import { CommunityProvider } from '@context/CommunityContext'; 
+
 
 // Import App Logic
 import AppNavigator from '@navigation/AppNavigator';
@@ -39,16 +41,18 @@ const AppProviders = ({ children }) => (
   <SafeAreaProvider>
     <ActionSheetProvider>
       <MenuProvider>
-        <AlertProvider> 
-        <DownloadProvider>
-          <LibraryProvider>
-            <ModalProvider>
-              <AuthProvider>
-                {children}
-              </AuthProvider>
-            </ModalProvider>
-          </LibraryProvider>
-        </DownloadProvider>
+        <AlertProvider>
+          <ModalProvider>
+            <AuthProvider>
+              <CommunityProvider>
+                <LibraryProvider>
+                  <DownloadProvider>
+                    {children}
+                  </DownloadProvider>
+                </LibraryProvider>
+              </CommunityProvider>
+            </AuthProvider>
+          </ModalProvider>
         </AlertProvider> 
       </MenuProvider>
     </ActionSheetProvider>

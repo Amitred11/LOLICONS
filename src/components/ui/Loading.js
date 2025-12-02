@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Dimensions } from 'react-native'; // Added Text import
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { 
@@ -21,7 +21,7 @@ const CONFIG = {
   iconSize: 40,
   baseColor: Colors.primary,
   rippleCount: 3,
-  duration: 2500, // Slower is more "premium"
+  duration: 2500,
 };
 
 // --- Sub-Component: A Single Expanding Ring ---
@@ -43,7 +43,7 @@ const PulseRing = ({ delay, index }) => {
     return {
       opacity: interpolate(ringParams.value, [0, 0.7, 1], [0.8, 0.2, 0]),
       transform: [
-        { scale: interpolate(ringParams.value, [0, 1], [0.8, 4]) }, // Expands outward
+        { scale: interpolate(ringParams.value, [0, 1], [0.8, 4]) },
       ],
     };
   });
@@ -57,7 +57,7 @@ const Loading = ({ message = "Loading" }) => {
   const glow = useSharedValue(0);
 
   useEffect(() => {
-    // 1. Floating Effect (Anti-gravity bobbing)
+    // 1. Floating Effect
     float.value = withRepeat(
       withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
       -1,
@@ -75,47 +75,46 @@ const Loading = ({ message = "Loading" }) => {
   // Animated Styles
   const iconContainerStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateY: interpolate(float.value, [0, 1], [0, -10]) }, // Move up 10px
-      { scale: interpolate(float.value, [0, 1], [1, 1.05]) }      // Subtle scale up
+      { translateY: interpolate(float.value, [0, 1], [0, -10]) },
+      { scale: interpolate(float.value, [0, 1], [1, 1.05]) }
     ],
-    // Dynamic Shadow Glow
     shadowOpacity: interpolate(glow.value, [0, 1], [0.3, 0.8]),
     shadowRadius: interpolate(glow.value, [0, 1], [10, 25]),
   }));
 
-  const textStyle = useAnimatedStyle(() => ({
+  // This style now applies to the WRAPPER View, not the Text directly
+  const textWrapperStyle = useAnimatedStyle(() => ({
     opacity: interpolate(float.value, [0, 1], [0.5, 1]),
   }));
 
   return (
     <View style={styles.container}>
-      {/* 1. Immersive Background */}
       <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
-      
-      {/* Dark overlay to make the glow pop */}
       <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)' }]} />
 
       <View style={styles.contentWrapper}>
         
-        {/* 2. Background Ripples (Rendered behind icon) */}
         <View style={styles.rippleContainer}>
             {[...Array(CONFIG.rippleCount)].map((_, i) => (
                 <PulseRing key={i} delay={i * 400} index={i} />
             ))}
         </View>
 
-        {/* 3. Floating Icon Container */}
         <Animated.View style={[styles.iconContainer, iconContainerStyle]}>
           <Ionicons name="planet" size={CONFIG.iconSize} color={Colors.text} />
         </Animated.View>
 
-        {/* 4. Minimal Text */}
-        <Animated.Text 
+        {/* --- FIX START: Wrapped Text in Animated.View --- */}
+        <Animated.View 
           entering={FadeIn.delay(500)} 
-          style={[styles.text, textStyle]}
+          style={[styles.textWrapper, textWrapperStyle]}
         >
-          {message}
-        </Animated.Text>
+          <Text style={styles.text}>
+            {message}
+          </Text>
+        </Animated.View>
+        {/* --- FIX END --- */}
+
       </View>
     </View>
   );
@@ -143,28 +142,32 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     borderWidth: 1.5,
-    borderColor: CONFIG.baseColor, // Primary Color Ring
+    borderColor: CONFIG.baseColor,
     zIndex: 0,
   },
   iconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.primary, // Solid circle bg
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
-    // Base Shadow
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 0 },
     elevation: 15,
   },
+  // New wrapper style for positioning
+  textWrapper: {
+    marginTop: 40, 
+    alignItems: 'center',
+  },
+  // Text style strictly for fonts
   text: {
-    marginTop: 40,
     fontFamily: 'Poppins_600SemiBold',
     color: Colors.text,
     fontSize: 16,
-    letterSpacing: 4, // Very wide spacing for "Cinematic" look
+    letterSpacing: 4,
     textTransform: 'uppercase',
   },
 });

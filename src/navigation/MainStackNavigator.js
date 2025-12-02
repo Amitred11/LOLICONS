@@ -20,6 +20,8 @@ import MarketplaceScreen from '@features/community/screens/MarketplaceScreen';
 import GuildDetailScreen from '@features/community/screens/GuildDetailScreen';
 import MarketDetailScreen from '@features/community/screens/MarketDetailScreen'; 
 import DiscussionScreen from '@features/community/screens/DiscussionScreen';
+import CreatePostScreen from '@features/community/screens/CreatePostScreen';
+
 // PROFILE SETTINGS
 import EditProfileScreen from '@features/profile/screens/EditProfileScreen';
 import AccountScreen from '@features/profile/screens/settings/AccountScreen';
@@ -30,6 +32,9 @@ import PrivacyScreen from '@features/profile/screens/settings/PrivacyScreen';
 import TrophyCaseScreen from '@features/profile/screens/TrophyCaseScreen';
 
 // HUB & MESSAGING
+import FriendsScreen from '@features/hub/Friends/FriendsScreen';
+import ChatListScreen from '@features/hub/Chat/ChatListScreen';
+import ChatDetailScreen from '@features/hub/Chat/ChatDetailScreen';
 
 // MEDIA & EVENTS
 import VideoPlayerScreen from '@features/hub/Media/VideoPlayerScreen';
@@ -84,7 +89,15 @@ const MainStackNavigator = () => {
         component={DiscussionScreen} 
         options={{ animation: 'slide_from_right' }}
       />
+      <AppStack.Screen 
+        name="CreatePost" 
+        component={CreatePostScreen} 
+        options={{ animation: 'slide_from_right' }}
+      />
       {/* CHATS */}
+      <AppStack.Screen name="Friends" component={FriendsScreen} />
+      <AppStack.Screen name="ChatList" component={ChatListScreen} />
+      <AppStack.Screen name="ChatDetail" component={ChatDetailScreen} />
     </AppStack.Navigator>
   );
 };
