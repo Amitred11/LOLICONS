@@ -19,14 +19,7 @@ import QuickActions from './components/QuickActions';
 import EventCard from './components/EventCard';
 import EmptyState from './components/empty/EmptyState';
 
-// --- Data ---
-import { upcomingEvents, comicsData, ranks, userData } from '@config/mockData';
-
-const friendlyGoals = [
-    { id: '1', title: 'Read for 15 Minutes', icon: 'time-outline', progress: 0.75, target: '15m' },
-    { id: '2', title: 'Finish 1 Chapter', icon: 'book-outline', progress: 0, target: '1 Ch' },
-];
-
+// --- Static UI Data (Navigation/Config only) ---
 const friendlyActions = [
     { title: 'My Bookshelf', subtitle: 'Saved Comics', icon: 'bookmarks-outline', color: '#4A90E2', target: 'Comics' },
     { title: 'Discussions', subtitle: 'Join the talk', icon: 'chatbubbles-outline', color: '#8E44AD', target: 'Community' },
@@ -50,15 +43,6 @@ const getGreeting = () => {
     return "Good Evening";
 };
 
-const getCurrentRank = (xp) => { 
-    // Guard clause: Safe fallback if ranks is undefined/empty
-    const safeRanks = ranks || [];
-    if (safeRanks.length === 0) return { name: 'Novice', color: Colors.textSecondary };
-    
-    const foundRank = safeRanks.slice().reverse().find(rank => xp >= rank.minXp);
-    return foundRank || safeRanks[0];
-};
-
 // --- Main HomeScreen ---
 const HomeScreen = () => {
   const insets = useSafeAreaInsets();
@@ -69,19 +53,20 @@ const HomeScreen = () => {
   const scrollX = useSharedValue(0);
 
   const greeting = getGreeting();
-  const dailyProgress = 0.75; 
+  const dailyProgress = 0; 
   
-  // Safely fallback user name
-  const displayUser = user || userData || { name: 'Hunter', xp: 0, avatarUrl: null, username: 'Guest' };
-  const currentRank = useMemo(() => getCurrentRank(displayUser.xp || 0), [displayUser.xp]);
+  // Default Guest User State
+  const displayUser = user || { name: 'Guest', xp: 0, avatarUrl: null, username: 'Guest' };
+  
+  // Default Rank
+  const currentRank = { name: 'Novice', color: Colors.textSecondary };
 
-  // --- SAFE DATA HANDLING ---
-  // We create safe variables here. If the import is null/undefined, it defaults to empty array.
-  const safeComics = comicsData || [];
-  const featuredComics = safeComics.filter(c => c.isPopular);
-  const historyComics = safeComics.slice(0, 4); // Logic for history
-  const safeEvents = upcomingEvents || [];
-  const safeGoals = friendlyGoals || [];
+  // --- EMPTY DATA STATE ---
+  // All data arrays are initialized as empty to trigger EmptyState components
+  const featuredComics = []; 
+  const historyComics = []; 
+  const safeEvents = [];
+  const safeGoals = []; 
 
   // --- Alert Handlers ---
   const showConstructionAlert = (featureName) => {
@@ -137,12 +122,6 @@ const HomeScreen = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      
-      {currentRank.name === '¿¿' && (
-          <View style={styles.glitchContainer} pointerEvents="none">
-             <GlitchEffect />
-          </View>
-      )}
       
       {/* --- Animated Header --- */}
       <Animated.View style={[styles.header, animatedHeaderStyle]}>
@@ -230,21 +209,13 @@ const HomeScreen = () => {
                     </TouchableOpacity>
                 </View>
 
-                {/* Safe check for history items */}
                 {historyComics.length > 0 ? (
                     <FlatList 
                         data={historyComics} 
                         renderItem={({ item }) => (
                             <ContinueReadingCard 
                                 item={item} 
-                                // Safe check if chapters exist
-                                onPress={() => {
-                                    if (item.chapters && item.chapters.length > 0) {
-                                        navigation.navigate('Reader', { comicId: item.id, chapterId: item.chapters[0].id });
-                                    } else {
-                                        navigation.navigate('ComicDetail', { comicId: item.id });
-                                    }
-                                }} 
+                                onPress={() => navigation.navigate('ComicDetail', { comicId: item.id })} 
                             />
                         )} 
                         keyExtractor={item => item.id} 
@@ -302,9 +273,7 @@ const HomeScreen = () => {
                     <Text style={styles.sectionTitle}>Upcoming Events</Text>
                 </View>
                 
-                {/* Safe check for Events */}
                 {safeEvents.length > 0 ? (
-                    // Just render the FIRST item
                     <EventCard 
                        item={safeEvents[0]} 
                        onPress={() => navigation.navigate('Events')} 
@@ -325,7 +294,6 @@ const HomeScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  glitchContainer: { ...StyleSheet.absoluteFillObject, zIndex: 999, elevation: 10 },
   
   // Header Styles
   header: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1, justifyContent: 'flex-end' },

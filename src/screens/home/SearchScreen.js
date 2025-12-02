@@ -1,17 +1,15 @@
 // screens/home/SearchScreen.js
 
-// Import essential modules from React, React Native, and third-party libraries.
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, StatusBar, Image, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Colors } from '@config/Colors';
 import { Ionicons } from '@expo/vector-icons';
-import { comicsData } from '@config/mockData';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
 
-// --- Mock Data for Recommendations ---
-// This data is shown when the search bar is empty.
+// --- Static UI Recommendations ---
+// These are kept as static UI configuration so the screen isn't completely blank initially.
 const popularSearches = ["Action", "Solo Leveling", "Fantasy", "Isekai", "Villainess"];
 const topGenres = [
     { name: "Fantasy", icon: "sparkles-outline" },
@@ -23,40 +21,11 @@ const topGenres = [
 // --- Sub-components ---
 
 const SearchResultItem = ({ item, index, navigation }) => {
-    // Shared values for the entry animation.
-    const opacity = useSharedValue(0);
-    const translateY = useSharedValue(20);
-
-    // Trigger the animation when the component mounts.
-    useEffect(() => {
-        opacity.value = withDelay(index * 50, withTiming(1));
-        translateY.value = withDelay(index * 50, withTiming(0));
-    }, []);
-
-    const animatedStyle = useAnimatedStyle(() => ({
-        opacity: opacity.value,
-        transform: [{ translateY: translateY.value }],
-    }));
-
-    return (
-        <Animated.View style={animatedStyle}>
-            <TouchableOpacity 
-                style={styles.resultItem} 
-                onPress={() => navigation.navigate('ComicDetail', { comicId: item.id })}
-            >
-                <Image source={item.localSource} style={styles.resultImage} />
-                <View style={styles.resultTextContainer}>
-                    <Text style={styles.resultTitle} numberOfLines={1}>{item.title}</Text>
-                    <Text style={styles.resultAuthor}>{item.author}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={22} color={Colors.textSecondary} />
-            </TouchableOpacity>
-        </Animated.View>
-    );
+    // This component will never render in this Empty State version
+    return null;
 };
 
 const Recommendations = ({ onTagPress }) => {
-    // Animate the entire recommendations section fading in.
     const opacity = useSharedValue(0);
     useEffect(() => { opacity.value = withTiming(1, { duration: 400 }); }, []);
     const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
@@ -92,18 +61,14 @@ const SearchScreen = ({ navigation }) => {
     const [results, setResults] = useState([]);
     const isTyping = searchQuery.trim().length > 0;
 
-    // A shared value to control the animation of the "clear text" button.
     const clearButtonOpacity = useSharedValue(0);
 
-    // This effect runs whenever the search query changes to filter the data.
     useEffect(() => {
         if (isTyping) {
-            // Animate the clear button into view.
             clearButtonOpacity.value = withTiming(1);
             
-            // --- SAFE FILTERING ---
-            // Fallback to empty array if comicsData is undefined
-            const safeData = comicsData || [];
+            // --- EMPTY DATA SOURCE ---
+            const safeData = []; // No data available
             
             const filteredData = safeData.filter(comic => 
                 (comic.title && comic.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -111,13 +76,11 @@ const SearchScreen = ({ navigation }) => {
             );
             setResults(filteredData);
         } else {
-            // Animate the clear button out and clear the results.
             clearButtonOpacity.value = withTiming(0);
             setResults([]);
         }
     }, [searchQuery]);
 
-    // Animated style for the clear button's fade and scale effect.
     const animatedClearButtonStyle = useAnimatedStyle(() => ({
         opacity: clearButtonOpacity.value,
         transform: [{ scale: clearButtonOpacity.value }]
@@ -126,7 +89,6 @@ const SearchScreen = ({ navigation }) => {
     return (
         <BlurView intensity={100} tint="dark" style={styles.container}>
             <StatusBar barStyle="light-content" />
-            {/* The header containing the search bar and cancel button */}
             <View style={[styles.header, { paddingTop: insets.top }]}>
                 <View style={styles.searchBarContainer}>
                     <Ionicons name="search" size={20} color={Colors.textSecondary} style={styles.searchIcon} />
@@ -136,7 +98,7 @@ const SearchScreen = ({ navigation }) => {
                         placeholderTextColor={Colors.textSecondary}
                         value={searchQuery}
                         onChangeText={setSearchQuery}
-                        autoFocus={true} // Automatically focus the input when the screen loads.
+                        autoFocus={true}
                         returnKeyType="search"
                     />
                     <Animated.View style={animatedClearButtonStyle}>
@@ -150,7 +112,6 @@ const SearchScreen = ({ navigation }) => {
                 </TouchableOpacity>
             </View>
 
-            {/* Conditionally render the results list or the recommendations view. */}
             {isTyping ? (
                 <FlatList
                     data={results}
@@ -171,7 +132,6 @@ const SearchScreen = ({ navigation }) => {
     );
 };
 
-// --- Stylesheet ---
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: {
@@ -269,32 +229,6 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         paddingHorizontal: 40,
         fontFamily: 'Poppins_400Regular',
-    },
-    resultItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-    },
-    resultImage: {
-        width: 50,
-        height: 75,
-        borderRadius: 8,
-    },
-    resultTextContainer: {
-        flex: 1,
-        marginLeft: 15,
-    },
-    resultTitle: {
-        color: Colors.text,
-        fontSize: 16,
-        fontFamily: 'Poppins_600SemiBold',
-    },
-    resultAuthor: {
-        color: Colors.textSecondary,
-        fontSize: 14,
-        fontFamily: 'Poppins_400Regular',
-        marginTop: 2,
     },
 });
 

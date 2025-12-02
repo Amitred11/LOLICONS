@@ -30,6 +30,8 @@ import HelpScreen from '@features/profile/screens/settings/HelpScreen';
 import DataAndStorageScreen from '@features/profile/screens/settings/DataAndStorageScreen';
 import PrivacyScreen from '@features/profile/screens/settings/PrivacyScreen';
 import TrophyCaseScreen from '@features/profile/screens/TrophyCaseScreen';
+import ChangePasswordScreen from '@features/profile/screens/settings/ChangePasswordScreen';
+
 
 // HUB & MESSAGING
 import FriendsScreen from '@features/hub/Friends/FriendsScreen';
@@ -61,6 +63,8 @@ const MainStackNavigator = () => {
       <AppStack.Screen name="DataAndStorage" component={DataAndStorageScreen} options={{ animation: 'slide_from_right' }}/>
       <AppStack.Screen name="Privacy" component={PrivacyScreen} options={{ animation: 'slide_from_right' }}/>
       <AppStack.Screen name="TrophyCase" component={TrophyCaseScreen} />
+      <AppStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+
       {/* COMICS */}
       <AppStack.Screen name="ComicDetail" component={ComicDetailScreen} />
       <AppStack.Screen name="Reader" component={ReaderScreen} />

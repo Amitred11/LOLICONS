@@ -1,6 +1,6 @@
 // screens/profile/DataAndStorageScreen.js
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@config/Colors';
@@ -35,6 +35,43 @@ const SettingsRow = ({ icon, label, details, onPress, isLast, color = Colors.tex
 const DataAndStorageScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
 
+    // --- State Management for Storage Data ---
+    // Initialized to Empty/Zero values.
+    // Connect this state to your backend or FileSystem API in the useEffect below.
+    const [storageUsage, setStorageUsage] = useState({
+        downloads: 0, // In Bytes
+        appData: 0,   // In Bytes
+        cache: 0,     // In Bytes
+        downloadsLabel: '0 B',
+        appDataLabel: '0 B',
+        cacheLabel: '0 B'
+    });
+
+    /**
+     * Effect to fetch storage details on mount.
+     */
+    useEffect(() => {
+        const fetchStorageData = async () => {
+            try {
+                // TODO: Replace with actual FileSystem.getInfoAsync() or Backend API call
+                // For now, it remains empty as requested.
+                // Example:
+                // const cacheSize = await getCacheSize();
+                // setStorageUsage(prev => ({ ...prev, cache: cacheSize, cacheLabel: formatBytes(cacheSize) }));
+            } catch (error) {
+                console.error("Failed to load storage data", error);
+            }
+        };
+
+        fetchStorageData();
+    }, []);
+
+    // Helper to calculate flex ratios for the progress bar
+    const totalSize = storageUsage.downloads + storageUsage.appData + storageUsage.cache;
+    const downloadFlex = totalSize > 0 ? storageUsage.downloads / totalSize : 0;
+    const appDataFlex = totalSize > 0 ? storageUsage.appData / totalSize : 0;
+    const cacheFlex = totalSize > 0 ? storageUsage.cache / totalSize : 0;
+
     const handleClearCache = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         Alert.alert(
@@ -42,7 +79,16 @@ const DataAndStorageScreen = ({ navigation }) => {
             "This will clear temporary data but won't delete your downloads. Are you sure?",
             [
                 { text: "Cancel", style: "cancel" },
-                { text: "Clear", style: "destructive", onPress: () => console.log("Cache Cleared") }
+                { 
+                    text: "Clear", 
+                    style: "destructive", 
+                    onPress: () => {
+                        // TODO: Connect to backend/filesystem to actually delete cache
+                        console.log("Cache Cleared");
+                        // Simulating UI update
+                        setStorageUsage(prev => ({ ...prev, cache: 0, cacheLabel: '0 B' }));
+                    } 
+                }
             ]
         );
     };
@@ -54,7 +100,16 @@ const DataAndStorageScreen = ({ navigation }) => {
             "This action is permanent and will remove all downloaded comics from this device.",
             [
                 { text: "Cancel", style: "cancel" },
-                { text: "Delete All", style: "destructive", onPress: () => console.log("All Downloads Cleared") }
+                { 
+                    text: "Delete All", 
+                    style: "destructive", 
+                    onPress: () => {
+                        // TODO: Connect to backend/filesystem to delete downloads
+                        console.log("All Downloads Cleared");
+                        // Simulating UI update
+                        setStorageUsage(prev => ({ ...prev, downloads: 0, downloadsLabel: '0 B' }));
+                    } 
+                }
             ]
         );
     };
@@ -72,15 +127,34 @@ const DataAndStorageScreen = ({ navigation }) => {
                 {/* Storage Usage Visual Card */}
                 <View style={styles.storageCard}>
                     <Text style={styles.storageTitle}>Storage Usage</Text>
+                    
+                    {/* Visual Progress Bar */}
                     <View style={styles.progressBar}>
-                        <View style={[styles.progressSegment, { flex: 0.6, backgroundColor: Colors.secondary }]} />
-                        <View style={[styles.progressSegment, { flex: 0.25, backgroundColor: Colors.primary }]} />
-                        <View style={[styles.progressSegment, { flex: 0.15, backgroundColor: Colors.textSecondary }]} />
+                        {totalSize > 0 ? (
+                            <>
+                                <View style={[styles.progressSegment, { flex: downloadFlex, backgroundColor: Colors.secondary }]} />
+                                <View style={[styles.progressSegment, { flex: appDataFlex, backgroundColor: Colors.primary }]} />
+                                <View style={[styles.progressSegment, { flex: cacheFlex, backgroundColor: Colors.textSecondary }]} />
+                            </>
+                        ) : (
+                            // Empty state for the bar
+                            <View style={[styles.progressSegment, { flex: 1, backgroundColor: Colors.surface, opacity: 0.5 }]} />
+                        )}
                     </View>
+                    
                     <View style={styles.legendContainer}>
-                        <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.secondary }]} /><Text style={styles.legendText}>Downloads (1.2 GB)</Text></View>
-                        <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.primary }]} /><Text style={styles.legendText}>App Data (450 MB)</Text></View>
-                        <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.textSecondary }]} /><Text style={styles.legendText}>Cache (120 MB)</Text></View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: Colors.secondary }]} />
+                            <Text style={styles.legendText}>Downloads ({storageUsage.downloadsLabel})</Text>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
+                            <Text style={styles.legendText}>App Data ({storageUsage.appDataLabel})</Text>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: Colors.textSecondary }]} />
+                            <Text style={styles.legendText}>Cache ({storageUsage.cacheLabel})</Text>
+                        </View>
                     </View>
                 </View>
 
@@ -88,7 +162,13 @@ const DataAndStorageScreen = ({ navigation }) => {
                 <Text style={styles.sectionTitle}>Manage Data</Text>
                 <View style={styles.card}>
                     <SettingsRow icon="folder-open-outline" label="Manage Downloads" details="View by comic" onPress={() => {}} />
-                    <SettingsRow icon="trash-bin-outline" label="Clear Cache" details="120 MB" onPress={handleClearCache} isLast />
+                    <SettingsRow 
+                        icon="trash-bin-outline" 
+                        label="Clear Cache" 
+                        details={storageUsage.cacheLabel} 
+                        onPress={handleClearCache} 
+                        isLast 
+                    />
                 </View>
                 
                 <Text style={styles.sectionTitle}>Danger Zone</Text>
@@ -103,7 +183,7 @@ const DataAndStorageScreen = ({ navigation }) => {
 // --- Stylesheet ---
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, paddingBottom: 10, marginTop: 15, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },
     headerTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 18 },
     headerButton: { padding: 10, minWidth: 40, alignItems: 'center' },
     scrollContainer: { padding: 20, gap: 20 },

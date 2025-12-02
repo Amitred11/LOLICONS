@@ -1,50 +1,61 @@
 // screens/profile/ProfileScreen.js
 
-// Import essential modules from React, React Native, and third-party libraries.
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, Image, StatusBar, TouchableOpacity, Alert, ScrollView, FlatList, Dimensions, ImageBackground, Modal, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Image, StatusBar, TouchableOpacity, ScrollView, FlatList, Dimensions, ImageBackground } from 'react-native';
 import { Colors } from '@config/Colors';
 import { useAuth } from '@context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { useSharedValue, useAnimatedStyle, withDelay, withSpring, withTiming, useAnimatedScrollHandler, interpolate, Extrapolate } from 'react-native-reanimated';
+import Animated, { 
+    useSharedValue, 
+    useAnimatedStyle, 
+    withDelay, 
+    withSpring, 
+    withTiming, 
+    useAnimatedScrollHandler, 
+    interpolate, 
+    Extrapolate,
+    useAnimatedReaction,
+    runOnJS
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { userData as mockUserData, ranks } from '@config/mockData';
-import RankInfoModal from '../components/modals/RankInfoModal';
-import AchievementModal from '../components/modals/AchievementModal';
-import GlitchEffect from '../components/ui/GlitchEffect';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 
+// --- Imports ---
+import { userData as mockUserData, ranks } from '@config/mockData'; 
+import RankInfoModal from '../components/modals/RankInfoModal';
+import AchievementModal from '../components/modals/AchievementModal';
+import GlitchEffect from '../components/ui/GlitchEffect';
+import EmptyState from '../components/empty/EmptyState';
+
 // --- Configuration & Data ---
-// The original `mockUserData` is spread to ensure all properties are included.
-const userData = { ...mockUserData };
-const { width, height } = Dimensions.get('window');
-// Constants defining the layout dimensions for animations.
+const userData = { 
+    ...mockUserData, 
+    favorites: [], 
+    history: [], 
+    badges: [] 
+};
+
+const { width } = Dimensions.get('window');
 const HEADER_BANNER_HEIGHT = 250;
 const AVATAR_SIZE = 110;
 
 // --- Helper Functions ---
-// These functions perform calculations based on the mock data.
 const getCurrentRank = (xp) => {
-  // First, explicitly check for the special anomaly rank.
   if (xp < 0) {
     const anomalyRank = ranks.find(rank => rank.minXp < 0);
     if (anomalyRank) return anomalyRank;
   }
-  // If not an anomaly, proceed with the normal logic for all positive XP ranks.
   const normalRanks = ranks.filter(rank => rank.minXp >= 0);
   const foundRank = normalRanks.slice().reverse().find(rank => xp >= rank.minXp);
-  // Fallback to the lowest normal rank (Mortal).
   return foundRank || normalRanks.find(rank => rank.minXp === 0);
 };
 const getNextRank = (currentRank) => ranks[ranks.findIndex(r => r.name === currentRank.name) + 1];
 const getStatusColor = (statusType) => ({ online: '#2ecc71', 'in-game': '#3498db', offline: '#95a5a6', reading: '#d47e2cff' }[statusType] || '#95a5a6');
 
 // --- Reusable Components ---
-
-/** A wrapper that animates its children with a staggered fade-in and slide-up effect. */
 const AnimatedSection = ({ children, index }) => {
     const opacity = useSharedValue(0);
     const translateY = useSharedValue(20);
@@ -53,7 +64,6 @@ const AnimatedSection = ({ children, index }) => {
     return <Animated.View style={animatedStyle}>{children}</Animated.View>;
 };
 
-/** A component for a single achievement badge with an animated entry. */
 const BadgeItem = ({ item, index, onPress }) => {
     const entryProgress = useSharedValue(0);
     useEffect(() => { entryProgress.value = withDelay(index * 100, withSpring(1)); }, []);
@@ -70,7 +80,6 @@ const BadgeItem = ({ item, index, onPress }) => {
     );
 };
 
-// --- Minor Presentational Components ---
 const StatItem = ({ label, value }) => ( <View style={styles.statItem}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View> );
 const UserStatus = ({ status, style }) => ( <View style={[styles.statusContainer, style]}><View style={[styles.statusDot, { backgroundColor: getStatusColor(status.type) }]} /><Text style={styles.statusText}>{status.text}</Text></View> );
 const FavoriteItem = ({ item }) => ( <TouchableOpacity style={styles.favoriteItem}><Image source={item.image} style={styles.favoriteImage} /></TouchableOpacity> );
@@ -78,39 +87,44 @@ const HistoryItem = ({ item }) => ( <TouchableOpacity style={styles.historyItem}
 const RankCrest = ({ rank }) => ( <View style={styles.crestContainer}><BlurView intensity={50} tint="dark" style={[styles.crestBlur, { borderColor: rank.color }]}><Text style={[styles.crestText, { color: rank.color }]}>{rank.name}</Text></BlurView></View> );
 const ProfileRow = ({ icon, label, onPress, color = Colors.text, isLast = false }) => ( <TouchableOpacity onPress={onPress} style={[styles.rowContainer, isLast && { borderBottomWidth: 0 }]}><View style={styles.rowLeft}><Ionicons name={icon} size={22} color={color} style={{ width: 25 }} /><Text style={[styles.rowLabel, { color }]}>{label}</Text></View><Ionicons name="chevron-forward-outline" size={22} color={Colors.textSecondary} /></TouchableOpacity> );
 
-// --- Main Profile Screen Component ---
+// --- Main Profile Screen ---
 const ProfileScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { logout } = useAuth();
-  // State for the UI, such as the active tab and modal visibility.
   const [activeTab, setActiveTab] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState(null);
-  // Shared values to drive animations based on user interaction.
   const scrollY = useSharedValue(0);
   const tabIndicatorPos = useSharedValue(0);
-
   const [isRankModalVisible, setIsRankModalVisible] = useState(false);
+  const [isHeaderInteractive, setIsHeaderInteractive] = useState(false);
 
-  // useMemo prevents expensive calculations from running on every render.
   const currentRank = useMemo(() => getCurrentRank(userData.xp), []);
   const nextRank = useMemo(() => getNextRank(currentRank), []);
   const rankProgress = nextRank ? (userData.xp - currentRank.minXp) / (nextRank.minXp - currentRank.minXp) : 1;
   const xpFill = useSharedValue(0);
 
-  // Trigger the XP bar animation when the component mounts or progress changes.
   useEffect(() => { xpFill.value = withDelay(500, withSpring(rankProgress)); }, [rankProgress]);
 
-  // Event handlers
   const scrollHandler = useAnimatedScrollHandler((event) => { scrollY.value = event.contentOffset.y; });
+  
+  // Toggle header interactivity based on scroll position
+  useAnimatedReaction(
+    () => scrollY.value > 150,
+    (isInteractive, prev) => {
+        if (isInteractive !== prev) {
+            runOnJS(setIsHeaderInteractive)(isInteractive);
+        }
+    }
+  );
+
   const handleTabPress = (index) => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setActiveTab(index); const tabWidth = (width - 40 - 10) / 2; tabIndicatorPos.value = withTiming(index * tabWidth + (index * 10)); };
   const handleBadgePress = (badge) => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setSelectedBadge(badge); setModalVisible(true); };
   const handleCloseModal = () => setModalVisible(false);
   const handleOpenRankModal = () => setIsRankModalVisible(true);
   const handleCloseRankModal = () => setIsRankModalVisible(false);
 
-  // Animated style definitions based on shared values.
   const animatedXpFillStyle = useAnimatedStyle(() => ({ width: `${xpFill.value * 100}%` }));
   const animatedHeaderBannerStyle = useAnimatedStyle(() => ({ transform: [{ scale: interpolate(scrollY.value, [-HEADER_BANNER_HEIGHT, 0], [1.5, 1], Extrapolate.CLAMP) }] }));
   const animatedAvatarContainerStyle = useAnimatedStyle(() => ({ transform: [{ translateY: interpolate(scrollY.value, [0, 120], [0, -60], Extrapolate.CLAMP) }], opacity: interpolate(scrollY.value, [100, 150], [1, 0], Extrapolate.CLAMP) }));
@@ -122,39 +136,106 @@ const ProfileScreen = () => {
       <StatusBar barStyle="light-content" />
       {currentRank.name === '¿¿' && <GlitchEffect />}
       
-      {/* A compact header that appears when the user scrolls down */}
-      <Animated.View style={[styles.compactHeader, { height: insets.top + 60 }, animatedCompactHeaderStyle]}>
+      {/* Compact Header - Added pointerEvents prop */}
+      <Animated.View 
+        pointerEvents={isHeaderInteractive ? 'auto' : 'none'}
+        style={[styles.compactHeader, { height: insets.top + 60 }, animatedCompactHeaderStyle]}
+      >
         <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
         <View style={{ position: 'relative' }}><Image source={{ uri: userData.avatarUrl }} style={styles.compactAvatar} /><TouchableOpacity onPress={handleOpenRankModal}><RankCrest rank={currentRank} /></TouchableOpacity></View>
         <View><Text style={styles.compactUserName}>{userData.name}</Text>{userData.status && <UserStatus status={userData.status} style={{ marginLeft: 2, marginTop: -5 }} />}</View>
       </Animated.View>
       
       <Animated.ScrollView onScroll={scrollHandler} scrollEventThrottle={16} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
-        {/* The main, large header section that animates on scroll */}
+        {/* Large Header */}
         <View style={styles.header}>
             <Animated.View style={[styles.headerBannerWrapper, animatedHeaderBannerStyle]}><ImageBackground source={userData.favoriteComicBanner} style={styles.headerBanner}><LinearGradient colors={['transparent', 'rgba(0,0,0,0.6)', Colors.background]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} /></ImageBackground></Animated.View>
             <View style={styles.headerActions}><TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Account')}><Ionicons name="people-outline" size={22} color={Colors.text} /></TouchableOpacity><TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('EditProfile')}><Ionicons name="create-outline" size={22} color={Colors.text} /></TouchableOpacity></View>
             <Animated.View style={[styles.avatarContainer, animatedAvatarContainerStyle]}><View style={styles.avatarWrapper}><Image source={{ uri: userData.avatarUrl }} style={styles.avatar} /><TouchableOpacity style={styles.rankRealm}  onPress={handleOpenRankModal}><RankCrest rank={currentRank} /></TouchableOpacity></View><Text style={styles.userName}>{userData.name}</Text>{userData.status && <UserStatus status={userData.status} />}{userData.bio && <Text style={styles.bioText}>{userData.bio}</Text>}<View style={styles.statsContainer}>{userData.stats.map(stat => <StatItem key={stat.label} {...stat} />)}</View></Animated.View>
         </View>
 
-        {/* The main content area below the header */}
         <View style={styles.contentContainer}>
+            {/* Rank Card */}
             <AnimatedSection index={1}><View style={styles.rankCard}><BlurView intensity={25} tint="dark" style={styles.glassEffect} /><View style={styles.xpHeader}><Text style={styles.xpLabel}>Next Rank: {nextRank?.name || 'Max'}</Text><Text style={styles.xpValue}>{`${userData.xp} / ${nextRank?.minXp || userData.xp}`}</Text></View><View style={styles.xpBarTrack}><Animated.View style={[styles.xpBarFill, animatedXpFillStyle, {backgroundColor: currentRank.color}]} /></View></View></AnimatedSection>
-            <AnimatedSection index={2}><View style={styles.section}><View style={styles.tabContainer}><BlurView intensity={25} tint="dark" style={styles.glassEffect} /><Animated.View style={[styles.tabIndicator, animatedTabIndicatorStyle]}/><TouchableOpacity onPress={() => handleTabPress(0)} style={styles.tabButton}><Ionicons name="heart-outline" size={20} color={activeTab === 0 ? Colors.text : Colors.textSecondary} /><Text style={[styles.tabLabel, activeTab === 0 && styles.tabLabelActive]}>Favorites ({userData.favorites.length})</Text></TouchableOpacity><TouchableOpacity onPress={() => handleTabPress(1)} style={styles.tabButton}><Ionicons name="time-outline" size={20} color={activeTab === 1 ? Colors.text : Colors.textSecondary} /><Text style={[styles.tabLabel, activeTab === 1 && styles.tabLabelActive]}>History ({userData.history.length})</Text></TouchableOpacity></View>{activeTab === 0 ? ( <FlatList data={userData.favorites} renderItem={FavoriteItem} keyExtractor={item => item.id} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ marginTop: 20 }} /> ) : ( <View style={{marginTop: 20}}>{userData.history.slice(0, 3).map(item => <HistoryItem key={item.id} item={item}/>)}</View> )}</View></AnimatedSection>
-            <AnimatedSection index={3}><View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Trophy Case</Text><TouchableOpacity onPress={() => navigation.navigate('TrophyCase')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity></View><FlatList data={userData.badges} renderItem={({ item, index }) => <BadgeItem item={item} index={index} onPress={() => handleBadgePress(item)} />} keyExtractor={item => item.id} horizontal showsHorizontalScrollIndicator={false} /></AnimatedSection>
+            
+            {/* Tabs Section (Favorites / History) */}
+            <AnimatedSection index={2}>
+                <View style={styles.section}>
+                    <View style={styles.tabContainer}>
+                        <BlurView intensity={25} tint="dark" style={styles.glassEffect} />
+                        <Animated.View style={[styles.tabIndicator, animatedTabIndicatorStyle]}/>
+                        <TouchableOpacity onPress={() => handleTabPress(0)} style={styles.tabButton}>
+                            <Ionicons name="heart-outline" size={20} color={activeTab === 0 ? Colors.text : Colors.textSecondary} />
+                            <Text style={[styles.tabLabel, activeTab === 0 && styles.tabLabelActive]}>Favorites ({userData.favorites.length})</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleTabPress(1)} style={styles.tabButton}>
+                            <Ionicons name="time-outline" size={20} color={activeTab === 1 ? Colors.text : Colors.textSecondary} />
+                            <Text style={[styles.tabLabel, activeTab === 1 && styles.tabLabelActive]}>History ({userData.history.length})</Text>
+                        </TouchableOpacity>
+                    </View>
+                    
+                    {activeTab === 0 ? ( 
+                        userData.favorites.length > 0 ? (
+                            <FlatList data={userData.favorites} renderItem={FavoriteItem} keyExtractor={item => item.id} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ marginTop: 20 }} /> 
+                        ) : (
+                            <View style={{ marginTop: 20 }}>
+                                <EmptyState 
+                                    icon="heart-outline" 
+                                    title="No Favorites Yet" 
+                                    message="Save comics to your library to see them here." 
+                                    actionLabel="Browse Comics"
+                                    onAction={() => navigation.navigate('Comics')}
+                                />
+                            </View>
+                        )
+                    ) : ( 
+                        userData.history.length > 0 ? (
+                            <View style={{marginTop: 20}}>{userData.history.slice(0, 3).map(item => <HistoryItem key={item.id} item={item}/>)}</View> 
+                        ) : (
+                            <View style={{ marginTop: 20 }}>
+                                <EmptyState 
+                                    icon="time-outline" 
+                                    title="No Reading History" 
+                                    message="Start reading to track your progress." 
+                                />
+                            </View>
+                        )
+                    )}
+                </View>
+            </AnimatedSection>
+            
+            {/* Trophy Case */}
+            <AnimatedSection index={3}>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Trophy Case</Text>
+                    <TouchableOpacity onPress={() => navigation.navigate('TrophyCase')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
+                </View>
+                {userData.badges.length > 0 ? (
+                    <FlatList data={userData.badges} renderItem={({ item, index }) => <BadgeItem item={item} index={index} onPress={() => handleBadgePress(item)} />} keyExtractor={item => item.id} horizontal showsHorizontalScrollIndicator={false} />
+                ) : (
+                     <EmptyState 
+                        icon="trophy-outline" 
+                        title="No Trophies" 
+                        message="Complete achievements to earn trophies." 
+                        style={{ paddingVertical: 10 }}
+                    />
+                )}
+            </AnimatedSection>
+
+            {/* Settings */}
             <AnimatedSection index={4}><Text style={[styles.sectionTitle, {marginBottom: 12}]}>Settings & Support</Text><View style={styles.glassCard}><BlurView intensity={25} tint="dark" style={styles.glassEffect} /><ProfileRow icon="notifications-outline" label="Notifications" onPress={() => navigation.navigate('Notifications')} /><ProfileRow icon="server-outline" label="Data & Storage" onPress={() => navigation.navigate('DataAndStorage')} /><ProfileRow icon="shield-checkmark-outline" label="Privacy" onPress={() => navigation.navigate('Privacy')} /><ProfileRow icon="help-circle-outline" label="Help & Support" onPress={() => navigation.navigate('Help')} isLast /></View></AnimatedSection>
+            
+            {/* Logout */}
             <AnimatedSection index={5}><View style={[styles.glassCard, { marginBottom: insets.bottom + 90 }]}><BlurView intensity={25} tint="dark" style={styles.glassEffect} /><ProfileRow icon="log-out-outline" label="Log Out" onPress={logout} color={Colors.danger} isLast /></View></AnimatedSection>
         </View>
       </Animated.ScrollView>
 
-      {/* The Modals is placed at the root level to overlay all other screen content. */}
       <AchievementModal badge={selectedBadge} visible={modalVisible} onClose={handleCloseModal} />
       <RankInfoModal isVisible={isRankModalVisible} onClose={handleCloseRankModal} rank={currentRank} />
     </View>
   );
 };
 
-// --- Stylesheet ---
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { alignItems: 'center' },

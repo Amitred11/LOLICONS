@@ -1,8 +1,8 @@
 // screens/profile/NotificationsScreen.js
 
 // Import essential modules from React, React Native, and Expo libraries.
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Switch, TouchableOpacity, StatusBar, ScrollView, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Switch, TouchableOpacity, StatusBar, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@config/Colors';
 import { useModal } from '@context/ModalContext';
@@ -64,34 +64,88 @@ const QuietHoursRow = ({ onPress, currentSettings }) => (
  */
 const NotificationsScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
-    // A master state to enable or disable all notifications globally.
-    const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const { show: showModal } = useModal();
+    
+    // --- State Management ---
+    // Loading state for fetching initial preferences
+    const [isLoading, setIsLoading] = useState(true);
+
+    // A master state to enable or disable all notifications globally.
+    const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+    
     const [quietHours, setQuietHours] = useState({
         enabled: false,
         start: '10:00 PM',
         end: '8:00 AM',
     });
-    // State to manage individual notification categories.
+
+    // State to manage individual notification categories. Initialized to defaults.
     const [settings, setSettings] = useState({
-        newChapters: true,
-        recommendations: true,
-        newFollowers: true,
-        comments: true,
+        newChapters: false,
+        recommendations: false,
+        newFollowers: false,
+        comments: false,
         dms: false,
         promotions: false,
     });
 
+    /**
+     * Effect to fetch notification preferences on mount.
+     */
+    useEffect(() => {
+        const fetchPreferences = async () => {
+            try {
+                // TODO: Connect to Backend API to get user notification settings
+                // Example:
+                // const data = await api.get('/user/notifications');
+                // setNotificationsEnabled(data.globalEnabled);
+                // setSettings(data.preferences);
+                // setQuietHours(data.quietHours);
+                
+                // Simulating network request
+                setTimeout(() => {
+                    // Simulating a user who has notifications enabled
+                    setNotificationsEnabled(true);
+                    setSettings({
+                        newChapters: true,
+                        recommendations: true,
+                        newFollowers: true,
+                        comments: true,
+                        dms: false,
+                        promotions: false,
+                    });
+                    setIsLoading(false);
+                }, 1000);
+            } catch (error) {
+                console.error("Failed to load notification settings", error);
+                setIsLoading(false);
+            }
+        };
+
+        fetchPreferences();
+    }, []);
+
     // A generic handler to toggle the state of an individual setting.
     const toggleSetting = (key) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // Provides gentle haptic feedback.
-        setSettings(prev => ({ ...prev, [key]: !prev[key] }));
+        
+        // Optimistic UI Update
+        const newValue = !settings[key];
+        setSettings(prev => ({ ...prev, [key]: newValue }));
+
+        // TODO: Send API request to update specific setting
+        // api.patch('/user/notifications', { [key]: newValue });
+        console.log(`Toggled ${key} to ${newValue}`);
     };
     
     // A handler for the master toggle switch.
     const handleMasterToggle = (value) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Provides a more noticeable haptic feedback.
         setNotificationsEnabled(value);
+
+        // TODO: Send API request to update global setting
+        // api.patch('/user/notifications/global', { enabled: value });
+        console.log(`Global notifications set to ${value}`);
     }
     
     const handleQuietHoursPress = () => {
@@ -100,10 +154,22 @@ const NotificationsScreen = ({ navigation }) => {
             onSave: (newSettings) => {
                 // This callback receives the new settings from the modal
                 setQuietHours(newSettings);
+                
+                // TODO: Send API request to update quiet hours
+                // api.patch('/user/notifications/quiet-hours', newSettings);
                 console.log('Quiet Hours saved:', newSettings);
             }
         });
     };
+
+    if (isLoading) {
+        return (
+            <LinearGradient colors={[Colors.background, '#1a1a2e']} style={[styles.container, styles.loadingContainer]}>
+                <StatusBar barStyle="light-content" />
+                <ActivityIndicator size="large" color={Colors.secondary} />
+            </LinearGradient>
+        );
+    }
 
     return (
         <LinearGradient colors={[Colors.background, '#1a1a2e']} style={styles.container}>
@@ -152,7 +218,8 @@ const NotificationsScreen = ({ navigation }) => {
 // --- Stylesheet ---
 const styles = StyleSheet.create({
     container: { flex: 1, paddingBottom: 5 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },
+    loadingContainer: { justifyContent: 'center', alignItems: 'center' },
+    header: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 15, alignItems: 'center', paddingHorizontal: 15, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },
     headerTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 18 },
     headerButton: { padding: 10, minWidth: 40, alignItems: 'center' },
     scrollContainer: { padding: 20, gap: 20 },
