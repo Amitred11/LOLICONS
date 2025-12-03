@@ -23,7 +23,7 @@ import EmptyState from './components/empty/EmptyState';
 const friendlyActions = [
     { title: 'My Bookshelf', subtitle: 'Saved Comics', icon: 'bookmarks-outline', color: '#4A90E2', target: 'Comics' },
     { title: 'Discussions', subtitle: 'Join the talk', icon: 'chatbubbles-outline', color: '#8E44AD', target: 'Community' },
-    { title: 'Inbox', subtitle: 'Messages', icon: 'mail-outline', color: '#FF5A5F', target: 'Chat' },
+    { title: 'Inbox', subtitle: 'Messages', icon: 'mail-outline', color: '#FF5A5F', target: 'ChatList' },
     { title: 'Account', subtitle: 'Settings', icon: 'settings-outline', color: '#27AE60', target: 'Profile' },
 ];
 
@@ -62,7 +62,6 @@ const HomeScreen = () => {
   const currentRank = { name: 'Novice', color: Colors.textSecondary };
 
   // --- EMPTY DATA STATE ---
-  // All data arrays are initialized as empty to trigger EmptyState components
   const featuredComics = []; 
   const historyComics = []; 
   const safeEvents = [];
@@ -88,11 +87,7 @@ const HomeScreen = () => {
   };
 
   const handleActionPress = (item) => {
-      if (item.target === 'Community' || item.target === 'Chat') {
-          showConstructionAlert(item.title);
-      } else {
           navigation.navigate(item.target);
-      }
   };
 
   // --- Animations ---
@@ -119,6 +114,15 @@ const HomeScreen = () => {
       </TouchableOpacity>
   );
 
+  // New Notification Button Component
+  const NotificationButton = ({ style }) => (
+      <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={[styles.notificationBtn, style]}>
+          <Ionicons name="notifications-outline" size={24} color={Colors.text} />
+          {/* Optional: Unread Badge Indicator */}
+          {/* <View style={styles.badge} /> */}
+      </TouchableOpacity>
+  );
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
@@ -131,13 +135,19 @@ const HomeScreen = () => {
         </Animated.View>
         
         <View style={[styles.headerContent, { paddingTop: insets.top }]}>
+            
             {/* Expanded Header */}
             <Animated.View style={[styles.largeHeaderContainer, animatedLargeHeaderStyle]}>
                 <View>
                     <Text style={styles.headerSubtitle}>{greeting},</Text>
                     <Text style={styles.headerTitle}>{displayUser.username || displayUser.name}</Text>
                 </View>
-                <Avatar source={displayUser.avatarUrl} onPress={() => navigation.navigate('Profile')} />
+                
+                {/* Right Side Actions (Notification + Avatar) */}
+                <View style={styles.headerRightActions}>
+                    <NotificationButton />
+                    <Avatar source={displayUser.avatarUrl} onPress={() => navigation.navigate('Profile')} />
+                </View>
             </Animated.View>
 
             {/* Compact Header */}
@@ -146,8 +156,14 @@ const HomeScreen = () => {
                     <Ionicons name="search" size={18} color={Colors.textSecondary} />
                     <Text style={styles.searchPlaceholder}>Find a story...</Text>
                 </TouchableOpacity>
-                <Avatar source={displayUser.avatarUrl} size={36} onPress={() => navigation.navigate('Profile')} />
+
+                {/* Right Side Actions (Notification + Avatar) */}
+                <View style={styles.headerRightActions}>
+                    <NotificationButton />
+                    <Avatar source={displayUser.avatarUrl} size={36} onPress={() => navigation.navigate('Profile')} />
+                </View>
             </Animated.View>
+
         </View>
       </Animated.View>
 
@@ -303,6 +319,11 @@ const styles = StyleSheet.create({
   headerSubtitle: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 16 },
   headerTitle: { fontFamily: 'Poppins_700Bold', color: Colors.text, fontSize: 28 },
   avatarContainer: { borderWidth: 2, borderColor: Colors.surface, padding: 2, backgroundColor: Colors.surface, overflow: 'hidden' },
+  
+  // --- New Styles for Header Actions ---
+  headerRightActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  notificationBtn: { padding: 4, justifyContent: 'center', alignItems: 'center' },
+  badge: { position: 'absolute', top: 2, right: 4, width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
   
   compactHeaderContainer: { position: 'absolute', left: 0, right: 0, bottom: 0, height: COLLAPSED_HEADER_HEIGHT, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, gap: 15 },
   searchBar: { flex: 1, height: 40, backgroundColor: Colors.surface, borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15 },

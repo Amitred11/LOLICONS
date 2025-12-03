@@ -9,6 +9,7 @@ import BottomTabNavigator from './BottomTabNavigator';
 
 // HOME
 import SearchScreen from '@features/home/SearchScreen';
+import NotificationScreen from '@features/notification/NotificationScreen'; 
 
 // COMICS
 import ComicDetailScreen from '@features/comics/features/reader/ComicDetailScreen';
@@ -25,7 +26,7 @@ import CreatePostScreen from '@features/community/screens/CreatePostScreen';
 // PROFILE SETTINGS
 import EditProfileScreen from '@features/profile/screens/EditProfileScreen';
 import AccountScreen from '@features/profile/screens/settings/AccountScreen';
-import NotificationsScreen from '@features/profile/screens/settings/NotificationsScreen';
+import NotificationSettingScreen from '@features/profile/screens/settings/NotificationsScreen';
 import HelpScreen from '@features/profile/screens/settings/HelpScreen';
 import DataAndStorageScreen from '@features/profile/screens/settings/DataAndStorageScreen';
 import PrivacyScreen from '@features/profile/screens/settings/PrivacyScreen';
@@ -54,11 +55,12 @@ const MainStackNavigator = () => {
     >
       {/* The Main Tabs */}
       <AppStack.Screen name="Main" component={BottomTabNavigator} />
+      <AppStack.Screen name="Notifications" component={NotificationScreen} options={{ headerShown: false }} />
 
       {/* SETTINGS */}
       <AppStack.Screen name="EditProfile" component={EditProfileScreen} options={{ presentation: 'modal' }} />
       <AppStack.Screen name="Account" component={AccountScreen} options={{ animation: 'slide_from_right' }}/>
-      <AppStack.Screen name="Notifications" component={NotificationsScreen} options={{ animation: 'slide_from_right' }}/>
+      <AppStack.Screen name="NotificationSettings" component={NotificationSettingScreen} options={{ animation: 'slide_from_right' }}/>
       <AppStack.Screen name="Help" component={HelpScreen} options={{ animation: 'slide_from_right' }}/>
       <AppStack.Screen name="DataAndStorage" component={DataAndStorageScreen} options={{ animation: 'slide_from_right' }}/>
       <AppStack.Screen name="Privacy" component={PrivacyScreen} options={{ animation: 'slide_from_right' }}/>
