@@ -68,15 +68,6 @@ const HomeScreen = () => {
   const safeGoals = []; 
 
   // --- Alert Handlers ---
-  const showConstructionAlert = (featureName) => {
-    showAlert({
-        title: "Under Construction 🚧",
-        message: `The ${featureName} feature is currently being built by our engineering team.\n\nCheck back soon!`,
-        type: 'construction',
-        btnText: "Got it"
-    });
-  };
-
   const showGoalAlert = () => {
     showAlert({
         title: "Keep it up!",

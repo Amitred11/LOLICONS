@@ -1,16 +1,37 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors';
 
 const ChatBubble = ({ message, isMe, showSender }) => {
+  
+  const renderContent = () => {
+    if (message.type === 'image') {
+      return (
+        <View style={styles.imageContainer}>
+          <Image 
+            source={{ uri: message.imageUri }} 
+            style={styles.mediaImage} 
+            resizeMode="cover"
+          />
+        </View>
+      );
+    }
+
+    // Default Text
+    return (
+      <Text style={isMe ? styles.textMe : styles.textThem}>
+        {message.text}
+      </Text>
+    );
+  };
+
   return (
     <View style={[styles.wrapper, isMe ? styles.wrapperMe : styles.wrapperThem]}>
       {/* Avatar (Them) */}
       {!isMe && showSender && (
         <View style={styles.avatarContainer}>
           <Image source={{ uri: message.avatar }} style={styles.avatar} />
-          {/* Decorative ring */}
           <View style={styles.avatarRing} />
         </View>
       )}
@@ -22,15 +43,15 @@ const ChatBubble = ({ message, isMe, showSender }) => {
 
         {isMe ? (
           <LinearGradient
-            colors={[Colors.primary, '#2E86DE']} // Vibrant Blue Gradient
+            colors={[Colors.primary, '#2E86DE']}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={[styles.bubble, styles.bubbleMe]}
+            style={[styles.bubble, styles.bubbleMe, message.type === 'image' && styles.bubbleImage]}
           >
-            <Text style={styles.textMe}>{message.text}</Text>
+            {renderContent()}
           </LinearGradient>
         ) : (
-          <View style={[styles.bubble, styles.bubbleThem]}>
-            <Text style={styles.textThem}>{message.text}</Text>
+          <View style={[styles.bubble, styles.bubbleThem, message.type === 'image' && styles.bubbleImage]}>
+             {renderContent()}
           </View>
         )}
         
@@ -48,17 +69,18 @@ const styles = StyleSheet.create({
   wrapperThem: { justifyContent: 'flex-start' },
   
   avatarContainer: { marginRight: 10, position: 'relative' },
-  avatar: { width: 34, height: 34, borderRadius: 12, zIndex: 2 }, // Squircle avatar
+  avatar: { width: 30, height: 30, borderRadius: 12, zIndex: 2, backgroundColor: '#333' },
   avatarRing: { 
-    position: 'absolute', width: 38, height: 38, borderRadius: 14, 
+    position: 'absolute', width: 34, height: 34, borderRadius: 14, 
     backgroundColor: Colors.secondary, opacity: 0.3, top: -2, left: -2, zIndex: 1 
   },
   
-  senderName: { color: Colors.secondary, fontSize: 10, marginLeft: 4, marginBottom: 4, fontFamily: 'Poppins_600SemiBold', textTransform: 'uppercase' },
+  senderName: { color: Colors.secondary, fontSize: 10, marginLeft: 4, marginBottom: 4, fontWeight: '700', textTransform: 'uppercase' },
   
-  bubble: { paddingHorizontal: 18, paddingVertical: 14, borderRadius: 24, minWidth: 60 },
+  bubble: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 22, minWidth: 60 },
+  bubbleImage: { padding: 4, borderRadius: 16 }, // Less padding for images
   
-  // Unique Shape: "The Shout" (Bottom Right sharp)
+  // "The Shout" (Bottom Right sharp)
   bubbleMe: { 
     borderBottomRightRadius: 4, 
     shadowColor: Colors.primary, 
@@ -68,17 +90,21 @@ const styles = StyleSheet.create({
     elevation: 5
   },
   
-  // Unique Shape: "The Whisper" (Bottom Left sharp) - Glass effect
+  // "The Whisper" (Bottom Left sharp)
   bubbleThem: { 
-    backgroundColor: 'rgba(255,255,255,0.08)', 
+    backgroundColor: Colors.surface,
     borderBottomLeftRadius: 4, 
     borderWidth: 1, 
     borderColor: 'rgba(255,255,255,0.05)' 
   },
   
-  textMe: { color: '#FFF', fontFamily: 'Poppins_500Medium', fontSize: 15, lineHeight: 22 },
-  textThem: { color: Colors.text, fontFamily: 'Poppins_400Regular', fontSize: 15, lineHeight: 22 },
-  time: { color: 'rgba(255,255,255,0.3)', fontSize: 9, marginTop: 6, marginHorizontal: 5, fontWeight: '700' }
+  textMe: { color: '#FFF', fontSize: 15, lineHeight: 22 },
+  textThem: { color: Colors.text, fontSize: 15, lineHeight: 22 },
+  time: { color: 'rgba(255,255,255,0.3)', fontSize: 10, marginTop: 4, marginHorizontal: 5, fontWeight: '600' },
+
+  // Media Styles
+  imageContainer: { width: 200, height: 150, borderRadius: 14, overflow: 'hidden' },
+  mediaImage: { width: '100%', height: '100%' }
 });
 
 export default ChatBubble;

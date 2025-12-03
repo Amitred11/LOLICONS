@@ -5,6 +5,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GUILDS } from '../data/communityData';
+import { Colors } from '@config/Colors';
 
 const { width } = Dimensions.get('window');
 
@@ -12,17 +13,14 @@ const GuildDetailScreen = ({ route, navigation }) => {
   const { guildId } = route.params;
   const guild = GUILDS.find(g => g.id === guildId);
   
-  // State to simulate database status
   const [isJoined, setIsJoined] = useState(false);
 
   if (!guild) return null;
 
   const handleJoinAction = () => {
     if (isJoined) {
-      // Navigate to the Discussion/Feed Screen
       navigation.navigate('Discussion', { guildId: guild.id, guildName: guild.name });
     } else {
-      // Simulate Joining
       setIsJoined(true);
     }
   };
@@ -36,7 +34,7 @@ const GuildDetailScreen = ({ route, navigation }) => {
         <View style={styles.heroContainer}>
           <Image source={{ uri: guild.cover }} style={styles.heroImage} />
           <LinearGradient
-            colors={['transparent', '#0F172A']}
+            colors={['transparent', Colors.background]} // Fades to #0D0D0D
             style={styles.heroGradient}
           />
           
@@ -44,7 +42,7 @@ const GuildDetailScreen = ({ route, navigation }) => {
             style={styles.backBtn} 
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={24} color="#FFF" />
+            <Ionicons name="arrow-back" size={24} color={Colors.text} />
           </TouchableOpacity>
         </View>
 
@@ -52,12 +50,12 @@ const GuildDetailScreen = ({ route, navigation }) => {
         <View style={styles.body}>
           {/* Header Info */}
           <View style={styles.headerContent}>
-             <View style={[styles.iconBox, { backgroundColor: guild.accent }]}>
+             <View style={[styles.iconBox, { backgroundColor: guild.accent || Colors.primary }]}>
                 <Ionicons name={guild.icon} size={32} color="#FFF" />
              </View>
              <Text style={styles.title}>{guild.name}</Text>
              <View style={styles.statBadge}>
-                <Ionicons name="people" size={14} color="#94A3B8" />
+                <Ionicons name="people" size={14} color={Colors.textSecondary} />
                 <Text style={styles.statText}>{guild.members} Members • Public Realm</Text>
              </View>
           </View>
@@ -68,13 +66,14 @@ const GuildDetailScreen = ({ route, navigation }) => {
             style={[styles.mainBtn, isJoined ? styles.btnEnter : styles.btnJoin]}
             onPress={handleJoinAction}
           >
-            <Text style={styles.btnText}>
+            <Text style={[styles.btnText, isJoined && { color: '#000' }]}> 
+              {/* If secondary is bright mint, black text might look better, otherwise keep white */}
               {isJoined ? 'Enter Realm' : 'Join Community'}
             </Text>
             <Ionicons 
               name={isJoined ? "arrow-forward" : "add-circle-outline"} 
               size={20} 
-              color="#FFF" 
+              color={isJoined ? '#000' : '#FFF'} 
               style={{ marginLeft: 8 }} 
             />
           </TouchableOpacity>
@@ -90,17 +89,17 @@ const GuildDetailScreen = ({ route, navigation }) => {
           {/* Rules / Info Grid */}
           <View style={styles.infoGrid}>
             <View style={styles.infoCard}>
-              <Ionicons name="shield-checkmark-outline" size={24} color="#10B981" />
+              <Ionicons name="shield-checkmark-outline" size={24} color={Colors.secondary} />
               <Text style={styles.infoTitle}>Verified</Text>
               <Text style={styles.infoSub}>Official Guild</Text>
             </View>
             <View style={styles.infoCard}>
-              <Ionicons name="flame-outline" size={24} color="#F59E0B" />
+              <Ionicons name="flame-outline" size={24} color={Colors.primary} />
               <Text style={styles.infoTitle}>Active</Text>
               <Text style={styles.infoSub}>Daily Posts</Text>
             </View>
             <View style={styles.infoCard}>
-              <Ionicons name="globe-outline" size={24} color="#6366F1" />
+              <Ionicons name="globe-outline" size={24} color="#A78BFA" />
               <Text style={styles.infoTitle}>Global</Text>
               <Text style={styles.infoSub}>Open to All</Text>
             </View>
@@ -112,7 +111,7 @@ const GuildDetailScreen = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F172A' },
+  container: { flex: 1, backgroundColor: Colors.background },
   heroContainer: { height: 320, width: width },
   heroImage: { width: '100%', height: '100%' },
   heroGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 150 },
@@ -122,7 +121,7 @@ const styles = StyleSheet.create({
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)'
+    borderWidth: 1, borderColor: Colors.border
   },
 
   body: { paddingHorizontal: 24, marginTop: -60 },
@@ -132,34 +131,38 @@ const styles = StyleSheet.create({
     width: 64, height: 64, borderRadius: 20,
     justifyContent: 'center', alignItems: 'center',
     marginBottom: 15,
-    borderWidth: 4, borderColor: '#0F172A'
+    borderWidth: 4, borderColor: Colors.background // Matches background for cutout effect
   },
-  title: { fontSize: 28, fontWeight: '800', color: '#F8FAFC', textAlign: 'center', marginBottom: 8 },
-  statBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E293B', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  statText: { color: '#94A3B8', fontSize: 13, marginLeft: 6, fontWeight: '500' },
+  title: { fontSize: 28, fontWeight: '800', color: Colors.text, textAlign: 'center', marginBottom: 8 },
+  statBadge: { 
+    flexDirection: 'row', alignItems: 'center', 
+    backgroundColor: Colors.surface, 
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 
+  },
+  statText: { color: Colors.textSecondary, fontSize: 13, marginLeft: 6, fontWeight: '500' },
 
   mainBtn: {
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
     paddingVertical: 16, borderRadius: 16,
-    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 4 },
+    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3, shadowRadius: 8, elevation: 5
   },
-  btnJoin: { backgroundColor: '#6366F1' },
-  btnEnter: { backgroundColor: '#10B981' }, // Green when joined
+  btnJoin: { backgroundColor: Colors.primary },
+  btnEnter: { backgroundColor: Colors.secondary }, // Mint Green
   btnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
 
-  divider: { height: 1, backgroundColor: '#1E293B', marginVertical: 30 },
+  divider: { height: 1, backgroundColor: Colors.surface, marginVertical: 30 },
 
-  sectionTitle: { color: '#F8FAFC', fontSize: 20, fontWeight: '700', marginBottom: 12 },
-  description: { color: '#CBD5E1', fontSize: 15, lineHeight: 24, textAlign: 'left' },
+  sectionTitle: { color: Colors.text, fontSize: 20, fontWeight: '700', marginBottom: 12 },
+  description: { color: Colors.textSecondary, fontSize: 15, lineHeight: 24, textAlign: 'left' },
 
   infoGrid: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 30 },
   infoCard: { 
-    width: '31%', backgroundColor: '#1E293B', padding: 15, borderRadius: 16,
-    alignItems: 'center', borderWidth: 1, borderColor: '#334155'
+    width: '31%', backgroundColor: Colors.surface, padding: 15, borderRadius: 16,
+    alignItems: 'center', borderWidth: 1, borderColor: Colors.border
   },
-  infoTitle: { color: '#FFF', fontWeight: 'bold', marginTop: 8, fontSize: 14 },
-  infoSub: { color: '#64748B', fontSize: 11, marginTop: 2 }
+  infoTitle: { color: Colors.text, fontWeight: 'bold', marginTop: 8, fontSize: 14 },
+  infoSub: { color: Colors.textSecondary, fontSize: 11, marginTop: 2 }
 });
 
 export default GuildDetailScreen;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -8,50 +8,105 @@ import {
   SafeAreaView, 
   TextInput, 
   StatusBar, 
-  Platform 
+  Platform,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient'; // Make sure this is installed
-import MarketCard from '../components/MarketCard';
-import { MARKET_ITEMS } from '../data/communityData';
+import { LinearGradient } from 'expo-linear-gradient'; 
+import MarketCard from '../components/MarketCard'; // Assumed component
+import { Colors } from '@config/Colors'; 
 
 const CATEGORIES = ['All', 'Hardware', 'Digital', 'Services', 'Merch'];
 
+// 1. Single Mock Data Item
+const INITIAL_ITEMS = [
+  {
+    id: 'm1',
+    title: 'Legendary Sword',
+    price: '1,500 Gold',
+    image: 'https://images.unsplash.com/photo-1589252084795-356c8db2778e?auto=format&fit=crop&w=800&q=80', // Placeholder image
+    category: 'Hardware',
+    seller: 'KnightWalker',
+    sellerAvatar: 'https://ui-avatars.com/api/?name=KnightWalker&background=0D8ABC&color=fff',
+    condition: 'Mint',
+    rating: 5.0,
+    sales: 42,
+    description: 'A handcrafted replica sword. Perfect for cosplay or display. Forged from high-quality steel.',
+  }
+];
+
 const MarketplaceScreen = ({ navigation }) => {
+  const [searchText, setSearchText] = useState('');
   const [activeCat, setActiveCat] = useState('All');
+  const [filteredItems, setFilteredItems] = useState(INITIAL_ITEMS);
+
+  // 2. Filter Logic (Search + Category)
+  useEffect(() => {
+    let result = INITIAL_ITEMS;
+
+    // Filter by Category
+    if (activeCat !== 'All') {
+      result = result.filter(item => item.category === activeCat);
+    }
+
+    // Filter by Search Text
+    if (searchText) {
+      result = result.filter(item => 
+        item.title.toLowerCase().includes(searchText.toLowerCase()) ||
+        item.seller.toLowerCase().includes(searchText.toLowerCase())
+      );
+    }
+
+    setFilteredItems(result);
+  }, [searchText, activeCat]);
+
+  // --- Functions ---
+  const handleFilterPress = () => {
+    Alert.alert("Filters", "Opening advanced filter options...");
+  };
+
+  const handleItemPress = (item) => {
+    navigation.navigate('MarketDetail', { item });
+  };
+
+  // ----------------
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
-      {/* Top Nav */}
       <View style={styles.navBar}>
         <TouchableOpacity 
           onPress={() => navigation.goBack()} 
           style={styles.circleBtn}
         >
-          <Ionicons name="arrow-back" size={24} color="#FFF" />
+          <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
         
         <Text style={styles.screenTitle}>Marketplace</Text>
         
-        <TouchableOpacity style={styles.circleBtn}>
-          <Ionicons name="filter" size={22} color="#FFF" />
+        <TouchableOpacity style={styles.circleBtn} onPress={handleFilterPress}>
+          <Ionicons name="filter" size={20} color={Colors.text} />
         </TouchableOpacity>
       </View>
 
-      {/* Search Input */}
       <View style={styles.searchWrapper}>
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#94A3B8" />
+          <Ionicons name="search" size={20} color={Colors.textSecondary} />
           <TextInput 
             placeholder="Search items, sellers, gear..." 
-            placeholderTextColor="#64748B"
+            placeholderTextColor={Colors.textSecondary}
             style={styles.input}
-            selectionColor="#6366F1"
+            selectionColor={Colors.primary}
+            value={searchText}
+            onChangeText={setSearchText}
           />
+          {searchText.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchText('')}>
+              <Ionicons name="close-circle" size={18} color={Colors.textSecondary} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      {/* Categories */}
       <View style={styles.catContainer}>
         <FlatList 
           horizontal 
@@ -69,7 +124,7 @@ const MarketplaceScreen = ({ navigation }) => {
               >
                 {isActive ? (
                   <LinearGradient
-                    colors={['#6366F1', '#4F46E5']}
+                    colors={[Colors.primary, '#0090D8']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.catChipActive}
@@ -89,20 +144,37 @@ const MarketplaceScreen = ({ navigation }) => {
     </View>
   );
 
+  const renderEmptyState = () => (
+    <View style={styles.emptyContainer}>
+      <View style={styles.emptyIconCircle}>
+        <Ionicons name="cart-outline" size={50} color={Colors.textSecondary} />
+      </View>
+      <Text style={styles.emptyTitle}>
+        {searchText ? "No matches found" : "Market is Quiet"}
+      </Text>
+      <Text style={styles.emptySubtitle}>
+        {searchText 
+          ? `We couldn't find anything for "${searchText}".` 
+          : "Be the first to list something in this category!"}
+      </Text>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+      <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
       <FlatList
-        data={MARKET_ITEMS}
+        data={filteredItems}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <MarketCard 
             item={item} 
-            onPress={() => navigation.navigate('MarketDetail', { item })} 
+            onPress={() => handleItemPress(item)} 
           />
         )}
         numColumns={2}
         ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmptyState}
         columnWrapperStyle={styles.columnWrapper}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -112,10 +184,7 @@ const MarketplaceScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#0F172A' 
-  },
+  container: { flex: 1, backgroundColor: Colors.background },
   headerContainer: {
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 10,
     paddingBottom: 10,
@@ -128,7 +197,7 @@ const styles = StyleSheet.create({
     marginBottom: 20 
   },
   screenTitle: { 
-    color: '#F8FAFC', 
+    color: Colors.text, 
     fontSize: 20, 
     fontWeight: '700',
     letterSpacing: 0.5 
@@ -137,56 +206,35 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#1E293B',
+    backgroundColor: Colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155'
   },
-
-  // Search
-  searchWrapper: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
+  searchWrapper: { paddingHorizontal: 20, marginBottom: 20 },
   searchContainer: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    backgroundColor: '#1E293B', 
+    backgroundColor: Colors.surface, 
     borderRadius: 16, 
     paddingHorizontal: 16, 
     height: 52, 
     borderWidth: 1, 
-    borderColor: '#334155',
-    // Subtle shadow
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3
+    borderColor: 'transparent',
   },
   input: { 
     flex: 1, 
     marginLeft: 12, 
-    color: '#FFF', 
+    color: Colors.text, 
     fontSize: 16,
     fontWeight: '500' 
   },
-
-  // Categories
-  catContainer: {
-    marginBottom: 10,
-  },
-  catWrapper: {
-    marginRight: 10,
-  },
+  catContainer: { marginBottom: 10 },
+  catWrapper: { marginRight: 10 },
   catChip: { 
     paddingHorizontal: 20, 
     paddingVertical: 10, 
     borderRadius: 24, 
-    backgroundColor: 'transparent',
-    borderWidth: 1, 
-    borderColor: '#334155' 
+    backgroundColor: Colors.surface,
   },
   catChipActive: { 
     paddingHorizontal: 22, 
@@ -195,25 +243,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center'
   },
-  catText: { 
-    color: '#94A3B8', 
-    fontWeight: '600', 
-    fontSize: 14 
+  catText: { color: Colors.textSecondary, fontWeight: '600', fontSize: 14 },
+  catTextActive: { color: Colors.text, fontWeight: '700', fontSize: 14 },
+  listContent: { flexGrow: 1, paddingBottom: 100 },
+  columnWrapper: { justifyContent: 'space-between', paddingHorizontal: 20 },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 60,
+    paddingHorizontal: 40,
   },
-  catTextActive: { 
-    color: '#FFF', 
-    fontWeight: '700', 
-    fontSize: 14 
+  emptyIconCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: Colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
   },
-
-  // List
-  listContent: {
-    paddingBottom: 100,
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.text,
+    marginBottom: 8,
   },
-  columnWrapper: { 
-    justifyContent: 'space-between', 
-    paddingHorizontal: 20 
-  }
+  emptySubtitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 30,
+  },
 });
 
 export default MarketplaceScreen;

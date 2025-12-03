@@ -1,21 +1,26 @@
 import React from 'react';
 import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  TouchableOpacity, 
-  SafeAreaView, 
-  StatusBar, 
-  Platform 
+  View, Text, StyleSheet, FlatList, TouchableOpacity, 
+  SafeAreaView, StatusBar, Platform 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient'; // Ensure you have expo-linear-gradient installed
+import { LinearGradient } from 'expo-linear-gradient';
 import GuildCard from '../components/GuildCard';
 import { GUILDS } from '../data/communityData';
+import { Colors } from '@config/Colors'; 
+import { useAlert } from '@context/AlertContext';
 
 const CommunityScreen = ({ navigation }) => {
-  
+  const { showAlert } = useAlert();
+
+  const showConstructionAlert = (featureName) => {
+    showAlert({
+        title: "Under Construction 🚧",
+        message: `The ${featureName} feature is currently being built by our engineering team.\n\nCheck back soon!`,
+        type: 'construction',
+        btnText: "Got it"
+    });
+  };
   const renderHeader = () => (
     <View style={styles.headerContainer}>
       
@@ -29,7 +34,7 @@ const CommunityScreen = ({ navigation }) => {
           style={styles.iconButton}
           onPress={() => navigation.navigate('Notifications')}
         >
-          <Ionicons name="notifications-outline" size={24} color="#E2E8F0" />
+          <Ionicons name="notifications-outline" size={24} color={Colors.text} />
           <View style={styles.notificationBadge} />
         </TouchableOpacity>
       </View>
@@ -37,10 +42,11 @@ const CommunityScreen = ({ navigation }) => {
       {/* Modern Marketplace Banner */}
       <TouchableOpacity 
         activeOpacity={0.9}
-        onPress={() => navigation.navigate('Marketplace')}
+        onPress={() => showConstructionAlert('Marketplace')}
       >
         <LinearGradient
-          colors={['#6366F1', '#4F46E5']}
+          // Using your Primary Blue -> fading to a slightly darker shade
+          colors={[Colors.primary, '#007BB8']} 
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.banner}
@@ -56,7 +62,7 @@ const CommunityScreen = ({ navigation }) => {
           </View>
           
           <View style={styles.arrowBtn}>
-             <Ionicons name="arrow-forward" size={20} color="#4F46E5" />
+             <Ionicons name="arrow-forward" size={20} color={Colors.primary} />
           </View>
         </LinearGradient>
       </TouchableOpacity>
@@ -67,7 +73,7 @@ const CommunityScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+      <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
       <FlatList
         data={GUILDS}
         keyExtractor={item => item.id}
@@ -88,14 +94,13 @@ const CommunityScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#0F172A' 
+    backgroundColor: Colors.background 
   },
   listContent: {
     paddingHorizontal: 20,
     paddingBottom: 100,
   },
   headerContainer: { 
-    // Fix for Header Spacing
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 20 : 10,
     marginBottom: 20 
   },
@@ -106,14 +111,14 @@ const styles = StyleSheet.create({
     marginBottom: 30 
   },
   welcomeText: { 
-    color: '#94A3B8', 
+    color: Colors.textSecondary, 
     fontSize: 14, 
     fontWeight: '600', 
     letterSpacing: 0.5,
     textTransform: 'uppercase' 
   },
   titleText: { 
-    color: '#F8FAFC', 
+    color: Colors.text, 
     fontSize: 32, 
     fontWeight: '800',
     letterSpacing: -0.5
@@ -122,11 +127,11 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#1E293B',
+    backgroundColor: Colors.surface, // Surface Color
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#334155'
+    borderColor: Colors.border
   },
   notificationBadge: {
     position: 'absolute',
@@ -135,9 +140,9 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#EF4444',
+    backgroundColor: Colors.danger, // Danger Color
     borderWidth: 1,
-    borderColor: '#1E293B'
+    borderColor: Colors.surface
   },
   
   // Banner Styles
@@ -148,11 +153,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between', 
     alignItems: 'center',
     marginBottom: 35,
-    shadowColor: '#6366F1',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
   },
   bannerContent: {
     flexDirection: 'row',
@@ -190,7 +195,7 @@ const styles = StyleSheet.create({
   },
   
   sectionTitle: { 
-    color: '#F8FAFC', 
+    color: Colors.text, 
     fontSize: 22, 
     fontWeight: '700', 
     marginBottom: 15 

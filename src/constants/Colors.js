@@ -1,4 +1,4 @@
-// constants/Colors.js
+// @config/Colors.js
 
 // This file defines the static, default color palette for the application.
 export const Colors = {
