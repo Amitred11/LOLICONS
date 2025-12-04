@@ -24,12 +24,10 @@ const OptionItem = ({ icon, title, subtitle, color, onPress, isMaterial }) => (
 
 const WatchSelectionModal = ({ visible, onClose, onSelectOption }) => {
     return (
-        <Modal visible={visible} transparent animationType="slide" statusBarTranslucent>
+        <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
             <TouchableWithoutFeedback onPress={onClose}>
                 <View style={styles.overlay}>
                     <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-                    
-                    {/* Bottom Sheet */}
                     <View style={styles.modalContent}>
                         <View style={styles.handle} />
                         <Text style={styles.headerTitle}>Watch Options</Text>
@@ -37,7 +35,7 @@ const WatchSelectionModal = ({ visible, onClose, onSelectOption }) => {
                         <OptionItem 
                             icon="play-circle" 
                             title="Watch Now" 
-                            subtitle="Resume S1:E4 • 12m left" 
+                            subtitle="Resume where you left off" 
                             color="#fff" 
                             onPress={() => onSelectOption('alone')}
                         />
@@ -71,30 +69,14 @@ const WatchSelectionModal = ({ visible, onClose, onSelectOption }) => {
 
 const styles = StyleSheet.create({
     overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalContent: { 
-        backgroundColor: '#18181b', 
-        borderTopLeftRadius: 24, 
-        borderTopRightRadius: 24, 
-        padding: 24, 
-        paddingBottom: 40,
-        width: width 
-    },
+    modalContent: { backgroundColor: '#18181b', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, width: width },
     handle: { width: 40, height: 4, backgroundColor: '#3f3f46', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
     headerTitle: { fontSize: 20, fontWeight: '700', color: '#fff', marginBottom: 24, textAlign: 'center' },
-    
-    optionContainer: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        backgroundColor: '#27272a', 
-        padding: 16, 
-        borderRadius: 16, 
-        marginBottom: 12 
-    },
+    optionContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#27272a', padding: 16, borderRadius: 16, marginBottom: 12 },
     iconBox: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
     textContainer: { flex: 1 },
     optionTitle: { fontSize: 16, fontWeight: '600', color: '#fff' },
     optionSubtitle: { fontSize: 13, color: '#a1a1aa', marginTop: 2 },
-    
     cancelButton: { marginTop: 12, alignItems: 'center', padding: 12 },
     cancelText: { color: '#71717a', fontSize: 15, fontWeight: '500' },
 });

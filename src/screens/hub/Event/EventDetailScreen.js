@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ImageBackground, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ImageBackground, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors';
+
+// API
+import { EventsService } from '@api/MockEventsService';
 
 const { width } = Dimensions.get('window');
 
@@ -31,8 +34,8 @@ const TicketView = ({ event }) => (
                 </View>
 
                 <View style={styles.ticketInfoRow}>
-                    <View><Text style={styles.label}>DATE</Text><Text style={styles.value}>Oct 12</Text></View>
-                    <View><Text style={styles.label}>TIME</Text><Text style={styles.value}>18:00</Text></View>
+                    <View><Text style={styles.label}>DATE</Text><Text style={styles.value}>{event?.date || "TBD"}</Text></View>
+                    <View><Text style={styles.label}>TIME</Text><Text style={styles.value}>{event?.time || "18:00"}</Text></View>
                     <View><Text style={styles.label}>SEAT</Text><Text style={styles.value}>A-24</Text></View>
                 </View>
             </View>
@@ -46,6 +49,7 @@ const TicketView = ({ event }) => (
 
 // --- SCHEDULE COMPONENT ---
 const ScheduleList = () => {
+    // Mock schedule data (could be moved to API as well)
     const schedule = [
         { time: '18:00', title: 'Opening', location: 'Main Stage', status: 'done' },
         { time: '18:30', title: 'Keynote', location: 'Auditorium A', status: 'live' },
@@ -70,10 +74,12 @@ const ScheduleList = () => {
 };
 
 // --- OVERVIEW COMPONENT ---
-const OverviewTab = ({ event, isRegistered, onRegister }) => (
+const OverviewTab = ({ event, isRegistered, isRegistering, onRegister }) => (
     <View style={styles.overviewContainer}>
         <Text style={styles.sectionHeader}>About Event</Text>
-        <Text style={styles.description}>Join us for {event?.title}. Experience exclusive premieres and live tournaments.</Text>
+        <Text style={styles.description}>
+            {event?.description || `Join us for ${event?.title}. Experience exclusive premieres and live tournaments.`}
+        </Text>
         
         <View style={styles.statRow}>
             <View style={styles.statBox}><Ionicons name="people" size={24} color={Colors.primary} /><Text style={styles.statValue}>2.4k</Text><Text style={styles.statLabel}>Going</Text></View>
@@ -81,9 +87,17 @@ const OverviewTab = ({ event, isRegistered, onRegister }) => (
         </View>
 
         {!isRegistered ? (
-            <TouchableOpacity style={styles.registerButton} onPress={onRegister}>
+            <TouchableOpacity 
+                style={styles.registerButton} 
+                onPress={onRegister}
+                disabled={isRegistering}
+            >
                 <LinearGradient colors={[Colors.primary, '#8A2387']} style={styles.gradientBtn}>
-                    <Text style={styles.registerText}>Get Ticket • Free</Text>
+                    {isRegistering ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                        <Text style={styles.registerText}>Get Ticket • Free</Text>
+                    )}
                 </LinearGradient>
             </TouchableOpacity>
         ) : (
@@ -100,21 +114,39 @@ const EventDetailScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
     const insets = useSafeAreaInsets();
+    
+    // Data from navigation
     const { eventData } = route.params || {}; 
+    
+    // Local State
     const [activeTab, setActiveTab] = useState('Overview');
     const [isRegistered, setIsRegistered] = useState(false);
+    const [isRegistering, setIsRegistering] = useState(false);
+
+    const handleRegister = async () => {
+        setIsRegistering(true);
+        const response = await EventsService.joinEvent(eventData?.id);
+        setIsRegistering(false);
+        
+        if (response.success) {
+            setIsRegistered(true);
+            setTimeout(() => setActiveTab('Ticket'), 800);
+        } else {
+            Alert.alert("Error", "Could not register for event");
+        }
+    };
 
     return (
         <View style={styles.container}>
-            <ImageBackground source={{ uri: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800' }} style={styles.headerImage}>
+            <ImageBackground source={eventData?.image || { uri: 'https://via.placeholder.com/800x400' }} style={styles.headerImage}>
                 <LinearGradient colors={['rgba(0,0,0,0.1)', Colors.darkBackground]} style={styles.headerGradient} />
                 <View style={[styles.navbar, { marginTop: insets.top }]}>
                     <TouchableOpacity style={styles.glassBtn} onPress={() => navigation.goBack()}><Ionicons name="arrow-back" size={24} color="#fff" /></TouchableOpacity>
                     <TouchableOpacity style={styles.glassBtn}><Ionicons name="share-social-outline" size={24} color="#fff" /></TouchableOpacity>
                 </View>
                 <View style={styles.titleContainer}>
-                    <Text style={styles.mainTitle}>{eventData?.title || "Global Gaming Summit"}</Text>
-                    <Text style={styles.subtitleText}>Javits Center, New York</Text>
+                    <Text style={styles.mainTitle}>{eventData?.title || "Event Name"}</Text>
+                    <Text style={styles.subtitleText}>{eventData?.location || "Unknown Location"}</Text>
                 </View>
             </ImageBackground>
 
@@ -128,9 +160,18 @@ const EventDetailScreen = () => {
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                {activeTab === 'Overview' && <OverviewTab event={eventData} isRegistered={isRegistered} onRegister={() => { setIsRegistered(true); setTimeout(() => setActiveTab('Ticket'), 800); }} />}
+                {activeTab === 'Overview' && (
+                    <OverviewTab 
+                        event={eventData} 
+                        isRegistered={isRegistered} 
+                        isRegistering={isRegistering}
+                        onRegister={handleRegister} 
+                    />
+                )}
                 {activeTab === 'Schedule' && <ScheduleList />}
-                {activeTab === 'Ticket' && (isRegistered ? <TicketView event={eventData} /> : <View style={styles.emptyTicketState}><Text style={styles.emptyText}>No Ticket Found</Text></View>)}
+                {activeTab === 'Ticket' && (
+                    isRegistered ? <TicketView event={eventData} /> : <View style={styles.emptyTicketState}><Text style={styles.emptyText}>Register to view ticket</Text></View>
+                )}
             </ScrollView>
         </View>
     );
@@ -152,20 +193,21 @@ const styles = StyleSheet.create({
     activeIndicator: { height: 3, backgroundColor: Colors.primary, marginTop: 4, borderRadius: 2 },
     scrollContent: { padding: 20, paddingBottom: 50 },
     
-    // Simplified Component Styles for brevity
+    // Overview
     overviewContainer: { },
     sectionHeader: { fontFamily: 'Poppins_600SemiBold', color: '#fff', fontSize: 18, marginBottom: 10 },
-    description: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, marginBottom: 20 },
+    description: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, marginBottom: 20, lineHeight: 22 },
     statRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
     statBox: { backgroundColor: Colors.surface, flex: 1, marginHorizontal: 5, borderRadius: 12, padding: 15, alignItems: 'center' },
     statValue: { color: '#fff', fontFamily: 'Poppins_700Bold' },
     statLabel: { color: Colors.textSecondary, fontSize: 12 },
     registerButton: { borderRadius: 16, overflow: 'hidden' },
-    gradientBtn: { paddingVertical: 16, alignItems: 'center' },
+    gradientBtn: { paddingVertical: 16, alignItems: 'center', height: 56, justifyContent: 'center' },
     registerText: { color: '#fff', fontFamily: 'Poppins_600SemiBold' },
     registeredBox: { backgroundColor: 'rgba(76, 175, 80, 0.1)', borderColor: '#4CAF50', borderWidth: 1, borderRadius: 12, padding: 20, alignItems: 'center' },
     registeredText: { color: '#4CAF50', fontFamily: 'Poppins_600SemiBold' },
 
+    // Schedule
     listContainer: { marginTop: 10 },
     scheduleItem: { flexDirection: 'row', marginBottom: 20, alignItems: 'center' },
     timeText: { width: 50, fontFamily: 'Poppins_600SemiBold', color: Colors.textSecondary },
@@ -176,6 +218,7 @@ const styles = StyleSheet.create({
     liveBadge: { backgroundColor: Colors.primary, paddingHorizontal: 6, borderRadius: 4 },
     liveText: { fontSize: 10, fontFamily: 'Poppins_700Bold' },
 
+    // Ticket
     ticketContainer: { alignItems: 'center' },
     ticketCard: { width: '100%', backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden' },
     ticketHeader: { padding: 20, alignItems: 'center' },

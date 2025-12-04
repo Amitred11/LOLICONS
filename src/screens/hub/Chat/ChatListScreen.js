@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors'; 
-import { ChatAPI } from './api/MockChatService';
+import { ChatAPI } from '@api/MockChatService';
 import { useAlert } from '@context/AlertContext';
 
 // Enable Layout Animation for Android

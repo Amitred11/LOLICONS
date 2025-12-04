@@ -1,15 +1,16 @@
-// screens/home/SearchScreen.js
-
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, StatusBar, Image, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Colors } from '@config/Colors';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { useNavigation } from '@react-navigation/native';
+
+// API
+import { HomeService } from '@api/MockHomeService';
 
 // --- Static UI Recommendations ---
-// These are kept as static UI configuration so the screen isn't completely blank initially.
 const popularSearches = ["Action", "Solo Leveling", "Fantasy", "Isekai", "Villainess"];
 const topGenres = [
     { name: "Fantasy", icon: "sparkles-outline" },
@@ -20,9 +21,22 @@ const topGenres = [
 
 // --- Sub-components ---
 
-const SearchResultItem = ({ item, index, navigation }) => {
-    // This component will never render in this Empty State version
-    return null;
+const SearchResultItem = ({ item, onPress }) => {
+    return (
+        <TouchableOpacity style={styles.resultItem} onPress={onPress}>
+            <Image source={item.cover} style={styles.resultImage} />
+            <View style={styles.resultTextContainer}>
+                <Text style={styles.resultTitle} numberOfLines={1}>{item.title}</Text>
+                <Text style={styles.resultAuthor}>{item.author}</Text>
+                <View style={styles.resultMeta}>
+                    <Ionicons name="star" size={12} color={Colors.primary} />
+                    <Text style={styles.resultRating}>{item.rating}</Text>
+                    <Text style={styles.resultType}>• {item.tags[0]}</Text>
+                </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+        </TouchableOpacity>
+    );
 };
 
 const Recommendations = ({ onTagPress }) => {
@@ -55,7 +69,8 @@ const Recommendations = ({ onTagPress }) => {
 };
 
 // --- Main Search Screen ---
-const SearchScreen = ({ navigation }) => {
+const SearchScreen = () => {
+    const navigation = useNavigation();
     const insets = useSafeAreaInsets();
     const [searchQuery, setSearchQuery] = useState('');
     const [results, setResults] = useState([]);
@@ -64,21 +79,21 @@ const SearchScreen = ({ navigation }) => {
     const clearButtonOpacity = useSharedValue(0);
 
     useEffect(() => {
-        if (isTyping) {
-            clearButtonOpacity.value = withTiming(1);
-            
-            // --- EMPTY DATA SOURCE ---
-            const safeData = []; // No data available
-            
-            const filteredData = safeData.filter(comic => 
-                (comic.title && comic.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                (comic.author && comic.author.toLowerCase().includes(searchQuery.toLowerCase()))
-            );
-            setResults(filteredData);
-        } else {
-            clearButtonOpacity.value = withTiming(0);
-            setResults([]);
-        }
+        const fetchResults = async () => {
+            if (isTyping) {
+                clearButtonOpacity.value = withTiming(1);
+                const response = await HomeService.searchContent(searchQuery);
+                if (response.success) {
+                    setResults(response.data);
+                }
+            } else {
+                clearButtonOpacity.value = withTiming(0);
+                setResults([]);
+            }
+        };
+        // Debounce simple impl
+        const timer = setTimeout(fetchResults, 300);
+        return () => clearTimeout(timer);
     }, [searchQuery]);
 
     const animatedClearButtonStyle = useAnimatedStyle(() => ({
@@ -116,8 +131,13 @@ const SearchScreen = ({ navigation }) => {
                 <FlatList
                     data={results}
                     keyExtractor={(item) => item.id}
-                    renderItem={({ item, index }) => <SearchResultItem item={item} index={index} navigation={navigation} />}
-                    contentContainerStyle={{ paddingTop: 10 }}
+                    renderItem={({ item }) => (
+                        <SearchResultItem 
+                            item={item} 
+                            onPress={() => navigation.navigate('ComicDetail', { comicId: item.id })} 
+                        />
+                    )}
+                    contentContainerStyle={{ paddingTop: 10, paddingBottom: 50 }}
                     ListEmptyComponent={() => (
                         <View style={styles.emptyContainer}>
                             <Ionicons name="sad-outline" size={60} color={Colors.textSecondary} />
@@ -134,102 +154,35 @@ const SearchScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 15,
-        paddingBottom: 10,
-        backgroundColor: 'rgba(0,0,0,0.3)',
-    },
-    searchBarContainer: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.surface,
-        borderRadius: 12,
-        height: 44,
-    },
-    searchIcon: {
-        marginLeft: 12,
-    },
-    textInput: {
-        flex: 1,
-        color: Colors.text,
-        fontSize: 12,
-        paddingHorizontal: 10,
-        fontFamily: 'Poppins_400Regular',
-    },
-    clearButton: {
-        padding: 8,
-    },
-    cancelButtonContainer: {
-        marginLeft: 10,
-        padding: 5,
-    },
-    cancelButton: {
-        color: Colors.secondary,
-        fontSize: 16,
-        fontFamily: 'Poppins_500Medium',
-    },
-    recommendationContainer: {
-        flex: 1,
-        padding: 20,
-    },
-    recommendationTitle: {
-        fontFamily: 'Poppins_600SemiBold',
-        color: Colors.text,
-        fontSize: 18,
-        marginBottom: 15,
-    },
-    tagContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
-        marginBottom: 30,
-    },
-    tag: {
-        backgroundColor: Colors.surface,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-    },
-    tagText: {
-        color: Colors.textSecondary,
-        fontFamily: 'Poppins_500Medium',
-    },
-    genreContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 15,
-    },
-    genreTag: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.surface,
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 12,
-        gap: 10,
-    },
-    genreText: {
-        color: Colors.text,
-        fontSize: 15,
-        fontFamily: 'Poppins_500Medium',
-    },
-    emptyContainer: {
-        flex: 1,
-        marginTop: 100,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    emptyText: {
-        color: Colors.textSecondary,
-        fontSize: 16,
-        marginTop: 15,
-        textAlign: 'center',
-        paddingHorizontal: 40,
-        fontFamily: 'Poppins_400Regular',
-    },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingBottom: 10, backgroundColor: 'rgba(0,0,0,0.3)' },
+    searchBarContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 12, height: 44 },
+    searchIcon: { marginLeft: 12 },
+    textInput: { flex: 1, color: Colors.text, fontSize: 14, paddingHorizontal: 10, fontFamily: 'Poppins_400Regular' },
+    clearButton: { padding: 8 },
+    cancelButtonContainer: { marginLeft: 10, padding: 5 },
+    cancelButton: { color: Colors.secondary, fontSize: 16, fontFamily: 'Poppins_500Medium' },
+    
+    // Result Item
+    resultItem: { flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+    resultImage: { width: 50, height: 70, borderRadius: 6, backgroundColor: Colors.surface },
+    resultTextContainer: { flex: 1, marginLeft: 15, justifyContent: 'center' },
+    resultTitle: { color: Colors.text, fontFamily: 'Poppins_600SemiBold', fontSize: 14 },
+    resultAuthor: { color: Colors.textSecondary, fontFamily: 'Poppins_400Regular', fontSize: 12 },
+    resultMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+    resultRating: { color: Colors.text, fontSize: 12, marginLeft: 4, fontFamily: 'Poppins_600SemiBold' },
+    resultType: { color: Colors.textSecondary, fontSize: 12, marginLeft: 4, fontFamily: 'Poppins_400Regular' },
+
+    recommendationContainer: { flex: 1, padding: 20 },
+    recommendationTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 18, marginBottom: 15 },
+    tagContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 30 },
+    tag: { backgroundColor: Colors.surface, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+    tagText: { color: Colors.textSecondary, fontFamily: 'Poppins_500Medium' },
+    genreContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 15 },
+    genreTag: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, gap: 10 },
+    genreText: { color: Colors.text, fontSize: 15, fontFamily: 'Poppins_500Medium' },
+    
+    emptyContainer: { flex: 1, marginTop: 100, alignItems: 'center', justifyContent: 'center' },
+    emptyText: { color: Colors.textSecondary, fontSize: 16, marginTop: 15, textAlign: 'center', paddingHorizontal: 40, fontFamily: 'Poppins_400Regular' },
 });
 
 export default SearchScreen;

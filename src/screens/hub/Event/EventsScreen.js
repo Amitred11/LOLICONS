@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
     View, 
     Text, 
@@ -8,7 +8,9 @@ import {
     ImageBackground, 
     TextInput,
     Dimensions,
-    Platform
+    Platform,
+    ActivityIndicator,
+    RefreshControl
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -17,12 +19,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { Colors } from '@config/Colors';
 
-// --- Mock Data Extension ---
-import { upcomingEventsData } from '@config/mockData';
-// Ensure your mock data has a 'category' field, or default to 'General'
-const categories = ['All', 'Releases', 'Meetups', 'Contests', 'Conventions'];
+// API
+import { EventsService } from '@api/MockEventsService';
 
-const { width } = Dimensions.get('window');
+const categories = ['All', 'Releases', 'Meetups', 'Contests', 'Conventions'];
 
 // --- Component: Hero / Featured Event ---
 const FeaturedEvent = ({ item, onPress }) => {
@@ -30,7 +30,7 @@ const FeaturedEvent = ({ item, onPress }) => {
     return (
         <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={styles.heroContainer}>
             <ImageBackground 
-                source={item.image || { uri: 'https://via.placeholder.com/400x200' }} 
+                source={item.image} 
                 style={styles.heroImage} 
                 imageStyle={{ borderRadius: 24 }}
             >
@@ -69,15 +69,9 @@ const CategoryFilter = ({ categories, selected, onSelect }) => (
             return (
                 <TouchableOpacity 
                     onPress={() => onSelect(item)}
-                    style={[
-                        styles.filterPill, 
-                        isSelected && styles.filterPillActive
-                    ]}
+                    style={[styles.filterPill, isSelected && styles.filterPillActive]}
                 >
-                    <Text style={[
-                        styles.filterText, 
-                        isSelected && styles.filterTextActive
-                    ]}>
+                    <Text style={[styles.filterText, isSelected && styles.filterTextActive]}>
                         {item}
                     </Text>
                 </TouchableOpacity>
@@ -88,20 +82,17 @@ const CategoryFilter = ({ categories, selected, onSelect }) => (
 
 // --- Component: Standard Event Row ---
 const EventRow = ({ item, onPress, index }) => {
-    // 1. Safe calculation (This was correct in the previous version)
     const dateParts = item.date && typeof item.date === 'string' 
         ? item.date.split(' ') 
         : ['?', '???'];
         
-    const day = dateParts[0];
-    const month = dateParts.length > 1 ? dateParts[1] : '';
+    const month = dateParts[0];
+    const day = dateParts.length > 1 ? dateParts[1] : '';
 
     return (
     <Animated.View entering={FadeInDown.delay(index * 100).springify()} layout={Layout.springify()}>
         <TouchableOpacity style={styles.cardContainer} onPress={onPress} activeOpacity={0.7}>
-            {/* Date Box */}
             <View style={styles.dateBox}>
-                {/* 2. FIX: Use the safe variables 'day' and 'month' here */}
                 <Text style={styles.dateDay}>{day}</Text> 
                 <Text style={styles.dateMonth}>{month}</Text>
             </View>
@@ -129,19 +120,43 @@ const EventRow = ({ item, onPress, index }) => {
 const EventsScreen = () => {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
+    
+    // State
+    const [events, setEvents] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
 
+    // Load Data
+    const loadEvents = useCallback(async () => {
+        const result = await EventsService.getEvents();
+        if (result.success) {
+            setEvents(result.data);
+        }
+        setLoading(false);
+        setRefreshing(false);
+    }, []);
+
+    useEffect(() => {
+        loadEvents();
+    }, [loadEvents]);
+
+    const handleRefresh = () => {
+        setRefreshing(true);
+        loadEvents();
+    };
+
     // Filter Logic
     const filteredEvents = useMemo(() => {
-        return upcomingEventsData.filter(event => {
+        return events.filter(event => {
             const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesCategory = selectedCategory === 'All' || (event.category === selectedCategory);
             return matchesSearch && matchesCategory;
         });
-    }, [searchQuery, selectedCategory]);
+    }, [searchQuery, selectedCategory, events]);
 
-    // Separate the first event as "Featured" (if showing All and no search)
+    // Separate Featured vs List
     const showHero = selectedCategory === 'All' && searchQuery === '';
     const heroEvent = showHero ? filteredEvents[0] : null;
     const listEvents = showHero ? filteredEvents.slice(1) : filteredEvents;
@@ -173,58 +188,68 @@ const EventsScreen = () => {
                 </View>
             </View>
 
-            {/* Main List */}
-            <FlatList
-                data={listEvents}
-                keyExtractor={(item) => item.id.toString()}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-                ListHeaderComponent={
-                    <View>
-                        {heroEvent && (
-                            <View style={{ marginBottom: 25 }}>
-                                <Text style={styles.sectionTitle}>Don't Miss</Text>
-                                <FeaturedEvent 
-                                    item={heroEvent} 
-                                    onPress={() => navigation.navigate('EventDetail', { eventData: heroEvent })} 
-                                />
+            {/* Main Content */}
+            {loading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={Colors.primary} />
+                </View>
+            ) : (
+                <FlatList
+                    data={listEvents}
+                    keyExtractor={(item) => item.id.toString()}
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.primary} />
+                    }
+                    ListHeaderComponent={
+                        <View>
+                            {heroEvent && (
+                                <View style={{ marginBottom: 25 }}>
+                                    <Text style={styles.sectionTitle}>Don't Miss</Text>
+                                    <FeaturedEvent 
+                                        item={heroEvent} 
+                                        onPress={() => navigation.navigate('EventDetail', { eventData: heroEvent })} 
+                                    />
+                                </View>
+                            )}
+                            
+                            <CategoryFilter 
+                                categories={categories} 
+                                selected={selectedCategory} 
+                                onSelect={setSelectedCategory} 
+                            />
+                            
+                            <View style={styles.listHeaderRow}>
+                                <Text style={styles.sectionTitle}>
+                                    {searchQuery ? 'Search Results' : 'Upcoming'}
+                                </Text>
+                                <Text style={styles.countText}>{listEvents.length} events</Text>
                             </View>
-                        )}
-                        
-                        <CategoryFilter 
-                            categories={categories} 
-                            selected={selectedCategory} 
-                            onSelect={setSelectedCategory} 
-                        />
-                        
-                        <View style={styles.listHeaderRow}>
-                            <Text style={styles.sectionTitle}>
-                                {searchQuery ? 'Search Results' : 'Upcoming'}
-                            </Text>
-                            <Text style={styles.countText}>{listEvents.length} events</Text>
                         </View>
-                    </View>
-                }
-                renderItem={({ item, index }) => (
-                    <EventRow 
-                        item={item} 
-                        index={index}
-                        onPress={() => navigation.navigate('EventDetail', { eventData: item })} 
-                    />
-                )}
-                ListEmptyComponent={
-                    <View style={styles.emptyState}>
-                        <Ionicons name="calendar-outline" size={60} color={Colors.surface} />
-                        <Text style={styles.emptyText}>No events found</Text>
-                    </View>
-                }
-            />
+                    }
+                    renderItem={({ item, index }) => (
+                        <EventRow 
+                            item={item} 
+                            index={index}
+                            onPress={() => navigation.navigate('EventDetail', { eventData: item })} 
+                        />
+                    )}
+                    ListEmptyComponent={
+                        <View style={styles.emptyState}>
+                            <Ionicons name="calendar-outline" size={60} color={Colors.surface} />
+                            <Text style={styles.emptyText}>No events found</Text>
+                        </View>
+                    }
+                />
+            )}
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background },
+    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     
     // Header
     headerContainer: { paddingHorizontal: 20, paddingBottom: 15 },

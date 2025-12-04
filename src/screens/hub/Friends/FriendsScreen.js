@@ -12,7 +12,7 @@ import { Colors } from '@config/Colors';
 
 // Components & API
 import FriendItem from './components/FriendItem'; 
-import { FriendAPI } from './api/MockFriendService';
+import { FriendAPI } from '@api/MockFriendService';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
