@@ -38,6 +38,7 @@ import ChangePasswordScreen from '@features/profile/screens/settings/ChangePassw
 import FriendsScreen from '@features/hub/Friends/FriendsScreen';
 import ChatListScreen from '@features/hub/Chat/ChatListScreen';
 import ChatDetailScreen from '@features/hub/Chat/ChatDetailScreen';
+import ChatSettingsScreen from '@features/hub/Chat/ChatSettingsScreen'
 
 // MEDIA & EVENTS
 import VideoPlayerScreen from '@features/hub/Media/VideoPlayerScreen';
@@ -104,6 +105,7 @@ const MainStackNavigator = () => {
       <AppStack.Screen name="Friends" component={FriendsScreen} />
       <AppStack.Screen name="ChatList" component={ChatListScreen} />
       <AppStack.Screen name="ChatDetail" component={ChatDetailScreen} />
+      <AppStack.Screen name="ChatSettings" component={ChatSettingsScreen} />      
     </AppStack.Navigator>
   );
 };

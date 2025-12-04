@@ -1,11 +1,14 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, 
-  KeyboardAvoidingView, Platform, Alert, Image 
+  KeyboardAvoidingView, Platform, Alert, Modal, Image
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient'; // Ensure this is installed
+import * as ImagePicker from 'expo-image-picker'; // Ensure this is installed
+
 import { Colors } from '@config/Colors';
 import ChatBubble from './components/ChatBubble';
 
@@ -15,78 +18,150 @@ const ChatDetailScreen = () => {
   const route = useRoute();
   const flatListRef = useRef();
 
-  const { user } = route.params || { user: { name: 'Chat', type: 'direct' } };
+  const { user, initialMessage } = route.params || { 
+    user: { name: 'Chat', type: 'direct' },
+    initialMessage: '' 
+  };
+  
   const [msg, setMsg] = useState('');
   
-  // Enhanced Mock Data
+  // Call State
+  const [isCalling, setIsCalling] = useState(false);
+  const [callType, setCallType] = useState('voice'); // voice or video
+
+  useEffect(() => {
+    if (initialMessage) {
+      setMsg(initialMessage);
+    }
+  }, [initialMessage]);
+
   const [messages, setMessages] = useState([
     { id: '1', text: 'Bro, are we still on for the raid tonight?', sender: 'them', type: 'text', time: '10:00 AM', avatar: user.avatar, senderName: user.name },
     { id: '2', text: 'Always. I got the snacks ready 🍕', sender: 'me', type: 'text', time: '10:05 AM' },
     { id: '3', text: 'Lobby opens in 10 mins!', sender: 'them', type: 'text', time: '10:07 AM', avatar: user.avatar, senderName: user.name },
   ]);
 
-  // Actions
-  const sendMessage = () => {
-    if(!msg.trim()) return;
+  // --- Real Functions ---
+
+  const sendMessage = (content = msg, type = 'text') => {
+    if (!content || (typeof content === 'string' && !content.trim())) return;
+
     const newMessage = { 
         id: Date.now().toString(), 
-        text: msg, 
+        text: type === 'image' ? 'Image Sent' : content, 
         sender: 'me', 
-        type: 'text',
+        type: type,
+        imageUri: type === 'image' ? content : null,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
     };
     setMessages(prev => [newMessage, ...prev]);
-    setMsg('');
+    if(type === 'text') setMsg('');
   };
 
-  const sendAttachment = () => {
-    Alert.alert("Send Media", "Choose an option", [
-      { text: "Camera", onPress: () => addImageMessage() },
-      { text: "Gallery", onPress: () => addImageMessage() },
-      { text: "Cancel", style: "cancel" }
-    ]);
+  const handlePickImage = async () => {
+    // 1. Request Permissions
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      Alert.alert("Permission Required", "You need to allow access to photos.");
+      return;
+    }
+
+    // 2. Launch Picker
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      sendMessage(result.assets[0].uri, 'image');
+    }
   };
 
-  const addImageMessage = () => {
-    const newMessage = { 
-      id: Date.now().toString(), 
-      text: 'Image Sent', 
-      sender: 'me', 
-      type: 'image', // New Type
-      imageUri: 'https://images.unsplash.com/photo-1593642532973-d31b6557fa68?w=500', // Mock Image
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
-    };
-    setMessages(prev => [newMessage, ...prev]);
+  const handleCamera = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      Alert.alert("Permission Required", "You need to allow camera access.");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      sendMessage(result.assets[0].uri, 'image');
+    }
   };
 
-  const handleCall = (type) => {
-    Alert.alert(type === 'video' ? "Video Call" : "Voice Call", `Calling ${user.name}...`);
+  const startCall = (type) => {
+    setCallType(type);
+    setIsCalling(true);
   };
+
+  const handleSettings = () => {
+    navigation.navigate('ChatSettings', { user });
+  };
+
+  // --- Call Modal UI ---
+  const CallOverlay = () => (
+    <Modal visible={isCalling} animationType="slide" transparent={false}>
+      <LinearGradient colors={['#1a2a6c', '#b21f1f', '#fdbb2d']} style={styles.callContainer}>
+        <View style={[styles.callHeader, { marginTop: insets.top + 40 }]}>
+            <Image source={{ uri: user.avatar }} style={styles.callAvatar} />
+            <Text style={styles.callName}>{user.name}</Text>
+            <Text style={styles.callStatus}>
+                {callType === 'video' ? 'Video Calling...' : 'Calling...'}
+            </Text>
+        </View>
+
+        <View style={[styles.callActions, { marginBottom: insets.bottom + 40 }]}>
+            <TouchableOpacity style={styles.callBtn}>
+                <Ionicons name="mic-off" size={28} color="#FFF" />
+            </TouchableOpacity>
+            <TouchableOpacity 
+                style={[styles.callBtn, { backgroundColor: '#FF453A', width: 70, height: 70 }]}
+                onPress={() => setIsCalling(false)}
+            >
+                <Ionicons name="call" size={32} color="#FFF" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.callBtn}>
+                <Ionicons name="volume-high" size={28} color="#FFF" />
+            </TouchableOpacity>
+        </View>
+      </LinearGradient>
+    </Modal>
+  );
 
   return (
     <View style={styles.container}>
+      <CallOverlay />
       <View style={styles.bgGlow} />
 
-      {/* Header with Calls and Spacing */}
+      {/* Header */}
       <View style={[styles.header, { marginTop: insets.top + 15 }]}>
         <View style={styles.headerLeft}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.glassBtn}>
                 <Ionicons name="chevron-back" size={24} color={Colors.text} />
             </TouchableOpacity>
             
-            <View style={styles.headerInfo}>
+            {/* Clickable Name for Settings */}
+            <TouchableOpacity onPress={handleSettings} style={styles.headerInfo}>
                 <Text style={styles.headerTitle}>{user.name}</Text>
                 <Text style={styles.headerSub}>
-                    {user.type === 'group' ? '5 Members • Active' : 'Online'}
+                    {user.type === 'group' ? '5 Members • Active' : 'Tap for info'}
                 </Text>
-            </View>
+            </TouchableOpacity>
         </View>
 
         <View style={styles.headerRight}>
-            <TouchableOpacity onPress={() => handleCall('voice')} style={[styles.glassBtn, styles.actionBtn]}>
+            <TouchableOpacity onPress={() => startCall('voice')} style={[styles.glassBtn, styles.actionBtn]}>
                 <Ionicons name="call" size={20} color={Colors.text} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleCall('video')} style={[styles.glassBtn, styles.actionBtn, { marginLeft: 10 }]}>
+            <TouchableOpacity onPress={() => startCall('video')} style={[styles.glassBtn, styles.actionBtn, { marginLeft: 10 }]}>
                 <Ionicons name="videocam" size={20} color={Colors.secondary} />
             </TouchableOpacity>
         </View>
@@ -108,7 +183,7 @@ const ChatDetailScreen = () => {
         )}
       />
 
-      {/* Advanced Input Bar */}
+      {/* Input */}
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
@@ -116,8 +191,7 @@ const ChatDetailScreen = () => {
         <View style={[styles.inputWrapper, { marginBottom: insets.bottom + 10 }]}>
             <View style={styles.glassInputContainer}>
                 
-                {/* Attachment Button */}
-                <TouchableOpacity onPress={sendAttachment} style={styles.attachBtn}>
+                <TouchableOpacity onPress={handlePickImage} style={styles.attachBtn}>
                     <Ionicons name="add" size={24} color={Colors.text} />
                 </TouchableOpacity>
 
@@ -130,18 +204,17 @@ const ChatDetailScreen = () => {
                     multiline
                 />
                 
-                {/* Right Side Icons */}
                 {msg.length === 0 ? (
                   <>
-                     <TouchableOpacity style={styles.iconBtn} onPress={() => Alert.alert("Emoji", "Emoji picker opening...")}>
+                     <TouchableOpacity style={styles.iconBtn} onPress={() => setMsg(msg + '🔥')}>
                         <Ionicons name="happy-outline" size={24} color={Colors.textSecondary} />
                      </TouchableOpacity>
-                     <TouchableOpacity style={styles.iconBtn} onPress={() => Alert.alert("Camera", "Opening camera...")}>
+                     <TouchableOpacity style={styles.iconBtn} onPress={handleCamera}>
                         <Ionicons name="camera-outline" size={24} color={Colors.textSecondary} />
                      </TouchableOpacity>
                   </>
                 ) : (
-                  <TouchableOpacity onPress={sendMessage} style={styles.sendBtn}>
+                  <TouchableOpacity onPress={() => sendMessage(msg, 'text')} style={styles.sendBtn}>
                       <Ionicons name="arrow-up" size={20} color="#000" />
                   </TouchableOpacity>
                 )}
@@ -178,7 +251,7 @@ const styles = StyleSheet.create({
   },
   actionBtn: { backgroundColor: 'rgba(255,255,255,0.05)' },
 
-  // Input Area
+  // Input
   inputWrapper: { paddingHorizontal: 15, paddingTop: 10 },
   glassInputContainer: { 
     flexDirection: 'row', alignItems: 'center', 
@@ -203,6 +276,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
     marginLeft: 5
   },
+
+  // Call UI
+  callContainer: { flex: 1, alignItems: 'center', justifyContent: 'space-between' },
+  callHeader: { alignItems: 'center' },
+  callAvatar: { width: 120, height: 120, borderRadius: 60, marginBottom: 20, borderWidth: 3, borderColor: '#FFF' },
+  callName: { fontSize: 30, color: '#FFF', fontWeight: 'bold' },
+  callStatus: { fontSize: 16, color: 'rgba(255,255,255,0.7)', marginTop: 5 },
+  callActions: { flexDirection: 'row', alignItems: 'center', gap: 30 },
+  callBtn: {
+    width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center', alignItems: 'center'
+  }
 });
 
 export default ChatDetailScreen;

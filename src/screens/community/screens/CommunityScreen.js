@@ -42,7 +42,7 @@ const CommunityScreen = ({ navigation }) => {
       {/* Modern Marketplace Banner */}
       <TouchableOpacity 
         activeOpacity={0.9}
-        onPress={() => showConstructionAlert('Marketplace')}
+        onPress={() =>  navigation.navigate('Marketplace')}
       >
         <LinearGradient
           // Using your Primary Blue -> fading to a slightly darker shade

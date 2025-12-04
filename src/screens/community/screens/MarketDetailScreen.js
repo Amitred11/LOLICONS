@@ -14,26 +14,22 @@ const MarketDetailScreen = ({ route, navigation }) => {
   // --- Functions ---
   
   const handleStartChat = () => {
-    // Logic to open chat channel
-    console.log(`Starting chat with ID: ${item.seller}`);
-    
-    // Simulating Navigation to Chat Screen
-    Alert.alert(
-      "Connect with Seller",
-      `Opening secure channel with @${item.seller}...`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Open Chat", 
-          onPress: () => console.log("Navigating to ChatScreen...") // navigation.navigate('Chat', { user: item.seller })
-        }
-      ]
-    );
+    const sellerUser = {
+      id: item.seller, 
+      name: item.seller,
+      avatar: item.sellerAvatar || `https://ui-avatars.com/api/?name=${item.seller}`,
+      type: 'direct', 
+      status: 'Online' 
+    };
+
+    navigation.navigate('ChatDetail', { 
+      user: sellerUser,
+      initialMessage: `Hi @${item.seller}, is the "${item.title}" still available?` 
+    });
   };
 
   const handleToggleWishlist = () => {
     setIsWishlisted(!isWishlisted);
-    // Logic to call API to save to wishlist
   };
 
   const handleSellerProfile = () => {

@@ -1,24 +1,28 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Alert, StatusBar } from 'react-native';
+import { 
+  View, Text, StyleSheet, FlatList, Image, TouchableOpacity, 
+  Alert, StatusBar, TextInput, Modal, LayoutAnimation, Platform, UIManager 
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '@config/Colors'; // Ensure this path is correct
+import { Colors } from '@config/Colors'; 
 
-// Mock Data
-const STORIES = [
-  { id: '1', name: 'You', isMe: true, avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400' },
-  { id: '2', name: 'Jess', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400', hasStory: true },
-  { id: '3', name: 'Dave', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400', hasStory: true },
-  { id: '4', name: 'Sarah', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400', hasStory: false },
-];
+// Enable LayoutAnimation for Android
+if (Platform.OS === 'android') {
+  if (UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+}
 
-const CHATS = [
-  { id: '1', type: 'direct', name: 'Jessica Parker', lastMessage: 'See you at the event!', time: '2m', unread: 2, avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400' },
-  { id: '2', type: 'group', name: 'Camping Trip 🏕️', lastMessage: 'David: I brought the tent', time: '1h', unread: 5 }, 
-  { id: '3', type: 'community', name: 'React Native Devs', lastMessage: 'New version released!', time: '4h', unread: 0 },
-  { id: '4', type: 'direct', name: 'Mike Ross', lastMessage: 'Sent an attachment', time: '1d', unread: 0, avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400' },
+// Initial Mock Data
+const INITIAL_CHATS = [
+  { id: '1', type: 'direct', name: 'Jessica Parker', lastMessage: 'See you at the event!', time: '2m', unread: 2, avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400', isOnline: true },
+  { id: '2', type: 'group', name: 'Camping Trip 🏕️', lastMessage: 'David: I brought the tent', time: '1h', unread: 5, isOnline: false }, 
+  { id: '3', type: 'community', name: 'React Native Devs', lastMessage: 'New version released!', time: '4h', unread: 0, isOnline: false },
+  { id: '4', type: 'direct', name: 'Mike Ross', lastMessage: 'Sent an attachment', time: '1d', unread: 0, avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400', isOnline: true },
+  { id: '5', type: 'direct', name: 'Sarah Connor', lastMessage: 'The future is not set.', time: '2d', unread: 0, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400', isOnline: false },
 ];
 
 const CATEGORIES = ['All', 'Direct', 'Group', 'Community'];
@@ -26,205 +30,312 @@ const CATEGORIES = ['All', 'Direct', 'Group', 'Community'];
 const ChatListScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  
+  // State
+  const [chats, setChats] = useState(INITIAL_CHATS);
   const [activeFilter, setActiveFilter] = useState('All'); 
+  const [searchText, setSearchText] = useState('');
+  
+  // Modal State
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedChat, setSelectedChat] = useState(null);
 
-  // Filter Logic
+  // --- Logic ---
+
   const filteredChats = useMemo(() => {
-    if (activeFilter === 'All') return CHATS;
-    return CHATS.filter(chat => chat.type.toLowerCase() === activeFilter.toLowerCase());
-  }, [activeFilter]);
+    return chats.filter(chat => {
+      // 1. Filter by Category
+      const matchesCategory = activeFilter === 'All' || chat.type.toLowerCase() === activeFilter.toLowerCase();
+      // 2. Filter by Search
+      const matchesSearch = chat.name.toLowerCase().includes(searchText.toLowerCase()) || 
+                            chat.lastMessage.toLowerCase().includes(searchText.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [activeFilter, searchText, chats]);
 
-  const handleStoryPress = (name) => {
-    Alert.alert("View Story", `Opening ${name}'s story...`);
+  const handleLongPress = (item) => {
+    setSelectedChat(item);
+    setModalVisible(true);
   };
 
-  const renderVibe = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.vibeCard}
-      onPress={() => item.isMe ? Alert.alert("Add Story", "Camera opening...") : handleStoryPress(item.name)}
-    >
-      <Image source={{ uri: item.avatar }} style={styles.vibeImage} />
-      <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.vibeOverlay} />
-      {item.isMe ? (
-        <View style={styles.addVibeBtn}>
-          <Ionicons name="add" size={16} color="#FFF" />
-        </View>
-      ) : (
-        <Text style={styles.vibeName}>{item.name}</Text>
-      )}
-      {item.hasStory && <View style={styles.vibeIndicator} />}
-    </TouchableOpacity>
-  );
+  const performAction = (action) => {
+    setModalVisible(false);
+    setTimeout(() => {
+      if (action === 'delete') {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setChats(prev => prev.filter(c => c.id !== selectedChat.id));
+      } else if (action === 'archive') {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setChats(prev => prev.filter(c => c.id !== selectedChat.id));
+        Alert.alert("Archived", `${selectedChat.name} moved to archives.`);
+      } else if (action === 'mute') {
+        Alert.alert("Muted", `Notifications from ${selectedChat.name} muted.`);
+      }
+    }, 300);
+  };
+
+  // --- Render Items ---
 
   const renderChat = ({ item }) => (
     <TouchableOpacity 
         style={styles.chatCard} 
-        activeOpacity={0.9}
+        activeOpacity={0.7}
         onPress={() => navigation.navigate('ChatDetail', { user: item })}
+        onLongPress={() => handleLongPress(item)}
     >
       <View style={styles.chatRow}>
-        {item.avatar ? (
-            <Image source={{ uri: item.avatar }} style={styles.chatAvatar} />
-        ) : (
-            <LinearGradient 
-                colors={item.type === 'group' ? [Colors.primary, '#2E86DE'] : [Colors.secondary, '#00C896']} 
-                style={styles.groupAvatar}
-            >
-                <Ionicons name={item.type === 'group' ? "people" : "planet"} size={22} color="#000" />
-            </LinearGradient>
-        )}
+        <View>
+            {item.avatar ? (
+                <Image source={{ uri: item.avatar }} style={styles.chatAvatar} />
+            ) : (
+                <LinearGradient 
+                    colors={item.type === 'group' ? [Colors.primary, '#2E86DE'] : [Colors.secondary, '#00C896']} 
+                    style={styles.groupAvatar}
+                >
+                    <Ionicons name={item.type === 'group' ? "people" : "planet"} size={22} color="#000" />
+                </LinearGradient>
+            )}
+            {item.isOnline && <View style={styles.onlineBadge} />}
+        </View>
         
         <View style={styles.chatContent}>
             <View style={styles.chatHeader}>
                 <Text style={styles.chatName}>{item.name}</Text>
-                {item.unread > 0 && <View style={styles.dot} />}
+                <Text style={styles.chatTime}>{item.time}</Text>
             </View>
-            <Text 
-              style={[styles.chatMessage, item.unread > 0 ? { color: Colors.text } : { color: Colors.textSecondary }]} 
-              numberOfLines={1}
-            >
-                {item.lastMessage}
-            </Text>
-        </View>
-
-        <View style={styles.timeContainer}>
-            <Text style={styles.chatTime}>{item.time}</Text>
+            <View style={styles.msgRow}>
+                <Text 
+                  style={[styles.chatMessage, item.unread > 0 ? { color: Colors.text, fontWeight: '600' } : { color: Colors.textSecondary }]} 
+                  numberOfLines={1}
+                >
+                    {item.type === 'group' && !item.lastMessage.includes(':') ? `Member: ${item.lastMessage}` : item.lastMessage}
+                </Text>
+                {item.unread > 0 && (
+                    <View style={styles.unreadBadge}>
+                        <Text style={styles.unreadText}>{item.unread}</Text>
+                    </View>
+                )}
+            </View>
         </View>
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
+      {/* Background Gradient Spot */}
+      <View style={styles.bgGlow} />
+
       {/* Header */}
-      <View style={styles.header}>
-        <View>
-            <Text style={styles.greeting}>What's Good,</Text>
-            <Text style={styles.title}>Messages</Text>
-        </View>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity 
-            style={styles.newChatBtn}
-            onPress={() => navigation.navigate('Friends')}
+            onPress={() => navigation.goBack()} 
+            style={styles.iconBtn}
         >
-            <Ionicons name="create-outline" size={26} color="#000" />
+            <Ionicons name="arrow-back" size={24} color={Colors.text} />
+        </TouchableOpacity>
+        
+        <Text style={styles.headerTitle}>Messages</Text>
+
+        <TouchableOpacity 
+            style={styles.iconBtn}
+            onPress={() => navigation.navigate('Friends')} // Or Create Chat
+        >
+            <Ionicons name="add" size={28} color={Colors.text} />
         </TouchableOpacity>
       </View>
 
-      {/* Stories Section */}
-      <View style={{ height: 110, marginBottom: 10 }}>
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+            <Ionicons name="search" size={20} color={Colors.textSecondary} />
+            <TextInput 
+                placeholder="Search conversations..."
+                placeholderTextColor={Colors.textSecondary}
+                style={styles.searchInput}
+                value={searchText}
+                onChangeText={setSearchText}
+            />
+            {searchText.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchText('')}>
+                    <Ionicons name="close-circle" size={18} color={Colors.textSecondary} />
+                </TouchableOpacity>
+            )}
+        </View>
+      </View>
+
+      {/* Filter Tabs */}
+      <View style={styles.filterContainer}>
         <FlatList 
-            data={STORIES}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            renderItem={renderVibe}
-            contentContainerStyle={{ paddingHorizontal: 20, gap: 15 }}
+          horizontal
+          data={CATEGORIES}
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={item => item}
+          contentContainerStyle={{ gap: 12, paddingHorizontal: 20 }}
+          renderItem={({ item }) => (
+            <TouchableOpacity 
+              onPress={() => setActiveFilter(item)}
+              style={[
+                styles.filterPill, 
+                activeFilter === item && styles.filterPillActive
+              ]}
+            >
+              <Text style={[
+                styles.filterText, 
+                activeFilter === item && styles.filterTextActive
+              ]}>{item}</Text>
+            </TouchableOpacity>
+          )}
         />
       </View>
 
-      {/* Main List Area */}
-      <View style={styles.listContainer}>
-          {/* Filter Tabs */}
-          <View style={styles.filterContainer}>
-            <FlatList 
-              horizontal
-              data={CATEGORIES}
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={item => item}
-              contentContainerStyle={{ gap: 10, paddingHorizontal: 5 }}
-              renderItem={({ item }) => (
-                <TouchableOpacity 
-                  onPress={() => setActiveFilter(item)}
-                  style={[
-                    styles.filterPill, 
-                    activeFilter === item && styles.filterPillActive
-                  ]}
-                >
-                  <Text style={[
-                    styles.filterText, 
-                    activeFilter === item && styles.filterTextActive
-                  ]}>{item}</Text>
-                </TouchableOpacity>
-              )}
-            />
+      {/* Chat List */}
+      <FlatList
+        data={filteredChats}
+        keyExtractor={item => item.id}
+        renderItem={renderChat}
+        contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 20 }}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="chatbubbles-outline" size={60} color={Colors.textSecondary} style={{ opacity: 0.3 }} />
+            <Text style={styles.emptyText}>No messages found</Text>
           </View>
+        }
+      />
 
-          <FlatList
-            data={filteredChats}
-            keyExtractor={item => item.id}
-            renderItem={renderChat}
-            contentContainerStyle={{ paddingBottom: 100, paddingTop: 10 }}
-            ListEmptyComponent={
-              <Text style={styles.emptyText}>No chats found in {activeFilter}</Text>
-            }
-          />
-      </View>
+      {/* Action Modal (Long Press) */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <TouchableOpacity 
+            style={styles.modalOverlay} 
+            activeOpacity={1} 
+            onPress={() => setModalVisible(false)}
+        >
+            <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Options for {selectedChat?.name}</Text>
+                </View>
+                
+                <TouchableOpacity style={styles.modalOption} onPress={() => performAction('mute')}>
+                    <Ionicons name="notifications-off-outline" size={22} color={Colors.text} />
+                    <Text style={styles.modalText}>Mute Notifications</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.modalOption} onPress={() => performAction('archive')}>
+                    <Ionicons name="archive-outline" size={22} color={Colors.text} />
+                    <Text style={styles.modalText}>Archive Chat</Text>
+                </TouchableOpacity>
+
+                <View style={styles.divider} />
+
+                <TouchableOpacity style={styles.modalOption} onPress={() => performAction('delete')}>
+                    <Ionicons name="trash-outline" size={22} color="#FF453A" />
+                    <Text style={[styles.modalText, { color: '#FF453A' }]}>Delete Conversation</Text>
+                </TouchableOpacity>
+            </View>
+        </TouchableOpacity>
+      </Modal>
+
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  bgGlow: {
+    position: 'absolute', top: -50, right: -50, width: 200, height: 200,
+    backgroundColor: Colors.primary, opacity: 0.15, borderRadius: 100, blurRadius: 80
+  },
   
-  // Header with MarginTop 15 as requested
+  // Header
   header: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
-    paddingHorizontal: 25, 
-    marginBottom: 20,
-    marginTop: 15 
+    paddingHorizontal: 20, 
+    marginBottom: 15 
   },
-  greeting: { color: Colors.textSecondary, fontSize: 14, fontWeight: '500' },
-  title: { fontSize: 32, fontWeight: '800', color: Colors.text, lineHeight: 40 },
-  
-  newChatBtn: {
-    width: 50, height: 50, borderRadius: 18,
-    backgroundColor: Colors.secondary,
+  headerTitle: { fontSize: 28, fontWeight: '700', color: Colors.text },
+  iconBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)',
     justifyContent: 'center', alignItems: 'center',
-    transform: [{ rotate: '-5deg' }],
-    shadowColor: Colors.secondary, shadowOpacity: 0.5, shadowRadius: 10
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)'
   },
 
-  // Stories
-  vibeCard: { width: 75, height: 95, borderRadius: 20, overflow: 'hidden', backgroundColor: Colors.surface },
-  vibeImage: { width: '100%', height: '100%' },
-  vibeOverlay: { ...StyleSheet.absoluteFillObject },
-  vibeName: { position: 'absolute', bottom: 6, left: 0, right: 0, textAlign: 'center', color: '#FFF', fontSize: 10, fontWeight: '600' },
-  vibeIndicator: { position: 'absolute', top: 6, right: 6, width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary, borderWidth: 2, borderColor: '#000' },
-  addVibeBtn: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
+  // Search
+  searchContainer: { paddingHorizontal: 20, marginBottom: 20 },
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#1E1E1E', 
+    height: 46, borderRadius: 14, paddingHorizontal: 15,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)'
+  },
+  searchInput: { flex: 1, marginLeft: 10, color: Colors.text, fontSize: 15 },
 
-  // List Container
-  listContainer: { flex: 1, backgroundColor: Colors.surface, borderTopLeftRadius: 40, borderTopRightRadius: 40, paddingHorizontal: 20, paddingTop: 20 },
-  
   // Filters
-  filterContainer: { marginBottom: 15, height: 40 },
-  filterPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  filterContainer: { marginBottom: 20, height: 35 },
+  filterPill: { 
+    paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, 
+    backgroundColor: 'transparent', 
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' 
+  },
   filterPillActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   filterText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
-  filterTextActive: { color: '#FFF' },
-  emptyText: { color: Colors.textSecondary, textAlign: 'center', marginTop: 30 },
+  filterTextActive: { color: '#000', fontWeight: '700' },
 
-  // Chat Item
+  // List Item
   chatCard: { 
-    backgroundColor: '#252525', 
-    borderRadius: 24, 
-    padding: 16, 
-    marginBottom: 12,
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.03)',
   },
   chatRow: { flexDirection: 'row', alignItems: 'center' },
-  chatAvatar: { width: 50, height: 50, borderRadius: 18 },
-  groupAvatar: { width: 50, height: 50, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  chatAvatar: { width: 56, height: 56, borderRadius: 28 },
+  groupAvatar: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
+  onlineBadge: {
+    position: 'absolute', bottom: 2, right: 2,
+    width: 14, height: 14, borderRadius: 7,
+    backgroundColor: '#4CD964', borderWidth: 2, borderColor: Colors.background
+  },
   
-  chatContent: { flex: 1, marginLeft: 16 },
-  chatHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4, justifyContent: 'space-between', paddingRight: 10 },
+  chatContent: { flex: 1, marginLeft: 15, justifyContent: 'center' },
+  chatHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   chatName: { color: Colors.text, fontSize: 16, fontWeight: '700' },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.secondary, position: 'absolute', right: -12, top: 6 },
-  chatMessage: { fontSize: 13, fontWeight: '400' },
+  chatTime: { color: Colors.textSecondary, fontSize: 12 },
   
-  timeContainer: { justifyContent: 'flex-start', height: '100%' },
-  chatTime: { color: 'rgba(255,255,255,0.3)', fontSize: 11, fontWeight: '600' },
+  msgRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  chatMessage: { flex: 1, fontSize: 14, marginRight: 10 },
+  unreadBadge: { 
+    backgroundColor: Colors.primary, paddingHorizontal: 6, paddingVertical: 2, 
+    borderRadius: 10, minWidth: 20, alignItems: 'center' 
+  },
+  unreadText: { color: '#000', fontSize: 10, fontWeight: 'bold' },
+
+  emptyContainer: { alignItems: 'center', marginTop: 80 },
+  emptyText: { color: Colors.textSecondary, marginTop: 15, fontSize: 16 },
+
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalContent: { 
+    backgroundColor: '#1E1E1E', 
+    borderTopLeftRadius: 25, borderTopRightRadius: 25, 
+    padding: 25, paddingBottom: 40,
+    borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.1)'
+  },
+  modalHeader: { marginBottom: 20, alignItems: 'center' },
+  modalTitle: { color: Colors.textSecondary, fontSize: 14, fontWeight: '600' },
+  modalOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15 },
+  modalText: { color: Colors.text, fontSize: 17, marginLeft: 15, fontWeight: '500' },
+  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 10 },
 });
 
 export default ChatListScreen;
