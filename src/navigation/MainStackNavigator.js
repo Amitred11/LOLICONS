@@ -32,7 +32,7 @@ import DataAndStorageScreen from '@features/profile/screens/settings/DataAndStor
 import PrivacyScreen from '@features/profile/screens/settings/PrivacyScreen';
 import TrophyCaseScreen from '@features/profile/screens/TrophyCaseScreen';
 import ChangePasswordScreen from '@features/profile/screens/settings/ChangePasswordScreen';
-
+import FriendProfileScreen from '@features/profile/screens/FriendProfileScreen';
 
 // HUB & MESSAGING
 import FriendsScreen from '@features/hub/Friends/FriendsScreen';
@@ -105,7 +105,8 @@ const MainStackNavigator = () => {
       <AppStack.Screen name="Friends" component={FriendsScreen} />
       <AppStack.Screen name="ChatList" component={ChatListScreen} />
       <AppStack.Screen name="ChatDetail" component={ChatDetailScreen} />
-      <AppStack.Screen name="ChatSettings" component={ChatSettingsScreen} />      
+      <AppStack.Screen name="ChatSettings" component={ChatSettingsScreen} />    
+      <AppStack.Screen name="FriendProfile" component={FriendProfileScreen} />    
     </AppStack.Navigator>
   );
 };

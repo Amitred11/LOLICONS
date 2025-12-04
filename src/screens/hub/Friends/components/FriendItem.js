@@ -1,127 +1,150 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Pressable } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Animated, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors';
 
 const FriendItem = ({ 
   item, 
+  index,
   onPress, 
   onLongPress, 
-  mode = 'default', // 'default' | 'selection' | 'add'
+  onQuickAction,
+  mode = 'default', 
   isSelected = false 
 }) => {
+  // Staggered Entrance Animation
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 350,
+        delay: index * 50,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 350,
+        delay: index * 50,
+        useNativeDriver: true,
+      })
+    ]).start();
+  }, []);
 
   const isOnline = item.status === 'Online';
 
-  const renderRightAction = () => {
+  // Render the Right-side Icon based on mode
+  const renderAction = () => {
     if (mode === 'selection') {
       return (
         <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-          {isSelected && <Ionicons name="checkmark" size={16} color="#FFF" />}
+          <Ionicons name="checkmark" size={14} color={isSelected ? "#FFF" : "transparent"} />
         </View>
       );
     }
-
-    if (mode === 'add') {
-      return (
-        <TouchableOpacity style={styles.addBtn}>
-          <Ionicons name="person-add" size={18} color={Colors.text} />
-        </TouchableOpacity>
-      );
-    }
-
-    // Default Chat Icon
+    
+    // Default: Quick Chat Button
     return (
-      <View style={styles.actionBtn}>
-        <Ionicons name="chatbubble-ellipses" size={18} color={Colors.background} />
-      </View>
+      <TouchableOpacity style={styles.iconBtn} onPress={onQuickAction}>
+        <Ionicons name="chatbubble-ellipses-outline" size={20} color={Colors.primary} />
+      </TouchableOpacity>
     );
   };
 
   return (
-    <Pressable 
-      style={styles.card} 
-      onPress={onPress}
-      onLongPress={onLongPress}
-      delayLongPress={200}
-    >
-      {({ pressed }) => (
-        <LinearGradient 
-          colors={
-            isSelected 
-              ? [Colors.primary + '20', Colors.primary + '10'] // Highlight if selected
-              : pressed 
-                ? ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.04)'] 
-                : ['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.01)']
-          } 
-          style={styles.cardGradient}
+    <Animated.View style={{ transform: [{ translateY: slideAnim }], opacity: opacityAnim }}>
+      <Pressable 
+        style={[styles.container, isSelected && styles.containerSelected]}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={150}
+        android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
+      >
+        <LinearGradient
+            colors={isSelected ? ['rgba(68, 108, 179, 0.2)', 'rgba(68, 108, 179, 0.05)'] : ['rgba(255,255,255,0.03)', 'transparent']}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={styles.cardContent}
         >
-          <View>
-            <Image source={{ uri: item.avatar }} style={styles.avatar} />
-            {isOnline && <View style={styles.onlineBadge} />}
-          </View>
-          
-          <View style={styles.info}>
-            <Text style={styles.name}>{item.name}</Text>
-            <Text 
-              numberOfLines={1} 
-              style={[
-                styles.status, 
-                { color: isOnline ? Colors.secondary : Colors.textSecondary }
-              ]}
-            >
-              {item.status}
-            </Text>
-          </View>
+            {/* Avatar with Status Ring */}
+            <View style={styles.avatarContainer}>
+                <LinearGradient
+                    colors={isOnline ? [Colors.secondary, '#2E86DE'] : ['#555', '#333']}
+                    style={styles.avatarRing}
+                >
+                    <Image source={{ uri: item.avatar }} style={styles.avatar} />
+                </LinearGradient>
+            </View>
 
-          {renderRightAction()}
+            {/* Info */}
+            <View style={styles.info}>
+                <Text style={[styles.name, isSelected && { color: Colors.primary }]}>{item.name}</Text>
+                <Text style={styles.bio} numberOfLines={1}>
+                    {isOnline ? 'Active Now' : item.bio || 'Offline'}
+                </Text>
+            </View>
+
+            {/* Action */}
+            {renderAction()}
+            
         </LinearGradient>
-      )}
-    </Pressable>
+      </Pressable>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  card: { 
-    marginBottom: 12, borderRadius: 20, overflow: 'hidden',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)'
+  container: {
+    marginBottom: 10,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
-  cardGradient: { flexDirection: 'row', alignItems: 'center', padding: 12 },
-  
-  avatar: { width: 50, height: 50, borderRadius: 18, backgroundColor: '#333' },
-  onlineBadge: {
-    position: 'absolute', bottom: 0, right: 0,
-    width: 14, height: 14, borderRadius: 7,
-    backgroundColor: Colors.secondary,
-    borderWidth: 2, borderColor: '#1E1E1E'
+  containerSelected: {
+    borderColor: Colors.primary,
+    transform: [{ scale: 0.98 }]
   },
-  
-  info: { flex: 1, marginLeft: 15, marginRight: 10 },
-  name: { color: Colors.text, fontSize: 15, fontWeight: '600' },
-  status: { fontSize: 12, marginTop: 2 },
-  
-  actionBtn: { 
-    width: 40, height: 40, borderRadius: 14, 
-    backgroundColor: Colors.primary, 
-    justifyContent: 'center', alignItems: 'center',
-    transform: [{ rotate: '-5deg' }]
+  cardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
   },
-  addBtn: {
-    width: 40, height: 40, borderRadius: 14, 
-    backgroundColor: 'rgba(255,255,255,0.1)', 
+  avatarContainer: { marginRight: 15 },
+  avatarRing: {
+    width: 54, height: 54, borderRadius: 27,
     justifyContent: 'center', alignItems: 'center',
   },
+  avatar: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: '#000', borderWidth: 2, borderColor: '#1A1A1A'
+  },
+  info: { flex: 1 },
+  name: {
+    fontSize: 16, fontWeight: '700', color: Colors.text, marginBottom: 2,
+    letterSpacing: 0.3
+  },
+  bio: {
+    fontSize: 12, color: Colors.textSecondary, fontWeight: '500'
+  },
   
-  // Selection Mode Styles
+  // Actions
+  iconBtn: {
+    width: 38, height: 38, borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center', alignItems: 'center',
+  },
   checkbox: {
-    width: 24, height: 24, borderRadius: 8,
+    width: 24, height: 24, borderRadius: 12,
     borderWidth: 2, borderColor: Colors.textSecondary,
     justifyContent: 'center', alignItems: 'center'
   },
   checkboxSelected: {
     backgroundColor: Colors.primary,
-    borderColor: Colors.primary
+    borderColor: Colors.primary,
   }
 });
 

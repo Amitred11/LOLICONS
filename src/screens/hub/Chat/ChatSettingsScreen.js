@@ -1,100 +1,174 @@
 import React, { useState } from 'react';
 import { 
   View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, 
-  Switch, Alert, StatusBar, Modal, TextInput, Platform
+  Switch, StatusBar, Modal, ActivityIndicator 
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient'; 
 import { Colors } from '@config/Colors'; 
+import { ChatAPI } from './api/MockChatService';
+
+// IMPT: Import your Alert Hook
+import { useAlert } from '@context/AlertContext';
 
 const ChatSettingsScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = route.params;
+  const { showAlert } = useAlert(); // Using the custom alert
 
   // --- State ---
   const [isMuted, setIsMuted] = useState(false);
   const [saveMedia, setSaveMedia] = useState(true);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchText, setSearchText] = useState('');
+  const [disappearingMessages, setDisappearingMessages] = useState(false);
   const [showEncryptionModal, setShowEncryptionModal] = useState(false);
-
-  // --- Mock Data ---
-  const sharedMedia = [
-    'https://images.unsplash.com/photo-1593642532973-d31b6557fa68?w=300',
-    'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=300',
-    'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=300',
-    'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=300',
-    'https://images.unsplash.com/photo-1519669556867-639a61115b69?w=300',
-  ];
+  const [isLoadingAction, setIsLoadingAction] = useState(false);
 
   // --- Actions ---
 
-  const handleSearchToggle = () => {
-    setIsSearching(!isSearching);
-    if (isSearching) setSearchText(''); // Clear on close
+  const handleMuteToggle = async () => {
+    const newState = !isMuted;
+    setIsMuted(newState); // Optimistic Update
+
+    try {
+      await ChatAPI.toggleMute(user.id, newState);
+      showAlert({
+        title: newState ? "Muted" : "Unmuted",
+        message: newState 
+          ? `Notifications from ${user.name} are now silenced.` 
+          : "You will receive notifications again.",
+        type: 'success',
+        btnText: 'Okay'
+      });
+    } catch(e) {
+      setIsMuted(!newState); // Revert
+      showAlert({
+        title: "Error",
+        message: "Could not update notification settings.",
+        type: 'error'
+      });
+    }
   };
 
-  const handleMuteToggle = () => {
-    setIsMuted(!isMuted);
-    Alert.alert(
-      !isMuted ? "Notifications Muted" : "Notifications Unmuted", 
-      !isMuted ? `You won't receive push notifications from ${user.name}.` : "You will now receive notifications."
-    );
+  const handleDisappearingToggle = async () => {
+    const newState = !disappearingMessages;
+    setDisappearingMessages(newState);
+
+    showAlert({
+      title: newState ? "Timer Set" : "Timer Off",
+      message: newState 
+        ? "Messages will disappear 24 hours after they are sent." 
+        : "Messages will remain in the chat history.",
+      type: 'info'
+    });
+    
+    // Simulate API call in background
+    try {
+        await ChatAPI.updatePrivacySettings({ disappearing: newState });
+    } catch(e) {
+        setDisappearingMessages(!newState); // Revert on fail
+    }
   };
 
   const handleBlock = () => {
-    Alert.alert(
-      "Block User", 
-      `Are you sure you want to block ${user.name}? They won't be able to message you.`, 
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Block", 
-          style: "destructive", 
-          onPress: () => {
-            // Mock backend call
-            navigation.navigate('ChatList'); 
-            Alert.alert("Blocked", `${user.name} has been blocked.`);
-          } 
+    showAlert({
+      title: "Block User",
+      message: `Are you sure you want to block ${user.name}? You won't receive any messages from them.`,
+      type: 'error',
+      btnText: 'Block User',
+      secondaryBtnText: 'Cancel',
+      onClose: async () => {
+        // This runs on Primary Button (Block)
+        setIsLoadingAction(true);
+        try {
+            await ChatAPI.blockUser(user.id);
+            navigation.navigate('ChatList');
+        } catch (e) {
+            showAlert({ title: "Error", message: "Failed to block user.", type: 'error' });
+        } finally {
+            setIsLoadingAction(false);
         }
-      ]
-    );
+      }
+    });
   };
 
   const handleReport = () => {
-    Alert.alert(
-      "Report User", 
-      "Please select a reason:",
-      [
-        { text: "Spam", onPress: () => Alert.alert("Thank you", "Report submitted.") },
-        { text: "Harassment", onPress: () => Alert.alert("Thank you", "Report submitted.") },
-        { text: "Cancel", style: "cancel" }
-      ]
-    );
+    // Simplified report flow since CustomAlert is a modal, not an action sheet
+    showAlert({
+      title: "Report User",
+      message: "Do you want to report this user for spam or inappropriate content? We will review the last 5 messages.",
+      type: 'error',
+      btnText: 'Report',
+      secondaryBtnText: 'Cancel',
+      onClose: async () => {
+        setIsLoadingAction(true);
+        try {
+            await ChatAPI.reportUser(user.id, 'general_abuse');
+            setTimeout(() => {
+                showAlert({ title: "Report Sent", message: "Thank you for keeping our community safe.", type: 'success' });
+            }, 500);
+        } catch (e) {
+            showAlert({ title: "Error", message: "Could not submit report.", type: 'error' });
+        } finally {
+            setIsLoadingAction(false);
+        }
+      }
+    });
   };
 
-  const handleViewMedia = (uri) => {
-    // In a real app, navigate to a full screen ImageViewer
-    Alert.alert("View Image", "Opening full screen media viewer...");
+  const handleClearChat = () => {
+    showAlert({
+        title: "Clear Chat",
+        message: "This will delete all messages in this conversation for you. This cannot be undone.",
+        type: 'error',
+        btnText: 'Delete All',
+        secondaryBtnText: 'Cancel',
+        onClose: async () => {
+            setIsLoadingAction(true);
+            try {
+                // Simulate clearing chat
+                await new Promise(r => setTimeout(r, 1000)); 
+                showAlert({ title: "Success", message: "Chat history cleared.", type: 'success' });
+            } catch(e) {
+                showAlert({ title: "Error", message: "Failed to clear chat.", type: 'error' });
+            } finally {
+                setIsLoadingAction(false);
+            }
+        }
+    });
+  };
+
+  const handleExportChat = () => {
+    setIsLoadingAction(true);
+    setTimeout(() => {
+        setIsLoadingAction(false);
+        showAlert({
+            title: "Export Ready",
+            message: "Your chat history has been exported to your downloads folder.",
+            type: 'success'
+        });
+    }, 1500);
   };
 
   // --- Render Components ---
 
-  const SettingRow = ({ icon, title, value, onToggle, isDestructive, onPress, hasArrow }) => (
+  const SettingRow = ({ icon, title, value, onToggle, isDestructive, onPress, hasArrow, subTitle }) => (
     <TouchableOpacity 
       activeOpacity={onPress || onToggle ? 0.7 : 1}
       onPress={onToggle ? () => onToggle(!value) : onPress}
-      style={styles.settingRow}
+      disabled={isLoadingAction}
+      style={[styles.settingRow, isLoadingAction && { opacity: 0.5 }]}
     >
       <View style={styles.settingLeft}>
         <View style={[styles.iconBox, isDestructive && styles.destructiveIconBox]}>
             <Ionicons name={icon} size={20} color={isDestructive ? '#FF453A' : Colors.text} />
         </View>
-        <Text style={[styles.settingText, isDestructive && styles.destructiveText]}>{title}</Text>
+        <View>
+            <Text style={[styles.settingText, isDestructive && styles.destructiveText]}>{title}</Text>
+            {subTitle && <Text style={styles.subTitle}>{subTitle}</Text>}
+        </View>
       </View>
       
       {onToggle !== undefined ? (
@@ -112,9 +186,15 @@ const ChatSettingsScreen = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      
-      {/* Encryption Modal */}
+      {/* Loading Overlay */}
+      {isLoadingAction && (
+          <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#FFF" />
+              <Text style={{color:'#FFF', marginTop: 10}}>Processing...</Text>
+          </View>
+      )}
+
+      {/* Encryption Modal (Keeping Native Modal for complex info) */}
       <Modal visible={showEncryptionModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -136,36 +216,18 @@ const ChatSettingsScreen = () => {
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Details</Text>
-        <TouchableOpacity style={styles.navBtn} onPress={() => Alert.alert("Edit", "Edit Contact")}>
-           <Text style={styles.editText}>Edit</Text>
-        </TouchableOpacity>
+        <View style={{width: 40}} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         
         {/* Profile Hero */}
         <View style={styles.profileContainer}>
-          <View style={styles.avatarWrapper}>
-             <LinearGradient 
-                colors={[Colors.primary, Colors.secondary]} 
-                style={styles.avatarGlow} 
-             />
-             <Image source={{ uri: user.avatar }} style={styles.avatar} />
-          </View>
-          
+          <Image source={{ uri: user.avatar }} style={styles.avatar} />
           <Text style={styles.userName}>{user.name}</Text>
-          <Text style={styles.userHandle}>@{user.name.replace(/\s+/g, '').toLowerCase()}</Text>
-          <Text style={styles.userStatus}>Online • Mobile</Text>
-
-          {/* Action Grid */}
+          <Text style={styles.userHandle}>Online • +1 (555) 000-0000</Text>
+          
           <View style={styles.actionGrid}>
-             <TouchableOpacity style={styles.actionBtn} onPress={handleSearchToggle}>
-                <View style={styles.actionIcon}>
-                   <Ionicons name="search" size={22} color={Colors.text} />
-                </View>
-                <Text style={styles.actionLabel}>Search</Text>
-             </TouchableOpacity>
-
              <TouchableOpacity style={styles.actionBtn} onPress={handleMuteToggle}>
                 <View style={[styles.actionIcon, isMuted && { backgroundColor: Colors.text }]}>
                    <Ionicons name={isMuted ? "notifications-off" : "notifications"} size={22} color={isMuted ? Colors.background : Colors.text} />
@@ -173,96 +235,78 @@ const ChatSettingsScreen = () => {
                 <Text style={styles.actionLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
              </TouchableOpacity>
 
-             <TouchableOpacity style={styles.actionBtn} onPress={() => Alert.alert("More", "Options: Share Contact, Export Chat")}>
+             <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('ChatDetail', { user })}>
                 <View style={styles.actionIcon}>
-                   <Ionicons name="ellipsis-horizontal" size={22} color={Colors.text} />
+                   <Ionicons name="chatbubble" size={22} color={Colors.text} />
                 </View>
-                <Text style={styles.actionLabel}>More</Text>
+                <Text style={styles.actionLabel}>Message</Text>
              </TouchableOpacity>
           </View>
-
-          {/* Search Bar (Collapsible) */}
-          {isSearching && (
-             <View style={styles.searchContainer}>
-                <Ionicons name="search" size={20} color={Colors.textSecondary} />
-                <TextInput 
-                   style={styles.searchInput}
-                   placeholder="Search in conversation..."
-                   placeholderTextColor={Colors.textSecondary}
-                   autoFocus
-                   value={searchText}
-                   onChangeText={setSearchText}
-                />
-                <TouchableOpacity onPress={() => setSearchText('')}>
-                  <Ionicons name="close-circle" size={18} color={Colors.textSecondary} />
-                </TouchableOpacity>
-             </View>
-          )}
         </View>
 
-        {/* Sections */}
-        <View style={styles.sectionContainer}>
-            
-            {/* Media Gallery */}
-            <View style={styles.mediaHeader}>
-                <Text style={styles.sectionTitle}>Shared Media</Text>
-                <TouchableOpacity onPress={() => Alert.alert("Gallery", "Opening all media")}>
-                    <Text style={styles.seeAll}>See All</Text>
-                </TouchableOpacity>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mediaScroll}>
-                {sharedMedia.map((uri, index) => (
-                    <TouchableOpacity key={index} onPress={() => handleViewMedia(uri)}>
-                        <Image source={{ uri }} style={styles.mediaImg} />
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
-
-            {/* Privacy & Settings */}
-            <View style={styles.card}>
-               <SettingRow 
-                  icon="lock-closed" 
-                  title="Encryption" 
-                  onPress={() => setShowEncryptionModal(true)} 
-                  hasArrow 
-               />
-               <View style={styles.divider} />
-               <SettingRow 
-                  icon="image" 
-                  title="Save to Camera Roll" 
-                  value={saveMedia} 
-                  onToggle={setSaveMedia} 
-               />
-               <View style={styles.divider} />
-               <SettingRow 
-                  icon="time" 
-                  title="Disappearing Messages" 
-                  onPress={() => Alert.alert("Timer", "Set messages to disappear after 24 hours.")}
-                  hasArrow 
-               />
-            </View>
-
-            {/* Danger Zone */}
-            <View style={[styles.card, { marginTop: 20 }]}>
-               <SettingRow 
-                  icon="warning" 
-                  title="Report User" 
-                  onPress={handleReport}
-                  isDestructive 
-                  hasArrow
-               />
-               <View style={styles.divider} />
-               <SettingRow 
-                  icon="ban" 
-                  title="Block User" 
-                  onPress={handleBlock}
-                  isDestructive 
-               />
-            </View>
+        {/* Section: Privacy */}
+        <Text style={styles.sectionHeader}>PRIVACY</Text>
+        <View style={styles.card}>
+            <SettingRow 
+                icon="lock-closed" 
+                title="Encryption" 
+                subTitle="Messages are end-to-end encrypted"
+                onPress={() => setShowEncryptionModal(true)} 
+                hasArrow 
+            />
+            <View style={styles.divider} />
+            <SettingRow 
+                icon="timer" 
+                title="Disappearing Messages" 
+                subTitle={disappearingMessages ? "On (24 Hours)" : "Off"}
+                value={disappearingMessages} 
+                onToggle={handleDisappearingToggle} 
+            />
         </View>
-        
-        <Text style={styles.footerText}>Chat ID: {user.id || '882-991-002'}</Text>
 
+        {/* Section: Media & Storage */}
+        <Text style={styles.sectionHeader}>MEDIA & STORAGE</Text>
+        <View style={styles.card}>
+            <SettingRow 
+                icon="image" 
+                title="Save to Camera Roll" 
+                value={saveMedia} 
+                onToggle={setSaveMedia} 
+            />
+            <View style={styles.divider} />
+            <SettingRow 
+                icon="download" 
+                title="Export Chat" 
+                onPress={handleExportChat}
+                hasArrow 
+            />
+        </View>
+
+        {/* Section: Danger Zone */}
+        <Text style={styles.sectionHeader}>SUPPORT & ACTIONS</Text>
+        <View style={[styles.card, { marginBottom: 30 }]}>
+            <SettingRow 
+                icon="trash" 
+                title="Clear Chat History" 
+                onPress={handleClearChat}
+                isDestructive 
+            />
+            <View style={styles.divider} />
+            <SettingRow 
+                icon="warning" 
+                title="Report User" 
+                onPress={handleReport}
+                isDestructive 
+                hasArrow
+            />
+            <View style={styles.divider} />
+            <SettingRow 
+                icon="ban" 
+                title="Block User" 
+                onPress={handleBlock}
+                isDestructive 
+            />
+        </View>
       </ScrollView>
     </View>
   );
@@ -270,89 +314,42 @@ const ChatSettingsScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', zIndex: 999 },
   
-  // Header
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingHorizontal: 20, 
-    paddingBottom: 10 
-  },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 10 },
   headerTitle: { color: Colors.text, fontSize: 17, fontWeight: '600' },
   navBtn: { padding: 8 },
-  editText: { color: Colors.primary, fontSize: 16, fontWeight: '600' },
 
   scrollContent: { paddingBottom: 50 },
 
-  // Profile Section
+  // Profile
   profileContainer: { alignItems: 'center', marginTop: 10, marginBottom: 30 },
-  avatarWrapper: { marginBottom: 15, justifyContent: 'center', alignItems: 'center' },
-  avatarGlow: { 
-    position: 'absolute', width: 110, height: 110, borderRadius: 55, opacity: 0.6, blurRadius: 20 
-  },
-  avatar: { 
-    width: 100, height: 100, borderRadius: 50, borderWidth: 4, borderColor: Colors.background 
-  },
-  userName: { color: Colors.text, fontSize: 24, fontWeight: '700', letterSpacing: 0.5 },
-  userHandle: { color: Colors.textSecondary, fontSize: 14, marginTop: 4, fontWeight: '500' },
-  userStatus: { color: Colors.secondary, fontSize: 12, marginTop: 6, fontWeight: '600' },
+  avatar: { width: 100, height: 100, borderRadius: 50, borderWidth: 4, borderColor: Colors.background },
+  userName: { color: Colors.text, fontSize: 24, fontWeight: '700', marginTop: 15 },
+  userHandle: { color: Colors.textSecondary, fontSize: 14, marginTop: 5 },
 
-  // Action Grid
+  // Actions
   actionGrid: { flexDirection: 'row', marginTop: 25, gap: 25 },
   actionBtn: { alignItems: 'center', width: 60 },
-  actionIcon: { 
-    width: 50, height: 50, borderRadius: 25, 
-    backgroundColor: 'rgba(255,255,255,0.08)', 
-    justifyContent: 'center', alignItems: 'center',
-    marginBottom: 8,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)'
-  },
+  actionIcon: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center', marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   actionLabel: { color: Colors.textSecondary, fontSize: 11, fontWeight: '500' },
 
-  // Search Bar
-  searchContainer: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.surface,
-    width: '90%', height: 44, borderRadius: 12,
-    marginTop: 20, paddingHorizontal: 12
-  },
-  searchInput: { flex: 1, color: Colors.text, marginLeft: 10, fontSize: 14 },
-
   // Sections
+  sectionHeader: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700', marginLeft: 25, marginBottom: 8, marginTop: 10 },
   sectionContainer: { paddingHorizontal: 20 },
+  card: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginHorizontal: 20 },
   
-  // Media
-  mediaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  sectionTitle: { color: Colors.textSecondary, fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
-  seeAll: { color: Colors.primary, fontSize: 13, fontWeight: '600' },
-  mediaScroll: { gap: 10, paddingBottom: 30 },
-  mediaImg: { width: 90, height: 90, borderRadius: 16, backgroundColor: Colors.surface },
-
-  // Settings Card
-  card: { 
-    backgroundColor: 'rgba(255,255,255,0.05)', 
-    borderRadius: 20, 
-    paddingVertical: 8,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)'
-  },
-  settingRow: { 
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
-    paddingVertical: 14, paddingHorizontal: 16 
-  },
-  settingLeft: { flexDirection: 'row', alignItems: 'center' },
-  iconBox: { 
-    width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.1)', 
-    justifyContent: 'center', alignItems: 'center', marginRight: 12 
-  },
+  // Rows
+  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16 },
+  settingLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  iconBox: { width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   destructiveIconBox: { backgroundColor: 'rgba(255, 69, 58, 0.15)' },
   settingText: { color: Colors.text, fontSize: 16, fontWeight: '500' },
+  subTitle: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
   destructiveText: { color: '#FF453A' },
   divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginLeft: 60 },
 
-  footerText: { textAlign: 'center', color: Colors.textSecondary, fontSize: 11, marginTop: 40, opacity: 0.5 },
-
-  // Modal
+  // Encryption Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { width: '80%', backgroundColor: '#1E1E1E', borderRadius: 24, padding: 30, alignItems: 'center' },
   modalTitle: { color: Colors.text, fontSize: 20, fontWeight: '700', marginTop: 15, marginBottom: 10 },
