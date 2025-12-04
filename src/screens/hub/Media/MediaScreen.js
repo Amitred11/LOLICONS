@@ -10,7 +10,7 @@ import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
 
 // API & Context
-import { MediaService } from '@api/MockMediaService';
+import { MediaService } from '@api/hub/MockMediaService';
 import { useAlert } from '@context/AlertContext';
 
 const { width, height } = Dimensions.get('window');

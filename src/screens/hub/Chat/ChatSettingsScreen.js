@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Colors } from '@config/Colors'; 
-import { ChatAPI } from '@api/MockChatService';
+import { ChatAPI } from '@api/hub/MockChatService';
 
 // IMPT: Import your Alert Hook
 import { useAlert } from '@context/AlertContext';

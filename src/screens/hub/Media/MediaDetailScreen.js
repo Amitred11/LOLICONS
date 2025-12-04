@@ -11,7 +11,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 // Imports
 import WatchSelectionModal from './components/WatchSelectionModal'; 
-import { MediaService } from '@api/MockMediaService';
+import { MediaService } from '@api/hub/MockMediaService';
 import { useAlert } from '@context/AlertContext';
 
 const { width, height } = Dimensions.get('window');

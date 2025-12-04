@@ -12,25 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
 import { useAlert } from '@context/AlertContext'; 
 
-// --- API Service Simulation ---
-// TODO: Replace with real backend calls. Ideally, this data should come from a central UserContext.
-const EditProfileAPI = {
-    getProfile: async () => {
-        return new Promise(resolve => {
-            setTimeout(() => {
-                resolve({ 
-                    name: 'User Name', 
-                    handle: 'username', 
-                    bio: 'Just a comic enthusiast.',
-                    avatarUrl: 'https://via.placeholder.com/150'
-                });
-            }, 800);
-        });
-    },
-    updateProfile: async (data) => {
-        return new Promise(resolve => setTimeout(resolve, 1500));
-    }
-};
+import { ProfileAPI } from '@api/MockProfileService'; // UPDATED IMPORT
 
 const AnimatedSection = ({ children, index }) => {
     const opacity = useSharedValue(0);
@@ -67,9 +49,13 @@ const EditProfileScreen = ({ navigation }) => {
     useEffect(() => {
         const loadData = async () => {
             try {
-                const data = await EditProfileAPI.getProfile();
-                setFormData(data);
-                setInitialData(data); // Save original state to compare
+                // Using ProfileAPI instead of local object
+                const response = await ProfileAPI.getProfile();
+                if (response.success) {
+                    const data = response.data;
+                    setFormData(data);
+                    setInitialData(data); // Save original state to compare
+                }
             } catch (err) {
                 showAlert({ title: "Error", message: "Failed to load profile data.", type: 'error' });
             } finally {
@@ -95,7 +81,7 @@ const EditProfileScreen = ({ navigation }) => {
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            await EditProfileAPI.updateProfile(formData);
+            await ProfileAPI.updateProfile(formData);
             
             // Update local initial data to match new saved data
             setInitialData(formData);
@@ -213,6 +199,7 @@ const EditProfileScreen = ({ navigation }) => {
     );
 };
 
+// ... styles ...
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },

@@ -8,15 +8,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
+// --- ADDED: Import the API Service ---
+import { ProfileAPI } from '@api/MockProfileService';
+
 /**
  * A reusable row component for a single setting option.
- * @param {object} props - The component's properties.
- * @param {string} props.icon - The name of the Ionicons icon.
- * @param {string} props.label - The main text label for the setting.
- * @param {string} [props.details] - Optional smaller text for details (e.g., storage amount).
- * @param {function} props.onPress - The function to call when the row is pressed.
- * @param {boolean} [props.isLast=false] - If true, omits the bottom border.
- * @param {string} [props.color] - Custom color for the label text.
  */
 const SettingsRow = ({ icon, label, details, onPress, isLast, color = Colors.text }) => (
     <TouchableOpacity onPress={onPress} style={[styles.row, !isLast && styles.rowBorder]}>
@@ -36,28 +32,26 @@ const DataAndStorageScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
 
     // --- State Management for Storage Data ---
-    // Initialized to Empty/Zero values.
-    // Connect this state to your backend or FileSystem API in the useEffect below.
     const [storageUsage, setStorageUsage] = useState({
-        downloads: 0, // In Bytes
-        appData: 0,   // In Bytes
-        cache: 0,     // In Bytes
+        downloads: 0,
+        appData: 0,
+        cache: 0,
         downloadsLabel: '0 B',
         appDataLabel: '0 B',
         cacheLabel: '0 B'
     });
 
     /**
-     * Effect to fetch storage details on mount.
+     * Effect to fetch storage details on mount via ProfileAPI.
      */
     useEffect(() => {
         const fetchStorageData = async () => {
             try {
-                // TODO: Replace with actual FileSystem.getInfoAsync() or Backend API call
-                // For now, it remains empty as requested.
-                // Example:
-                // const cacheSize = await getCacheSize();
-                // setStorageUsage(prev => ({ ...prev, cache: cacheSize, cacheLabel: formatBytes(cacheSize) }));
+                // --- UPDATED: Fetch from API ---
+                const response = await ProfileAPI.getStorageUsage();
+                if (response.success) {
+                    setStorageUsage(response.data);
+                }
             } catch (error) {
                 console.error("Failed to load storage data", error);
             }
@@ -82,11 +76,16 @@ const DataAndStorageScreen = ({ navigation }) => {
                 { 
                     text: "Clear", 
                     style: "destructive", 
-                    onPress: () => {
-                        // TODO: Connect to backend/filesystem to actually delete cache
-                        console.log("Cache Cleared");
-                        // Simulating UI update
-                        setStorageUsage(prev => ({ ...prev, cache: 0, cacheLabel: '0 B' }));
+                    onPress: async () => {
+                        // --- UPDATED: Call API ---
+                        try {
+                            const response = await ProfileAPI.clearCache();
+                            if (response.success) {
+                                setStorageUsage(prev => ({ ...prev, cache: 0, cacheLabel: '0 B' }));
+                            }
+                        } catch (error) {
+                            Alert.alert("Error", "Failed to clear cache.");
+                        }
                     } 
                 }
             ]
@@ -103,11 +102,16 @@ const DataAndStorageScreen = ({ navigation }) => {
                 { 
                     text: "Delete All", 
                     style: "destructive", 
-                    onPress: () => {
-                        // TODO: Connect to backend/filesystem to delete downloads
-                        console.log("All Downloads Cleared");
-                        // Simulating UI update
-                        setStorageUsage(prev => ({ ...prev, downloads: 0, downloadsLabel: '0 B' }));
+                    onPress: async () => {
+                        // --- UPDATED: Call API ---
+                        try {
+                            const response = await ProfileAPI.clearDownloads();
+                            if (response.success) {
+                                setStorageUsage(prev => ({ ...prev, downloads: 0, downloadsLabel: '0 B' }));
+                            }
+                        } catch (error) {
+                            Alert.alert("Error", "Failed to clear downloads.");
+                        }
                     } 
                 }
             ]
@@ -117,11 +121,10 @@ const DataAndStorageScreen = ({ navigation }) => {
     return (
         <LinearGradient colors={[Colors.background, '#1a1a2e']} style={styles.container}>
             <StatusBar barStyle="light-content" />
-            {/* Standard screen header */}
             <View style={[styles.header, { paddingTop: insets.top }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}><Ionicons name="arrow-back" size={24} color={Colors.text} /></TouchableOpacity>
                 <Text style={styles.headerTitle}>Data & Storage</Text>
-                <View style={styles.headerButton} />{/* Empty view for spacing */}
+                <View style={styles.headerButton} />
             </View>
             <ScrollView contentContainerStyle={styles.scrollContainer}>
                 {/* Storage Usage Visual Card */}
@@ -137,7 +140,6 @@ const DataAndStorageScreen = ({ navigation }) => {
                                 <View style={[styles.progressSegment, { flex: cacheFlex, backgroundColor: Colors.textSecondary }]} />
                             </>
                         ) : (
-                            // Empty state for the bar
                             <View style={[styles.progressSegment, { flex: 1, backgroundColor: Colors.surface, opacity: 0.5 }]} />
                         )}
                     </View>

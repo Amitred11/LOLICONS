@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+// screens/NotificationScreen.js
+
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -7,14 +9,35 @@ import {
   TouchableOpacity, 
   SafeAreaView, 
   StatusBar, 
-  Platform 
+  Platform,
+  ActivityIndicator // Added for loading state
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@config/Colors'; // Adjust path as necessary
+import { Colors } from '@config/Colors'; 
+
+// Import the service
+import { NotificationAPI } from '@api/MockNotificationService';
 
 const NotificationScreen = ({ navigation }) => {
-  // Initialized as empty to trigger Empty State
   const [notifications, setNotifications] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch data on mount
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  const loadNotifications = async () => {
+    setIsLoading(true);
+    try {
+      const data = await NotificationAPI.getNotifications();
+      setNotifications(data);
+    } catch (error) {
+      console.error("Failed to load notifications", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getNotificationIcon = (type) => {
     switch (type) {
@@ -27,15 +50,33 @@ const NotificationScreen = ({ navigation }) => {
     }
   };
 
-  const handleMarkAllRead = () => {
+  const handleMarkAllRead = async () => {
     if (notifications.length === 0) return;
+    
+    // Optimistic Update: Update UI immediately
     setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
+    
+    // API Call in background
+    try {
+      await NotificationAPI.markAllAsRead();
+    } catch (error) {
+      console.error("Failed to mark all as read");
+      // Optional: Revert state on error
+    }
   };
 
-  const handleNotificationPress = (id) => {
+  const handleNotificationPress = async (id) => {
+    // Optimistic Update
     setNotifications(prev => 
       prev.map(n => n.id === id ? { ...n, unread: false } : n)
     );
+
+    // API Call
+    try {
+      await NotificationAPI.markAsRead(id);
+    } catch (error) {
+      console.error(`Failed to mark ${id} as read`);
+    }
   };
 
   const renderHeader = () => (
@@ -51,11 +92,11 @@ const NotificationScreen = ({ navigation }) => {
       
       <TouchableOpacity 
         onPress={handleMarkAllRead} 
-        disabled={notifications.length === 0}
+        disabled={notifications.length === 0 || isLoading}
       >
         <Text style={[
           styles.markReadText, 
-          notifications.length === 0 && styles.disabledText
+          (notifications.length === 0 || isLoading) && styles.disabledText
         ]}>
           Read All
         </Text>
@@ -118,14 +159,20 @@ const NotificationScreen = ({ navigation }) => {
       
       {renderHeader()}
 
-      <FlatList
-        data={notifications}
-        keyExtractor={item => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={renderEmptyState}
-      />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={notifications}
+          keyExtractor={item => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={renderEmptyState}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -134,6 +181,11 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     backgroundColor: Colors.background 
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerContainer: {
     flexDirection: 'row',
@@ -167,7 +219,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   listContent: {
-    flexGrow: 1, // Ensures empty state centers correctly
+    flexGrow: 1,
     paddingHorizontal: 20,
     paddingBottom: 40,
   },

@@ -1,13 +1,18 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ImageBackground, Alert } from 'react-native'; // Added Alert here
+// screens/hub/components/HubHeader.js
+
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ImageBackground } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, interpolate, Extrapolate, useSharedValue, withSpring } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
+
 import { Colors } from '@config/Colors';
-import { userData } from '@config/mockData';
 import { HEADER_EXPANDED_HEIGHT, HEADER_COLLAPSED_HEIGHT } from './constants';
-import { useNavigation } from '@react-navigation/native';
+
+// Use the Service instead of direct mock import
+import { ProfileAPI } from '@api/MockProfileService';
 
 const SCROLL_DISTANCE = HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT;
 
@@ -35,6 +40,31 @@ const QuickActionButton = ({ icon, label, color, onPress }) => {
 const HubHeader = ({ scrollY }) => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const isFocused = useIsFocused(); // Hook to trigger refresh when returning to screen
+
+  // Local state for user data
+  const [user, setUser] = useState({ 
+      name: 'Loading...', 
+      avatarUrl: 'https://via.placeholder.com/150' // Default placeholder
+  });
+
+  // Fetch user data on mount and when screen is focused
+  useEffect(() => {
+      const fetchUser = async () => {
+          try {
+              const response = await ProfileAPI.getProfile();
+              if (response.success) {
+                  setUser(response.data);
+              }
+          } catch (e) {
+              console.error("HubHeader profile fetch error", e);
+          }
+      };
+
+      if (isFocused) {
+          fetchUser();
+      }
+  }, [isFocused]);
 
   const animatedHeaderStyle = useAnimatedStyle(() => ({
     height: interpolate(scrollY.value, [0, SCROLL_DISTANCE], [HEADER_EXPANDED_HEIGHT + insets.top, HEADER_COLLAPSED_HEIGHT + insets.top], Extrapolate.CLAMP),
@@ -57,7 +87,7 @@ const HubHeader = ({ scrollY }) => {
     <Animated.View style={[styles.headerContainer, animatedHeaderStyle]}>
       <Animated.View style={[StyleSheet.absoluteFill, animatedBgOpacity]}>
         <ImageBackground
-          source={require('../../../../assets/profile-bg.jpg')}
+          source={{ uri: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=800' }}
           style={StyleSheet.absoluteFill}
         />
         <LinearGradient colors={['transparent', Colors.background]} style={StyleSheet.absoluteFill}/>
@@ -69,37 +99,34 @@ const HubHeader = ({ scrollY }) => {
           <View style={styles.profileRow}>
             <TouchableOpacity 
               style={styles.profileButton}
-              onPress={() => navigation.navigate('Profile')} // Navigate to Profile
+              onPress={() => navigation.navigate('Profile')}
             >
-              <Image source={{ uri: userData.avatarUrl }} style={styles.profileImage} />
-              <Text style={styles.profileName}>Your Hub</Text>
+              <Image source={{ uri: user.avatarUrl }} style={styles.profileImage} />
+              <Text style={styles.profileName}>
+                  {user.name ? `Hi, ${user.name.split(' ')[0]}` : 'Your Hub'}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.headerActionButton}
-              onPress={() => navigation.navigate('Notifications')} // Navigate to Notifications
+              onPress={() => navigation.navigate('Notifications')}
             >
               <Ionicons name="notifications-outline" size={24} color={Colors.text} />
             </TouchableOpacity>
           </View>
           
           <View style={styles.quickActionsRow}>
-            {/* Explore: Keeps working */}
             <QuickActionButton 
                 icon="compass-outline" 
                 label="Explore" 
                 color={['#ff7e5f', '#feb47b']} 
                 onPress={() => navigation.navigate('Community')} 
             />
-            
-            {/* Messages: UPDATED to Navigate */}
             <QuickActionButton 
                 icon="chatbubbles-outline" 
                 label="Messages" 
                 color={['#7b4397', '#dc2430']} 
                 onPress={() => navigation.navigate('ChatList')} 
             />
-            
-            {/* Friends: UPDATED to Navigate */}
             <QuickActionButton 
                 icon="person-add-outline" 
                 label="Friends" 
@@ -125,7 +152,7 @@ const styles = StyleSheet.create({
   profileRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 25 },
   profileButton: { flexDirection: 'row', alignItems: 'center' },
   profileImage: { width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: '#fff' },
-  profileName: { fontFamily: 'Poppins_700Bold', color: Colors.text, fontSize: 32, marginLeft: 15 },
+  profileName: { fontFamily: 'Poppins_700Bold', color: Colors.text, fontSize: 24, marginLeft: 15 },
   headerActionButton: { height: 44, width: 44, borderRadius: 22, backgroundColor: 'rgba(30,30,30,0.7)', alignItems: 'center', justifyContent: 'center' },
   quickActionsRow: { flexDirection: 'row', justifyContent: 'space-around' },
   quickActionContainer: { alignItems: 'center' },

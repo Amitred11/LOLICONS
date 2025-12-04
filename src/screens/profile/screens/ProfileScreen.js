@@ -1,7 +1,7 @@
 // screens/profile/ProfileScreen.js
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, Image, StatusBar, TouchableOpacity, ScrollView, FlatList, Dimensions, ImageBackground } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Image, StatusBar, TouchableOpacity, FlatList, Dimensions, ImageBackground, ActivityIndicator } from 'react-native';
 import { Colors } from '@config/Colors';
 import { useAuth } from '@context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,38 +21,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 // --- Imports ---
-import { userData as mockUserData, ranks } from '@config/mockData'; 
+import { ProfileAPI } from '@api/MockProfileService'; // UPDATED IMPORT
 import RankInfoModal from '../components/modals/RankInfoModal';
 import AchievementModal from '../components/modals/AchievementModal';
 import GlitchEffect from '../components/ui/GlitchEffect';
 import EmptyState from '../components/empty/EmptyState';
-
-// --- Configuration & Data ---
-const userData = { 
-    ...mockUserData, 
-    favorites: [], 
-    history: [], 
-    badges: [] 
-};
 
 const { width } = Dimensions.get('window');
 const HEADER_BANNER_HEIGHT = 250;
 const AVATAR_SIZE = 110;
 
 // --- Helper Functions ---
-const getCurrentRank = (xp) => {
-  if (xp < 0) {
-    const anomalyRank = ranks.find(rank => rank.minXp < 0);
-    if (anomalyRank) return anomalyRank;
-  }
-  const normalRanks = ranks.filter(rank => rank.minXp >= 0);
-  const foundRank = normalRanks.slice().reverse().find(rank => xp >= rank.minXp);
-  return foundRank || normalRanks.find(rank => rank.minXp === 0);
-};
-const getNextRank = (currentRank) => ranks[ranks.findIndex(r => r.name === currentRank.name) + 1];
 const getStatusColor = (statusType) => ({ online: '#2ecc71', 'in-game': '#3498db', offline: '#95a5a6', reading: '#d47e2cff' }[statusType] || '#95a5a6');
 
 // --- Reusable Components ---
@@ -100,16 +82,53 @@ const ProfileScreen = () => {
   const [isRankModalVisible, setIsRankModalVisible] = useState(false);
   const [isHeaderInteractive, setIsHeaderInteractive] = useState(false);
 
-  const currentRank = useMemo(() => getCurrentRank(userData.xp), []);
-  const nextRank = useMemo(() => getNextRank(currentRank), []);
-  const rankProgress = nextRank ? (userData.xp - currentRank.minXp) / (nextRank.minXp - currentRank.minXp) : 1;
+  // --- Data State ---
+  const [profile, setProfile] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch Data
+  const fetchData = async () => {
+      // Don't set loading to true on refetch to avoid flickering, only on initial load
+      if(!profile) setIsLoading(true); 
+      try {
+          const response = await ProfileAPI.getProfile();
+          if(response.success) {
+              setProfile(response.data);
+          }
+      } catch (e) {
+          console.error("Profile Fetch Error", e);
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
+  // Refetch when screen comes into focus (in case edits were made)
+  useFocusEffect(
+      React.useCallback(() => {
+          fetchData();
+      }, [])
+  );
+
+  // Derived Values
+  const currentRank = profile?.currentRank || { name: 'Loading', color: Colors.textSecondary, minXp: 0 };
+  const nextRank = profile?.nextRank;
+  const xp = profile?.xp || 0;
+  
+  // Rank Progress Calculation
+  const rankProgress = nextRank 
+      ? (xp - currentRank.minXp) / (nextRank.minXp - currentRank.minXp) 
+      : 1;
+
   const xpFill = useSharedValue(0);
 
-  useEffect(() => { xpFill.value = withDelay(500, withSpring(rankProgress)); }, [rankProgress]);
+  useEffect(() => { 
+      if (!isLoading) {
+        xpFill.value = withDelay(500, withSpring(Math.max(0, Math.min(1, rankProgress)))); 
+      }
+  }, [rankProgress, isLoading]);
 
   const scrollHandler = useAnimatedScrollHandler((event) => { scrollY.value = event.contentOffset.y; });
   
-  // Toggle header interactivity based on scroll position
   useAnimatedReaction(
     () => scrollY.value > 150,
     (isInteractive, prev) => {
@@ -131,32 +150,40 @@ const ProfileScreen = () => {
   const animatedCompactHeaderStyle = useAnimatedStyle(() => ({ opacity: interpolate(scrollY.value, [180, 210], [0, 1], Extrapolate.CLAMP) }));
   const animatedTabIndicatorStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tabIndicatorPos.value }] }));
 
+  if (isLoading) {
+      return (
+          <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+              <ActivityIndicator size="large" color={Colors.secondary} />
+          </View>
+      );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       {currentRank.name === '¿¿' && <GlitchEffect />}
       
-      {/* Compact Header - Added pointerEvents prop */}
+      {/* Compact Header */}
       <Animated.View 
         pointerEvents={isHeaderInteractive ? 'auto' : 'none'}
         style={[styles.compactHeader, { height: insets.top + 60 }, animatedCompactHeaderStyle]}
       >
         <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
-        <View style={{ position: 'relative' }}><Image source={{ uri: userData.avatarUrl }} style={styles.compactAvatar} /><TouchableOpacity onPress={handleOpenRankModal}><RankCrest rank={currentRank} /></TouchableOpacity></View>
-        <View><Text style={styles.compactUserName}>{userData.name}</Text>{userData.status && <UserStatus status={userData.status} style={{ marginLeft: 2, marginTop: -5 }} />}</View>
+        <View style={{ position: 'relative' }}><Image source={{ uri: profile.avatarUrl }} style={styles.compactAvatar} /><TouchableOpacity onPress={handleOpenRankModal}><RankCrest rank={currentRank} /></TouchableOpacity></View>
+        <View><Text style={styles.compactUserName}>{profile.name}</Text>{profile.status && <UserStatus status={profile.status} style={{ marginLeft: 2, marginTop: -5 }} />}</View>
       </Animated.View>
       
       <Animated.ScrollView onScroll={scrollHandler} scrollEventThrottle={16} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
         {/* Large Header */}
         <View style={styles.header}>
-            <Animated.View style={[styles.headerBannerWrapper, animatedHeaderBannerStyle]}><ImageBackground source={userData.favoriteComicBanner} style={styles.headerBanner}><LinearGradient colors={['transparent', 'rgba(0,0,0,0.6)', Colors.background]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} /></ImageBackground></Animated.View>
+            <Animated.View style={[styles.headerBannerWrapper, animatedHeaderBannerStyle]}><ImageBackground source={profile.favoriteComicBanner} style={styles.headerBanner}><LinearGradient colors={['transparent', 'rgba(0,0,0,0.6)', Colors.background]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} /></ImageBackground></Animated.View>
             <View style={styles.headerActions}><TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Account')}><Ionicons name="people-outline" size={22} color={Colors.text} /></TouchableOpacity><TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('EditProfile')}><Ionicons name="create-outline" size={22} color={Colors.text} /></TouchableOpacity></View>
-            <Animated.View style={[styles.avatarContainer, animatedAvatarContainerStyle]}><View style={styles.avatarWrapper}><Image source={{ uri: userData.avatarUrl }} style={styles.avatar} /><TouchableOpacity style={styles.rankRealm}  onPress={handleOpenRankModal}><RankCrest rank={currentRank} /></TouchableOpacity></View><Text style={styles.userName}>{userData.name}</Text>{userData.status && <UserStatus status={userData.status} />}{userData.bio && <Text style={styles.bioText}>{userData.bio}</Text>}<View style={styles.statsContainer}>{userData.stats.map(stat => <StatItem key={stat.label} {...stat} />)}</View></Animated.View>
+            <Animated.View style={[styles.avatarContainer, animatedAvatarContainerStyle]}><View style={styles.avatarWrapper}><Image source={{ uri: profile.avatarUrl }} style={styles.avatar} /><TouchableOpacity style={styles.rankRealm}  onPress={handleOpenRankModal}><RankCrest rank={currentRank} /></TouchableOpacity></View><Text style={styles.userName}>{profile.name}</Text>{profile.status && <UserStatus status={profile.status} />}{profile.bio && <Text style={styles.bioText}>{profile.bio}</Text>}<View style={styles.statsContainer}>{profile.stats.map(stat => <StatItem key={stat.label} {...stat} />)}</View></Animated.View>
         </View>
 
         <View style={styles.contentContainer}>
             {/* Rank Card */}
-            <AnimatedSection index={1}><View style={styles.rankCard}><BlurView intensity={25} tint="dark" style={styles.glassEffect} /><View style={styles.xpHeader}><Text style={styles.xpLabel}>Next Rank: {nextRank?.name || 'Max'}</Text><Text style={styles.xpValue}>{`${userData.xp} / ${nextRank?.minXp || userData.xp}`}</Text></View><View style={styles.xpBarTrack}><Animated.View style={[styles.xpBarFill, animatedXpFillStyle, {backgroundColor: currentRank.color}]} /></View></View></AnimatedSection>
+            <AnimatedSection index={1}><View style={styles.rankCard}><BlurView intensity={25} tint="dark" style={styles.glassEffect} /><View style={styles.xpHeader}><Text style={styles.xpLabel}>Next Rank: {nextRank?.name || 'Max'}</Text><Text style={styles.xpValue}>{`${profile.xp} / ${nextRank?.minXp || profile.xp}`}</Text></View><View style={styles.xpBarTrack}><Animated.View style={[styles.xpBarFill, animatedXpFillStyle, {backgroundColor: currentRank.color}]} /></View></View></AnimatedSection>
             
             {/* Tabs Section (Favorites / History) */}
             <AnimatedSection index={2}>
@@ -166,17 +193,17 @@ const ProfileScreen = () => {
                         <Animated.View style={[styles.tabIndicator, animatedTabIndicatorStyle]}/>
                         <TouchableOpacity onPress={() => handleTabPress(0)} style={styles.tabButton}>
                             <Ionicons name="heart-outline" size={20} color={activeTab === 0 ? Colors.text : Colors.textSecondary} />
-                            <Text style={[styles.tabLabel, activeTab === 0 && styles.tabLabelActive]}>Favorites ({userData.favorites.length})</Text>
+                            <Text style={[styles.tabLabel, activeTab === 0 && styles.tabLabelActive]}>Favorites ({profile.favorites.length})</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => handleTabPress(1)} style={styles.tabButton}>
                             <Ionicons name="time-outline" size={20} color={activeTab === 1 ? Colors.text : Colors.textSecondary} />
-                            <Text style={[styles.tabLabel, activeTab === 1 && styles.tabLabelActive]}>History ({userData.history.length})</Text>
+                            <Text style={[styles.tabLabel, activeTab === 1 && styles.tabLabelActive]}>History ({profile.history.length})</Text>
                         </TouchableOpacity>
                     </View>
                     
                     {activeTab === 0 ? ( 
-                        userData.favorites.length > 0 ? (
-                            <FlatList data={userData.favorites} renderItem={FavoriteItem} keyExtractor={item => item.id} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ marginTop: 20 }} /> 
+                        profile.favorites.length > 0 ? (
+                            <FlatList data={profile.favorites} renderItem={FavoriteItem} keyExtractor={item => item.id} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ marginTop: 20 }} /> 
                         ) : (
                             <View style={{ marginTop: 20 }}>
                                 <EmptyState 
@@ -189,8 +216,8 @@ const ProfileScreen = () => {
                             </View>
                         )
                     ) : ( 
-                        userData.history.length > 0 ? (
-                            <View style={{marginTop: 20}}>{userData.history.slice(0, 3).map(item => <HistoryItem key={item.id} item={item}/>)}</View> 
+                        profile.history.length > 0 ? (
+                            <View style={{marginTop: 20}}>{profile.history.slice(0, 3).map(item => <HistoryItem key={item.id} item={item}/>)}</View> 
                         ) : (
                             <View style={{ marginTop: 20 }}>
                                 <EmptyState 
@@ -210,8 +237,8 @@ const ProfileScreen = () => {
                     <Text style={styles.sectionTitle}>Trophy Case</Text>
                     <TouchableOpacity onPress={() => navigation.navigate('TrophyCase')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
                 </View>
-                {userData.badges.length > 0 ? (
-                    <FlatList data={userData.badges} renderItem={({ item, index }) => <BadgeItem item={item} index={index} onPress={() => handleBadgePress(item)} />} keyExtractor={item => item.id} horizontal showsHorizontalScrollIndicator={false} />
+                {profile.badges.length > 0 ? (
+                    <FlatList data={profile.badges} renderItem={({ item, index }) => <BadgeItem item={item} index={index} onPress={() => handleBadgePress(item)} />} keyExtractor={item => item.id} horizontal showsHorizontalScrollIndicator={false} />
                 ) : (
                      <EmptyState 
                         icon="trophy-outline" 
@@ -236,6 +263,8 @@ const ProfileScreen = () => {
   );
 };
 
+// Styles remain unchanged, omitting for brevity as they were correct in the prompt.
+// ... styles ...
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { alignItems: 'center' },

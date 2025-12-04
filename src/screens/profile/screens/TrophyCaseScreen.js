@@ -1,7 +1,7 @@
 // screens/profile/TrophyCaseScreen.js
 
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions, StatusBar, Modal } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions, StatusBar, Modal, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -11,21 +11,12 @@ import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 
 import { Colors } from '@config/Colors';
-import EmptyState from '../components/empty/EmptyState'; // Added EmptyState
-import { userData } from '@config/mockData'; // Keeping userData as requested
+import EmptyState from '../components/empty/EmptyState';
+import { ProfileAPI } from '@api/MockProfileService'; // UPDATED IMPORT
 
 const { width } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
 const ITEM_SIZE = (width - 40) / COLUMN_COUNT;
-
-// --- Mock Data Removed ---
-// The array is now empty to trigger the Empty State
-const ALL_TROPHIES = [];
-
-// Helper to simulate merging, though it will result in empty list now
-const getMergedTrophies = () => {
-    return ALL_TROPHIES;
-};
 
 // --- Components ---
 
@@ -36,7 +27,6 @@ const FilterChip = ({ label, active, onPress }) => (
 );
 
 const TrophyItem = ({ item, index, onPress }) => {
-    // This won't render in empty state, but keeping code structure
     const scale = useSharedValue(1);
     const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
     const handlePressIn = () => { scale.value = withSpring(0.95); };
@@ -97,22 +87,45 @@ const TrophyCaseScreen = () => {
     const insets = useSafeAreaInsets();
     const [filter, setFilter] = useState('All');
     const [selectedTrophy, setSelectedTrophy] = useState(null);
+    const [trophies, setTrophies] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const mergedTrophies = useMemo(() => getMergedTrophies(), []);
-    
+    useEffect(() => {
+        const fetchTrophies = async () => {
+            try {
+                const response = await ProfileAPI.getTrophies();
+                if(response.success) setTrophies(response.data);
+            } catch (e) {
+                console.error("Trophy fetch error", e);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchTrophies();
+    }, []);
+
     const displayedTrophies = useMemo(() => {
-        if (filter === 'Unlocked') return mergedTrophies.filter(t => t.unlocked);
-        if (filter === 'Locked') return mergedTrophies.filter(t => !t.unlocked);
-        return mergedTrophies;
-    }, [filter, mergedTrophies]);
+        if (filter === 'Unlocked') return trophies.filter(t => t.unlocked);
+        if (filter === 'Locked') return trophies.filter(t => !t.unlocked);
+        return trophies;
+    }, [filter, trophies]);
 
-    const unlockedCount = mergedTrophies.filter(t => t.unlocked).length;
-    const progress = mergedTrophies.length > 0 ? unlockedCount / mergedTrophies.length : 0;
+    const unlockedCount = trophies.filter(t => t.unlocked).length;
+    const progress = trophies.length > 0 ? unlockedCount / trophies.length : 0;
 
     const handlePressTrophy = (item) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setSelectedTrophy(item);
     };
+
+    if (isLoading) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                 <StatusBar barStyle="light-content" />
+                <ActivityIndicator size="large" color={Colors.secondary} />
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -133,7 +146,7 @@ const TrophyCaseScreen = () => {
                 <View style={styles.summaryContent}>
                     <View>
                         <Text style={styles.summaryLabel}>Total Progress</Text>
-                        <Text style={styles.summaryValue}>{Math.round(progress * 100)}% <Text style={styles.summaryTotal}>({unlockedCount}/{mergedTrophies.length})</Text></Text>
+                        <Text style={styles.summaryValue}>{Math.round(progress * 100)}% <Text style={styles.summaryTotal}>({unlockedCount}/{trophies.length})</Text></Text>
                     </View>
                     <Ionicons name="trophy" size={40} color={Colors.secondary} />
                 </View>
@@ -178,6 +191,7 @@ const TrophyCaseScreen = () => {
     );
 };
 
+// ... styles ...
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 20 },

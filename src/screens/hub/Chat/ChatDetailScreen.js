@@ -13,7 +13,7 @@ import * as DocumentPicker from 'expo-document-picker'; // New import
 
 import { Colors } from '@config/Colors';
 import ChatBubble from './components/ChatBubble';
-import { ChatAPI } from '@api/MockChatService'; 
+import { ChatAPI } from '@api/hub/MockChatService'; 
 
 // --- Custom Emoji Selector Component ---
 const EmojiPicker = ({ onSelect }) => {

@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors';
 
 // API
-import { EventsService } from '@api/MockEventsService';
+import { EventsService } from '@api/hub/MockEventsService';
 
 const { width } = Dimensions.get('window');
 

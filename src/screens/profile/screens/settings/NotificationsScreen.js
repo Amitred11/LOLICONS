@@ -1,6 +1,5 @@
 // screens/profile/NotificationsScreen.js
 
-// Import essential modules from React, React Native, and Expo libraries.
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Switch, TouchableOpacity, StatusBar, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,16 +9,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
-/**
- * A reusable UI component for a single setting row with a label, description, and toggle switch.
- * @param {object} props - The component's properties.
- * @param {string} props.label - The primary text label for the setting.
- * @param {string} [props.description] - Optional secondary text for more detail.
- * @param {boolean} props.value - The current boolean state of the switch.
- * @param {function} props.onValueChange - Callback function when the switch is toggled.
- * @param {boolean} [props.isLast=false] - If true, the bottom border is omitted.
- * @param {boolean} [props.disabled=false] - If true, the row is visually disabled (faded) and the switch is non-interactive.
- */
+// Import the API Service
+import { ProfileAPI } from '@api/MockProfileService'; 
+
 const NotificationRow = ({ label, description, value, onValueChange, isLast, disabled }) => (
     <View style={[styles.row, !isLast && styles.rowBorder, disabled && { opacity: 0.5 }]}>
         <View style={styles.textContainer}>
@@ -37,49 +29,40 @@ const NotificationRow = ({ label, description, value, onValueChange, isLast, dis
     </View>
 );
 
-/**
- * A specialized row component for the "Quiet Hours" setting, which leads to another screen.
- * It displays a text value ("Off") and a chevron icon instead of a switch.
- * @param {object} props - The component's properties.
- * @param {function} props.onPress - Callback function for when the row is pressed.
- */
 const QuietHoursRow = ({ onPress, currentSettings }) => (
-        <TouchableOpacity onPress={onPress} style={styles.row}>
-            <View style={styles.textContainer}>
-                <Text style={styles.rowLabel}>Quiet Hours</Text>
-                <Text style={styles.rowDescription}>Mute notifications during specific times.</Text>
-            </View>
-            <View style={styles.rowRight}>
-                <Text style={styles.quietHoursValue}>
-                    {currentSettings.enabled ? `${currentSettings.start} - ${currentSettings.end}` : 'Off'}
-                </Text>
-                <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
-            </View>
-        </TouchableOpacity>
-    );
+    <TouchableOpacity onPress={onPress} style={styles.row}>
+        <View style={styles.textContainer}>
+            <Text style={styles.rowLabel}>Quiet Hours</Text>
+            <Text style={styles.rowDescription}>Mute notifications during specific times.</Text>
+        </View>
+        <View style={styles.rowRight}>
+            <Text style={styles.quietHoursValue}>
+                {currentSettings.enabled ? `${currentSettings.start} - ${currentSettings.end}` : 'Off'}
+            </Text>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+        </View>
+    </TouchableOpacity>
+);
 
-
-/**
- * The main screen for managing all notification-related preferences.
- */
 const NotificationsScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
     const { show: showModal } = useModal();
     
     // --- State Management ---
-    // Loading state for fetching initial preferences
     const [isLoading, setIsLoading] = useState(true);
 
-    // A master state to enable or disable all notifications globally.
+    // Master toggle state
     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
     
+    // Quiet Hours state
     const [quietHours, setQuietHours] = useState({
         enabled: false,
         start: '10:00 PM',
         end: '8:00 AM',
     });
 
-    // State to manage individual notification categories. Initialized to defaults.
+    // Individual categories state
+    // Initializing with defaults to prevent render errors before API loads
     const [settings, setSettings] = useState({
         newChapters: false,
         recommendations: false,
@@ -90,34 +73,28 @@ const NotificationsScreen = ({ navigation }) => {
     });
 
     /**
-     * Effect to fetch notification preferences on mount.
+     * Effect to fetch notification preferences on mount using ProfileAPI.
      */
     useEffect(() => {
         const fetchPreferences = async () => {
             try {
-                // TODO: Connect to Backend API to get user notification settings
-                // Example:
-                // const data = await api.get('/user/notifications');
-                // setNotificationsEnabled(data.globalEnabled);
-                // setSettings(data.preferences);
-                // setQuietHours(data.quietHours);
+                const response = await ProfileAPI.getNotificationSettings();
                 
-                // Simulating network request
-                setTimeout(() => {
-                    // Simulating a user who has notifications enabled
-                    setNotificationsEnabled(true);
-                    setSettings({
-                        newChapters: true,
-                        recommendations: true,
-                        newFollowers: true,
-                        comments: true,
-                        dms: false,
-                        promotions: false,
-                    });
-                    setIsLoading(false);
-                }, 1000);
+                if (response.success) {
+                    const data = response.data;
+                    setNotificationsEnabled(data.globalEnabled);
+                    // FIX: Access 'preferences', not 'categories'
+                    if (data.preferences) {
+                        setSettings(data.preferences);
+                    }
+                    setQuietHours(data.quietHours);
+                } else {
+                    console.error("API Error:", response.message);
+                }
             } catch (error) {
                 console.error("Failed to load notification settings", error);
+                Alert.alert("Error", "Could not load settings.");
+            } finally {
                 setIsLoading(false);
             }
         };
@@ -125,39 +102,60 @@ const NotificationsScreen = ({ navigation }) => {
         fetchPreferences();
     }, []);
 
-    // A generic handler to toggle the state of an individual setting.
-    const toggleSetting = (key) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // Provides gentle haptic feedback.
+    // Handler to toggle individual settings
+    const toggleSetting = async (key) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); 
         
-        // Optimistic UI Update
+        // 1. Optimistic UI Update
         const newValue = !settings[key];
         setSettings(prev => ({ ...prev, [key]: newValue }));
 
-        // TODO: Send API request to update specific setting
-        // api.patch('/user/notifications', { [key]: newValue });
-        console.log(`Toggled ${key} to ${newValue}`);
+        // 2. Persist to API
+        try {
+            // FIX: Using the singular update method defined in MockProfileService
+            await ProfileAPI.updateNotificationSetting(key, newValue);
+            console.log(`Updated ${key} to ${newValue}`);
+        } catch (error) {
+            console.error("Failed to update setting", error);
+            // Revert on failure
+            setSettings(prev => ({ ...prev, [key]: !newValue }));
+        }
     };
     
-    // A handler for the master toggle switch.
-    const handleMasterToggle = (value) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Provides a more noticeable haptic feedback.
+    // Handler for the master toggle switch
+    const handleMasterToggle = async (value) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        
+        // 1. Optimistic Update
         setNotificationsEnabled(value);
 
-        // TODO: Send API request to update global setting
-        // api.patch('/user/notifications/global', { enabled: value });
-        console.log(`Global notifications set to ${value}`);
+        // 2. Persist to API
+        try {
+            // FIX: Sending 'global' as the key, as expected by MockProfileService
+            await ProfileAPI.updateNotificationSetting('global', value);
+            console.log(`Global notifications set to ${value}`);
+        } catch (error) {
+            console.error("Failed to update global toggle", error);
+            setNotificationsEnabled(!value);
+        }
     }
     
     const handleQuietHoursPress = () => {
         showModal('quietHours', {
             initialSettings: quietHours,
-            onSave: (newSettings) => {
-                // This callback receives the new settings from the modal
+            onSave: async (newSettings) => {
+                // Update Local State
                 setQuietHours(newSettings);
                 
-                // TODO: Send API request to update quiet hours
-                // api.patch('/user/notifications/quiet-hours', newSettings);
-                console.log('Quiet Hours saved:', newSettings);
+                // Persist to API
+                try {
+                    // FIX: Using updateQuietHours method defined in MockProfileService
+                    await ProfileAPI.updateQuietHours(newSettings);
+                    console.log('Quiet Hours saved:', newSettings);
+                } catch (error) {
+                    console.error("Failed to save Quiet Hours", error);
+                    Alert.alert("Error", "Failed to save Quiet Hours settings.");
+                }
             }
         });
     };
@@ -178,10 +176,10 @@ const NotificationsScreen = ({ navigation }) => {
             <View style={[styles.header, { paddingTop: insets.top }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}><Ionicons name="arrow-back" size={24} color={Colors.text} /></TouchableOpacity>
                 <Text style={styles.headerTitle}>Notifications</Text>
-                <View style={styles.headerButton} />{/* Empty view for spacing */}
+                <View style={styles.headerButton} />
             </View>
             <ScrollView contentContainerStyle={styles.scrollContainer}>
-                {/* Introductory section with an icon and description */}
+                {/* Introductory section */}
                 <View style={styles.introHeader}>
                     <View style={styles.iconContainer}><Ionicons name="notifications-outline" size={40} color={Colors.secondary} /></View>
                     <Text style={styles.introTitle}>Control Your Alerts</Text>
@@ -207,7 +205,7 @@ const NotificationsScreen = ({ navigation }) => {
                 {/* Other Notification Settings */}
                 <Text style={styles.sectionTitle}>Other</Text>
                 <View style={styles.card}>
-                    <QuietHoursRow onPress={handleQuietHoursPress}currentSettings={quietHours} />
+                    <QuietHoursRow onPress={handleQuietHoursPress} currentSettings={quietHours} />
                     <NotificationRow label="Promotions & Events" value={settings.promotions} onValueChange={() => toggleSetting('promotions')} isLast disabled={!notificationsEnabled} />
                 </View>
             </ScrollView>

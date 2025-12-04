@@ -6,27 +6,13 @@ import {
     TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Keyboard 
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '@config/Colors'; // Ensure this path matches your project
+import { Colors } from '@config/Colors'; 
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAlert } from '@context/AlertContext'; 
 
-// --- API Simulation ---
-const PasswordAPI = {
-    changePassword: async (current, newPass) => {
-        // Simulate network request
-        return new Promise((resolve, reject) => {
-            setTimeout(() => {
-                // Mock validation logic
-                if (current === '123456') { 
-                    resolve({ success: true });
-                } else {
-                    reject("Current password is incorrect.");
-                }
-            }, 1500);
-        });
-    }
-};
+// --- ADDED: Import the API Service ---
+import { ProfileAPI } from '@api/MockProfileService';
 
 const PasswordInput = ({ label, value, onChangeText, placeholder, isSecure, onToggleSecurity }) => (
     <View style={styles.inputGroup}>
@@ -99,17 +85,22 @@ const ChangePasswordScreen = ({ navigation }) => {
         // 2. API Call
         setIsLoading(true);
         try {
-            await PasswordAPI.changePassword(form.current, form.new);
+            // --- UPDATED: Use ProfileAPI ---
+            const response = await ProfileAPI.changePassword(form.current, form.new);
             
-            showAlert({
-                title: "Success",
-                message: "Your password has been updated successfully.",
-                type: 'success',
-                btnText: "Back to Account",
-                onClose: () => navigation.goBack()
-            });
+            if (response.success) {
+                showAlert({
+                    title: "Success",
+                    message: "Your password has been updated successfully.",
+                    type: 'success',
+                    btnText: "Back to Account",
+                    onClose: () => navigation.goBack()
+                });
+            } else {
+                 throw new Error(response.message || "Failed to update.");
+            }
         } catch (error) {
-            showAlert({ title: "Error", message: error || "Failed to update password.", type: 'error' });
+            showAlert({ title: "Error", message: error.message || "Failed to update password.", type: 'error' });
         } finally {
             setIsLoading(false);
         }

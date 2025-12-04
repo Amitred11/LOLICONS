@@ -236,7 +236,7 @@ const HomeScreen = () => {
                             <Text style={styles.sectionTitle}>Jump Back In</Text>
                             <Text style={styles.sectionSubtitle}>Stories you're currently reading</Text>
                         </View>
-                        <TouchableOpacity onPress={() => navigation.navigate('HistoryTab')}>
+                        <TouchableOpacity onPress={() => navigation.navigate('Comics')}>
                             <Text style={styles.seeAllText}>All</Text>
                         </TouchableOpacity>
                     </View>

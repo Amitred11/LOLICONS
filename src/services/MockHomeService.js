@@ -1,5 +1,5 @@
 // services/MockHomeService.js
-import { EventsService } from './MockEventsService';
+import { EventsService } from './hub/MockEventsService';
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 

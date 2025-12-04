@@ -20,7 +20,7 @@ import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { Colors } from '@config/Colors';
 
 // API
-import { EventsService } from '@api/MockEventsService';
+import { EventsService } from '@api/hub/MockEventsService';
 
 const categories = ['All', 'Releases', 'Meetups', 'Contests', 'Conventions'];
 

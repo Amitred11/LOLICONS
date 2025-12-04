@@ -11,53 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAlert } from '@context/AlertContext'; 
 
-// --- API Service Placeholders ---
-// TODO: Replace these simulated promises with real Backend API calls (e.g., axios or fetch)
-const PrivacyAPI = {
-    getSettings: async () => {
-        // Example: const res = await api.get('/user/privacy/settings'); return res.data;
-        // Returning default empty state for now
-        return new Promise(resolve => {
-            setTimeout(() => {
-                resolve({ 
-                    twoFactor: false, 
-                    sessions: 1, // 1 usually implies 'current device'
-                    blocked: []  // Empty list initially
-                });
-            }, 500);
-        });
-    },
-    
-    toggle2FA: async (currentStatus) => {
-        // Example: await api.post('/user/privacy/2fa', { enabled: !currentStatus });
-        return new Promise(resolve => setTimeout(() => resolve(!currentStatus), 500));
-    },
-    
-    logoutOtherSessions: async () => {
-        // Example: await api.post('/user/privacy/sessions/logout-all');
-        return new Promise(resolve => setTimeout(() => resolve(true), 500));
-    },
-    
-    unblockUser: async (userId) => {
-        // Example: await api.delete(`/user/privacy/blocked/${userId}`);
-        return new Promise(resolve => setTimeout(() => resolve(true), 500));
-    },
-    
-    blockUser: async (username) => {
-        // Example: const res = await api.post('/user/privacy/block', { username }); return res.data;
-        return new Promise((resolve, reject) => {
-            setTimeout(() => {
-                if (!username) reject("Invalid username");
-                // Return a structure matching your backend user object
-                resolve({ 
-                    id: Math.random().toString(), 
-                    name: username, 
-                    date: new Date().toISOString().split('T')[0] 
-                });
-            }, 500);
-        });
-    }
-};
+// Import the ProfileAPI service
+import { ProfileAPI } from '@api/MockProfileService'; 
 
 const SettingsRow = ({ icon, label, details, onPress, isLast, color = Colors.text }) => (
     <TouchableOpacity onPress={onPress} style={[styles.row, !isLast && styles.rowBorder]}>
@@ -91,9 +46,13 @@ const PrivacyScreen = ({ navigation }) => {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const data = await PrivacyAPI.getSettings();
-            setSettings({ twoFactor: data.twoFactor, sessions: data.sessions });
-            setBlockedUsers(data.blocked);
+            // FIX: Correct method name is getPrivacySettings
+            const response = await ProfileAPI.getPrivacySettings();
+            if (response.success) {
+                const data = response.data;
+                setSettings({ twoFactor: data.twoFactor, sessions: data.sessions });
+                setBlockedUsers(data.blocked);
+            }
         } catch (error) {
             console.error(error);
             showAlert({ title: "Error", message: "Failed to load settings from server.", type: 'error' });
@@ -114,7 +73,8 @@ const PrivacyScreen = ({ navigation }) => {
             secondaryBtnText: "Cancel",
             onClose: async () => {
                 try {
-                    const newState = await PrivacyAPI.toggle2FA(settings.twoFactor);
+                    // FIX: Use ProfileAPI, not PrivacyAPI
+                    const newState = await ProfileAPI.toggle2FA(settings.twoFactor);
                     setSettings(prev => ({ ...prev, twoFactor: newState }));
                     showAlert({ 
                         title: "Success", 
@@ -144,7 +104,8 @@ const PrivacyScreen = ({ navigation }) => {
             onSecondaryPress: () => {}, 
             onClose: async () => {
                 try {
-                    await PrivacyAPI.logoutOtherSessions();
+                    // FIX: Correct method is logoutAllSessions, and use ProfileAPI
+                    await ProfileAPI.logoutAllSessions();
                     setSettings(prev => ({ ...prev, sessions: 1 }));
                     showAlert({ title: "Success", message: "All other devices have been logged out.", type: 'success' });
                 } catch (err) {
@@ -167,9 +128,9 @@ const PrivacyScreen = ({ navigation }) => {
             secondaryBtnText: "Cancel",
             onClose: async () => {
                 try {
-                    await PrivacyAPI.unblockUser(user.id);
+                    // FIX: Use ProfileAPI
+                    await ProfileAPI.unblockUser(user.id);
                     setBlockedUsers(prev => prev.filter(u => u.id !== user.id));
-                    // Optional: Show success toast
                 } catch (err) {
                     showAlert({ title: "Error", message: "Failed to unblock user.", type: 'error' });
                 }
@@ -181,7 +142,8 @@ const PrivacyScreen = ({ navigation }) => {
         if (!newBlockName.trim()) return;
         setIsBlockingLoader(true);
         try {
-            const newUser = await PrivacyAPI.blockUser(newBlockName);
+            // FIX: Use ProfileAPI
+            const newUser = await ProfileAPI.blockUser(newBlockName);
             setBlockedUsers(prev => [...prev, newUser]);
             setNewBlockName('');
         } catch (err) {
