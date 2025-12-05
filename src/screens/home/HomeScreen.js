@@ -18,7 +18,8 @@ import QuickActions from './components/QuickActions';
 import EventCard from './components/EventCard';
 import EmptyState from './components/empty/EmptyState';
 
-import { HomeService } from '@api/MockHomeService';
+// Updated import to use the consolidated service
+import { ComicService } from '@api/MockComicService';
 
 const friendlyActions = [
     { title: 'My Bookshelf', subtitle: 'Saved Comics', icon: 'bookmarks-outline', color: '#4A90E2', target: 'Comics' },
@@ -59,14 +60,14 @@ const HomeScreen = () => {
   useEffect(() => {
     const loadHomeData = async () => {
         try {
+            // Using ComicService for all data calls
             const [featRes, histRes, goalRes, eventRes] = await Promise.all([
-                HomeService.getFeaturedComics(),
-                HomeService.getContinueReading(),
-                HomeService.getDailyGoals(),
-                HomeService.getUpcomingEvents()
+                ComicService.getFeaturedComics(), 
+                ComicService.getContinueReading(),
+                ComicService.getDailyGoals(),
+                ComicService.getUpcomingEvents()
             ]);
 
-            // Guard against undefined responses by defaulting to []
             if (featRes.success) setFeaturedComics(featRes.data || []);
             if (histRes.success) setHistoryComics(histRes.data || []);
             if (goalRes.success) setGoals(goalRes.data || []);
@@ -83,15 +84,10 @@ const HomeScreen = () => {
 
   const greeting = getGreeting();
   
-  // Guard against goals being undefined to prevent JS crashes
   const dailyProgress = useMemo(() => {
     if (!goals || goals.length === 0) return 0;
-    const completed = goals.reduce((acc, curr) => acc + (curr.progress || 0), 0);
-    const total = goals.reduce((acc, curr) => acc + (curr.total || 1), 0);
-    // Simple logic: if progress >= total, it's done. 
-    // Or just percentage of completed tasks:
-    const doneCount = goals.filter(g => (g.progress || 0) >= (g.total || 1)).length;
-    return doneCount / goals.length;
+    const completedCount = goals.filter(g => (g.progress || 0) >= (g.total || 1)).length;
+    return completedCount / goals.length;
   }, [goals]);
   
   const displayUser = user || { name: 'Guest', xp: 0, avatarUrl: null, username: 'Guest' };
@@ -199,7 +195,7 @@ const HomeScreen = () => {
                         data={featuredComics} 
                         renderItem={({ item, index }) => (
                             <FeaturedCard 
-                                item={{...item, localSource: item.cover}} // Normalize data for FeaturedCard
+                                item={{...item, localSource: item.image}} // Pass 'image' as 'localSource' for the card
                                 index={index} 
                                 scrollX={scrollX} 
                                 onPress={() => navigation.navigate('ComicDetail', { comicId: item.id })} 
@@ -213,8 +209,7 @@ const HomeScreen = () => {
                         snapToInterval={SNAP_SIZE} 
                         decelerationRate="fast"
                         snapToAlignment="center"
-                        // CRITICAL FIX: Prevents Android crash on horizontal list
-                        removeClippedSubviews={false} 
+                        removeClippedSubviews={false} // Prevent crashes on Android
                     />
                 ) : (
                     <View style={{ marginHorizontal: 20 }}>
@@ -246,7 +241,7 @@ const HomeScreen = () => {
                             data={historyComics} 
                             renderItem={({ item }) => (
                                 <ContinueReadingCard 
-                                    item={item} 
+                                    item={{...item, localSource: item.image}} 
                                     onPress={() => navigation.navigate('ComicDetail', { comicId: item.id })} 
                                 />
                             )} 

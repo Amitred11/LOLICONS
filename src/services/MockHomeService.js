@@ -1,153 +1,104 @@
 // services/MockHomeService.js
-import { EventsService } from './hub/MockEventsService';
+import { EventsService } from '@api/hub/MockEventsService';
+import { ComicService } from '@api/MockComicService'; // Import the source of truth
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --- Inline Mock Data (Prevents undefined imports) ---
 const MOCK_MISSIONS = [
     { id: 'm1', title: 'Read 1 Chapter', progress: 1, total: 1, completed: true, icon: 'book-outline' },
     { id: 'm2', title: 'Spend 10 Minutes', progress: 5, total: 10, completed: false, icon: 'time-outline' },
     { id: 'm3', title: 'Rate a Comic', progress: 0, total: 1, completed: false, icon: 'star-outline' },
 ];
 
-const MOCK_COMICS = [
-    {
-        id: 'c1',
-        title: 'Solo Leveling',
-        author: 'Chugong',
-        cover: { uri: 'https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?w=800' },
-        rating: 4.9,
-        views: '2.1M',
-        tags: ['Action', 'Fantasy', 'System'],
-        description: 'The weakest hunter of all mankind.',
-        status: 'Ongoing'
-    },
-    {
-        id: 'c2',
-        title: 'The Beginning After The End',
-        author: 'TurtleMe',
-        cover: { uri: 'https://images.unsplash.com/photo-1519074069444-1ba4fff66d16?w=800' },
-        rating: 4.8,
-        views: '1.8M',
-        tags: ['Fantasy', 'Isekai', 'Magic'],
-        description: 'King Grey has unrivaled strength.',
-        status: 'Ongoing'
-    },
-    {
-        id: 'c3',
-        title: 'Lore Olympus',
-        author: 'Rachel Smythe',
-        cover: { uri: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800' },
-        rating: 4.7,
-        views: '3.5M',
-        tags: ['Romance', 'Drama', 'Fantasy'],
-        description: 'Witness what the gods do… after dark.',
-        status: 'Completed'
-    },
-    {
-        id: 'c4',
-        title: 'Omniscient Reader',
-        author: 'SingNsong',
-        cover: { uri: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800' },
-        rating: 4.9,
-        views: '1.2M',
-        tags: ['Action', 'Apocalypse'],
-        description: 'Only I know the end of this world.',
-        status: 'Ongoing'
-    },
-    {
-        id: 'c5',
-        title: 'Tower of God',
-        author: 'SIU',
-        cover: { uri: 'https://images.unsplash.com/photo-1515549832467-8783363e19b6?w=800' },
-        rating: 4.6,
-        views: '4.0M',
-        tags: ['Fantasy', 'Adventure'],
-        description: 'Reach the top, and everything will be yours.',
-        status: 'Ongoing'
-    },
-    {
-        id: 'c6',
-        title: 'Villains Are Destined to Die',
-        author: 'Gwon Gyeoeul',
-        cover: { uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800' },
-        rating: 4.8,
-        views: '900K',
-        tags: ['Romance', 'Isekai', 'Villainess'],
-        description: 'I’ve been reincarnated as the villainess.',
-        status: 'Ongoing'
-    }
-];
+// Helper to format large numbers (e.g., 2500000 -> 2.5M)
+const formatViews = (num) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toString();
+};
 
 export const HomeService = {
-    // 1. Featured Comics
+    // 1. Featured Comics (Fetched from ComicService based on Views)
     getFeaturedComics: async () => {
-        await delay(800);
-        return { success: true, data: MOCK_COMICS.slice(0, 4) };
+        try {
+            const featured = await ComicService.getFeaturedComics();
+            
+            // Map the ComicService data structure to the Home UI structure
+            const mappedData = featured.map(comic => ({
+                id: comic.id,
+                title: comic.title,
+                author: comic.author,
+                cover: comic.image, // Map 'image' to 'cover' for UI
+                localSource: comic.image, // Ensure localSource exists for AnimatedCards
+                rating: comic.rating,
+                views: formatViews(comic.views),
+                tags: comic.genres || [],
+                description: comic.synopsis,
+                status: comic.status
+            }));
+
+            return { success: true, data: mappedData };
+        } catch (error) {
+            console.error('HomeService Featured Error:', error);
+            return { success: false, data: [] };
+        }
     },
 
-    // 2. Continue Reading
+    // 2. Continue Reading (Fetched from ComicService History)
     getContinueReading: async () => {
-        await delay(600);
-        // Safety checks to ensure we don't spread undefined objects
-        const c1 = MOCK_COMICS[3] || MOCK_COMICS[0];
-        const c2 = MOCK_COMICS[1] || MOCK_COMICS[0];
+        try {
+            const history = await ComicService.getHistory();
+            
+            // Map History data to Card expectations
+            const mappedHistory = history.map(item => ({
+                ...item,
+                cover: item.image, // UI often expects 'cover'
+                localSource: item.image,
+                // Ensure specific fields exist for the Progress Bar in Card
+                totalChapters: item.totalChapters || 100, 
+                chapters: [{ id: item.lastChapterRead }] // Mock for card display
+            }));
 
-        // Ensure chapters/localSource structure matches what cards expect
-        const history = [
-            { 
-                ...c1, 
-                lastChapter: 45, 
-                totalChapters: 120, 
-                progress: 0.35,
-                chapters: [{ id: 45 }], // Mock for card display
-                localSource: c1.cover // Map cover to localSource for card compatibility
-            }, 
-            { 
-                ...c2, 
-                lastChapter: 112, 
-                totalChapters: 175, 
-                progress: 0.64,
-                chapters: [{ id: 112 }],
-                localSource: c2.cover
-            }, 
-        ];
-        return { success: true, data: history };
+            return { success: true, data: mappedHistory };
+        } catch (error) {
+            console.error('HomeService History Error:', error);
+            return { success: false, data: [] };
+        }
     },
 
-    // 3. Daily Goals
+    // 3. Daily Goals (Kept local for now, or could act as a bridge to a MissionService)
     getDailyGoals: async () => {
         await delay(500);
-        // Return local MOCK_MISSIONS so it is never undefined
         return { success: true, data: MOCK_MISSIONS };
     },
 
     // 4. Upcoming Events
     getUpcomingEvents: async () => {
         try {
-            // Handle case where EventsService might be missing or fail
             if (EventsService && EventsService.getEvents) {
                 return await EventsService.getEvents();
             }
             return { success: true, data: [] };
         } catch (e) {
-            console.warn("Event service failed", e);
             return { success: true, data: [] };
         }
     },
 
-    // 5. Search
+    // 5. Search (Delegates to ComicService)
     searchContent: async (query) => {
-        await delay(300); 
-        if (!query) return { success: true, data: [] };
-
-        const lowerQ = query.toLowerCase();
-        const results = MOCK_COMICS.filter(comic => 
-            comic.title.toLowerCase().includes(lowerQ) || 
-            comic.author.toLowerCase().includes(lowerQ) ||
-            comic.tags.some(tag => tag.toLowerCase().includes(lowerQ))
-        );
-        
-        return { success: true, data: results };
+        try {
+            const results = await ComicService.getComics({ searchQuery: query });
+            
+            // Map results for consistency
+            const mappedResults = results.map(c => ({
+                ...c,
+                cover: c.image,
+                views: formatViews(c.views)
+            }));
+            
+            return { success: true, data: mappedResults };
+        } catch (error) {
+            return { success: true, data: [] };
+        }
     }
 };

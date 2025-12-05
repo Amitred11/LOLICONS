@@ -24,7 +24,7 @@ import * as Haptics from 'expo-haptics';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 // --- Imports ---
-import { ProfileAPI } from '@api/MockProfileService'; // UPDATED IMPORT
+import { ProfileAPI } from '@api/MockProfileService';
 import RankInfoModal from '../components/modals/RankInfoModal';
 import AchievementModal from '../components/modals/AchievementModal';
 import GlitchEffect from '../components/ui/GlitchEffect';
@@ -88,7 +88,7 @@ const ProfileScreen = () => {
 
   // Fetch Data
   const fetchData = async () => {
-      // Don't set loading to true on refetch to avoid flickering, only on initial load
+      // Don't set loading to true on refetch to avoid flickering
       if(!profile) setIsLoading(true); 
       try {
           const response = await ProfileAPI.getProfile();
@@ -102,7 +102,7 @@ const ProfileScreen = () => {
       }
   };
 
-  // Refetch when screen comes into focus (in case edits were made)
+  // Refetch when screen comes into focus
   useFocusEffect(
       React.useCallback(() => {
           fetchData();
@@ -114,7 +114,6 @@ const ProfileScreen = () => {
   const nextRank = profile?.nextRank;
   const xp = profile?.xp || 0;
   
-  // Rank Progress Calculation
   const rankProgress = nextRank 
       ? (xp - currentRank.minXp) / (nextRank.minXp - currentRank.minXp) 
       : 1;
@@ -143,6 +142,20 @@ const ProfileScreen = () => {
   const handleCloseModal = () => setModalVisible(false);
   const handleOpenRankModal = () => setIsRankModalVisible(true);
   const handleCloseRankModal = () => setIsRankModalVisible(false);
+
+  // --- NEW: Handle See All Navigation ---
+  const handleSeeAll = () => {
+      if (!profile) return;
+      const type = activeTab === 0 ? 'favorites' : 'history';
+      const data = activeTab === 0 ? profile.favorites : profile.history;
+      const title = activeTab === 0 ? 'My Collection' : 'Reading History';
+      
+      navigation.navigate('ViewAllHF', {
+          type,
+          data,
+          title
+      });
+  };
 
   const animatedXpFillStyle = useAnimatedStyle(() => ({ width: `${xpFill.value * 100}%` }));
   const animatedHeaderBannerStyle = useAnimatedStyle(() => ({ transform: [{ scale: interpolate(scrollY.value, [-HEADER_BANNER_HEIGHT, 0], [1.5, 1], Extrapolate.CLAMP) }] }));
@@ -200,32 +213,46 @@ const ProfileScreen = () => {
                             <Text style={[styles.tabLabel, activeTab === 1 && styles.tabLabelActive]}>History ({profile.history.length})</Text>
                         </TouchableOpacity>
                     </View>
+
+                    {/* NEW: Section Sub-Header with See All */}
+                    <View style={styles.subSectionHeader}>
+                        <Text style={styles.subSectionTitle}>
+                            {activeTab === 0 ? 'Your Collection' : 'Recently Read'}
+                        </Text>
+                        {((activeTab === 0 && profile.favorites.length > 0) || (activeTab === 1 && profile.history.length > 0)) && (
+                            <TouchableOpacity onPress={handleSeeAll}>
+                                <Text style={styles.seeAllText}>See All</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
                     
                     {activeTab === 0 ? ( 
                         profile.favorites.length > 0 ? (
-                            <FlatList data={profile.favorites} renderItem={FavoriteItem} keyExtractor={item => item.id} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ marginTop: 20 }} /> 
+                            <FlatList 
+                                data={profile.favorites.slice(0, 5)} // Limit preview
+                                renderItem={FavoriteItem} 
+                                keyExtractor={item => item.id} 
+                                horizontal 
+                                showsHorizontalScrollIndicator={false} 
+                            /> 
                         ) : (
-                            <View style={{ marginTop: 20 }}>
-                                <EmptyState 
-                                    icon="heart-outline" 
-                                    title="No Favorites Yet" 
-                                    message="Save comics to your library to see them here." 
-                                    actionLabel="Browse Comics"
-                                    onAction={() => navigation.navigate('Comics')}
-                                />
-                            </View>
+                            <EmptyState 
+                                icon="heart-outline" 
+                                title="No Favorites Yet" 
+                                message="Save comics to your library to see them here." 
+                                actionLabel="Browse Comics"
+                                onAction={() => navigation.navigate('Comics')}
+                            />
                         )
                     ) : ( 
                         profile.history.length > 0 ? (
-                            <View style={{marginTop: 20}}>{profile.history.slice(0, 3).map(item => <HistoryItem key={item.id} item={item}/>)}</View> 
+                            <View>{profile.history.slice(0, 3).map(item => <HistoryItem key={item.id} item={item}/>)}</View> 
                         ) : (
-                            <View style={{ marginTop: 20 }}>
-                                <EmptyState 
-                                    icon="time-outline" 
-                                    title="No Reading History" 
-                                    message="Start reading to track your progress." 
-                                />
-                            </View>
+                            <EmptyState 
+                                icon="time-outline" 
+                                title="No Reading History" 
+                                message="Start reading to track your progress." 
+                            />
                         )
                     )}
                 </View>
@@ -263,8 +290,6 @@ const ProfileScreen = () => {
   );
 };
 
-// Styles remain unchanged, omitting for brevity as they were correct in the prompt.
-// ... styles ...
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { alignItems: 'center' },
@@ -294,6 +319,11 @@ const styles = StyleSheet.create({
   section: {},
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingHorizontal: 5 },
   sectionTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 18,  },
+  
+  // New Styles for the Tab sub-header
+  subSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15, marginBottom: 10, paddingHorizontal: 5 },
+  subSectionTitle: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 14 },
+
   seeAllText: { fontFamily: 'Poppins_500Medium', color: Colors.secondary, fontSize: 14 },
   xpHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   xpLabel: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 14 },

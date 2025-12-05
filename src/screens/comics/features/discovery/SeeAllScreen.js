@@ -1,6 +1,5 @@
 // screens/comics/SeeAllScreen.js
 
-// Import essential modules from React, React Native, and third-party libraries.
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, ImageBackground, Dimensions, Pressable, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -12,24 +11,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// Create an animated version of FlatList for potential future animations.
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
-// --- Layout Constants ---
 const { width, height } = Dimensions.get('window');
 const PADDING = 15;
 const GAP = 15;
-// Grid layout calculations.
 const GRID_NUM_COLUMNS = 3;
 const GRID_CARD_WIDTH = (width - (PADDING * 2) - (GAP * (GRID_NUM_COLUMNS - 1))) / GRID_NUM_COLUMNS;
 
-// --- Reusable Component: Add to Library Button ---
-/**
- * A shared button for adding/removing a comic from the user's library.
- * It connects to the LibraryContext to manage its state.
- * @param {object} props - The component's properties.
- * @param {string} props.comicId - The ID of the comic.
- * @param {object} [props.style] - Optional custom styles.
- */
 const AddToLibraryButton = ({ comicId, style }) => {
     const { isInLibrary, addToLibrary, removeFromLibrary } = useLibrary();
     const isComicInLibrary = isInLibrary(comicId);
@@ -49,19 +37,11 @@ const AddToLibraryButton = ({ comicId, style }) => {
     );
 };
 
-// --- Reusable Component: List View Item ---
-/**
- * A component for rendering a single comic item in the "list" view mode.
- * @param {object} props - The component's properties.
- * @param {object} props.item - The comic data object.
- * @param {number} props.index - The index for staggered entry animations.
- */
 const BrowseListItem = ({ item, index }) => {
     const navigation = useNavigation();
     const entryOpacity = useSharedValue(0);
     const entryTranslateY = useSharedValue(20);
 
-    // Trigger a staggered fade-in and slide-up animation.
     useEffect(() => {
         entryOpacity.value = withDelay(index * 50, withSpring(1));
         entryTranslateY.value = withDelay(index * 50, withSpring(0));
@@ -96,15 +76,7 @@ const BrowseListItem = ({ item, index }) => {
     );
 };
 
-// --- Reusable Component: Grid View Item ---
-/**
- * A component for rendering a single comic item in the "grid" view mode.
- * @param {object} props - The component's properties.
- * @param {object} props.item - The comic data object.
- * @param {number} props.index - The index for staggered entry animations.
- */
 const BrowseGridItem = ({ item, index }) => {
-  // Render an empty placeholder to maintain grid alignment on the last row.
   if (item.empty) { return <View style={{ width: GRID_CARD_WIDTH, marginBottom: 20 }} />; }
   
   const navigation = useNavigation();
@@ -135,25 +107,19 @@ const BrowseGridItem = ({ item, index }) => {
   );
 };
 
-
-/**
- * A generic screen to display a full list of comics, typically navigated to from a "See All" button.
- * It receives the title and data as navigation parameters.
- */
 const SeeAllScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
-  // Destructure `title` and `data` passed from the previous screen.
   const { title, data } = route.params;
 
   const [viewMode, setViewMode] = useState('grid');
   const [listData, setListData] = useState([]);
 
-  // This effect prepares the data for display whenever the view mode or original data changes.
   useEffect(() => {
-    let preparedData = [...data];
-    // If in grid view, add empty placeholder items to ensure the last row aligns correctly.
+    // Ensure data is treated as an array
+    let preparedData = Array.isArray(data) ? [...data] : [];
+    
     if (viewMode === 'grid') {
         const itemsToAdd = GRID_NUM_COLUMNS - (preparedData.length % GRID_NUM_COLUMNS);
         if (itemsToAdd > 0 && itemsToAdd < GRID_NUM_COLUMNS) {
@@ -165,13 +131,11 @@ const SeeAllScreen = () => {
 
   return (
     <View style={styles.container}>
-        {/* The screen header, which is always visible. */}
         <View style={[styles.header, { height: 130}]}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
                 <Ionicons name="arrow-back-outline" size={28} color={Colors.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{title}</Text>
-            {/* View mode toggle buttons (grid/list) */}
             <View style={styles.viewModeContainer}>
                 <TouchableOpacity onPress={() => setViewMode('grid')}>
                     <Ionicons name="grid" size={22} color={viewMode === 'grid' ? Colors.secondary : Colors.textSecondary} />
@@ -183,7 +147,7 @@ const SeeAllScreen = () => {
         </View>
 
         <AnimatedFlatList
-            key={viewMode} // Changing the key forces a re-render, necessary when toggling `numColumns`.
+            key={viewMode} 
             data={listData}
             numColumns={viewMode === 'grid' ? GRID_NUM_COLUMNS : 1}
             renderItem={({ item, index }) => 
@@ -201,7 +165,6 @@ const SeeAllScreen = () => {
   );
 };
 
-// --- Stylesheet ---
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: PADDING, backgroundColor: Colors.background + 'D9', borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface },

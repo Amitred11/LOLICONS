@@ -2,11 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SectionList, Dimensions, Pressable, ImageBackground, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { Colors } from '@config/Colors';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } from 'react-native-reanimated';
-// REMOVE: import { comicsData as originalComicsData } from '@config/mockData';
-import { ComicService } from '@api/MockComicService'; // Import Service
+import { ComicService } from '@api/MockComicService'; 
 import { useLibrary } from '@context/LibraryContext';
 import { useDownloads } from '@context/DownloadContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -46,7 +45,10 @@ const LibraryCard = ({ item, index }) => {
   const { downloadedCount, progress } = getDownloadInfo(item.id, item.chapters.length);
   
   const coverImageUri = getDownloadedCoverUri(item.id);
-  const imageSource = coverImageUri ? { uri: coverImageUri } : item.localSource;
+  // FIX: Fallback to item.image or item.cover (since mock data doesn't use localSource)
+  const imageSource = coverImageUri 
+    ? { uri: coverImageUri } 
+    : (item.cover || item.image); 
   
   const entryOpacity = useSharedValue(0);
   const entryTranslateY = useSharedValue(20);
@@ -96,24 +98,30 @@ const LibraryView = ({ scrollHandler, headerHeight, searchQuery, filters }) => {
     const loadLibrary = async () => {
         setIsLoading(true);
         try {
-            // Using the service to get comics that match the library
-            // Note: Service filters by search/filters internally if passed, 
-            // but assumes we might be passing the library IDs via context or the service manages it.
-            // Since we updated MockComicService to handle internal library state, we call getLibrary directly.
-            const data = await ComicService.getLibrary({
+            // FIX: Call the new getLibrary method
+            const response = await ComicService.getLibrary({
                 searchQuery,
                 filters
             });
 
             if (!isMounted) return;
 
+            // FIX: Access response.data since Service returns standard API object
+            const data = response.data || [];
+
             // Chunking for Grid
             const addPlaceholdersAndChunk = (data) => {
                 const dataWithPlaceholders = [...data];
                 const itemsToAdd = NUM_COLUMNS - (dataWithPlaceholders.length % NUM_COLUMNS);
-                if (itemsToAdd > 0 && itemsToAdd < NUM_COLUMNS) { for (let i = 0; i < itemsToAdd; i++) { dataWithPlaceholders.push({ id: `placeholder-${i}`, empty: true }); } }
+                if (itemsToAdd > 0 && itemsToAdd < NUM_COLUMNS) { 
+                    for (let i = 0; i < itemsToAdd; i++) { 
+                        dataWithPlaceholders.push({ id: `placeholder-${i}`, empty: true }); 
+                    } 
+                }
                 const rows = [];
-                for (let i = 0; i < dataWithPlaceholders.length; i += NUM_COLUMNS) { rows.push(dataWithPlaceholders.slice(i, i + NUM_COLUMNS)); }
+                for (let i = 0; i < dataWithPlaceholders.length; i += NUM_COLUMNS) { 
+                    rows.push(dataWithPlaceholders.slice(i, i + NUM_COLUMNS)); 
+                }
                 return rows;
             };
             
@@ -131,7 +139,7 @@ const LibraryView = ({ scrollHandler, headerHeight, searchQuery, filters }) => {
 
     loadLibrary();
     return () => { isMounted = false; };
-  }, [searchQuery, filters, library]); // Re-run if library context changes
+  }, [searchQuery, filters, library]); 
 
   if (isLoading && librarySections.length === 0) {
       return (

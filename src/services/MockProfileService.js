@@ -1,22 +1,10 @@
 // api/MockProfileService.js
-
-/**
- * MOCK PROFILE BACKEND SERVICE
- * ----------------------------
- * Backend Dev: Replace the contents of these functions with real API calls/endpoints.
- */
+import { ComicService } from '@api/MockComicService';
+import { MOCK_FRIENDS_LIST } from '@api/hub/MockFriendService'; // Import friends for lookup
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // --- 1. MOCK DATA DEFINITIONS ---
-
-// Helper data for favorites/history since 'comicsData' was external
-const MOCK_COMICS = [
-    { id: 'c1', title: 'Solo Leveling', image: { uri: 'https://m.media-amazon.com/images/M/MV5BMzMwYzQ2NzctOTJlNS00NTc3LTliNjAtMjI2ZGI5YTA3ZTM1XkEyXkFqcGdeQXVyMTI2NTM5ODE5._V1_.jpg' }, lastChapterRead: 'Ch. 179' },
-    { id: 'c2', title: 'Omniscient Reader', image: { uri: 'https://upload.wikimedia.org/wikipedia/en/thumb/3/3b/Omniscient_Reader%27s_Viewpoint_cover.jpg/220px-Omniscient_Reader%27s_Viewpoint_cover.jpg' }, lastChapterRead: 'Ch. 200' },
-    { id: 'c3', title: 'The Beginning After The End', image: { uri: 'https://m.media-amazon.com/images/M/MV5BMjA1YjYxYTUtMWM4Yy00MGU5LTk0Y2QtOGU5NTFmZjU4Zjg3XkEyXkFqcGdeQXVyMTEzMTI1Mjk3._V1_.jpg' }, lastChapterRead: 'Ch. 175' },
-    { id: 'c4', title: 'Tower of God', image: { uri: 'https://m.media-amazon.com/images/M/MV5BN2RjMzY2NDktMzAyMy00NzQyLThkYzEtODQzMDVlZTE1Y2I4XkEyXkFqcGdeQXVyMTEzMTI1Mjk3._V1_FMjpg_UX1000_.jpg' }, lastChapterRead: 'Ch. 500' },
-];
 
 export const MOCK_RANKS = [
   // --- Special / Anomaly Rank ---
@@ -149,7 +137,7 @@ const MOCK_USER_DB = {
   avatarUrl: 'https://i.pravatar.cc/150?u=a042581f4e29026704d',
   xp: 12309,
   
-  // Using placeholder for require('../assets/comic-2.jpg') for service compatibility
+  // Banner will be updated dynamically from ComicService
   favoriteComicBanner: { uri: 'https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?q=80&w=1000&auto=format&fit=crop' },
 
   stats: [
@@ -158,13 +146,9 @@ const MOCK_USER_DB = {
     { label: 'Rank', value: '#1' },
   ],
   
-  // Status Object
   status: { type: 'online', text: 'Online' },
-
-  // Bio
   bio: "Just a comic enthusiast exploring new worlds, one chapter at a time. Big fan of fantasy and sci-fi.",
 
-  // Achievements / Badges
   badges: [
     { 
       id: 'Creators_ID124', 
@@ -256,9 +240,9 @@ const MOCK_USER_DB = {
     },
   ],
 
-  // Simulating slice(0, 4) and slice(1, 4).reverse() using mock data
-  favorites: MOCK_COMICS.slice(0, 4),
-  history: MOCK_COMICS.slice(1, 4).reverse(),
+  // Note: 'favorites' and 'history' are now populated dynamically in getProfile
+  favorites: [],
+  history: [],
     
   // Settings configuration (Preserved for functionality)
   settings: {
@@ -326,10 +310,22 @@ export const ProfileAPI = {
     
     getProfile: async () => {
         await delay(1000);
-        // Calculate Rank based on XP
+        
         const currentRank = MOCK_RANKS.slice().reverse().find(r => MOCK_USER_DB.xp >= r.minXp) || MOCK_RANKS[0];
         const nextRankIndex = MOCK_RANKS.findIndex(r => r.name === currentRank.name) + 1;
         const nextRank = MOCK_RANKS[nextRankIndex] || null;
+
+        const historyData = await ComicService.getHistory();
+        const favoritesData = (await ComicService.getFavorites()).data; // Fixed to extract data property
+        
+        // Update local DB references
+        MOCK_USER_DB.history = historyData.data || historyData; // Handle both return structures if service varies
+        MOCK_USER_DB.favorites = favoritesData || [];
+
+        let banner = MOCK_USER_DB.favoriteComicBanner;
+        if (MOCK_USER_DB.favorites.length > 0 && MOCK_USER_DB.favorites[0].image) {
+            banner = MOCK_USER_DB.favorites[0].image;
+        }
 
         return {
             success: true,
@@ -337,12 +333,11 @@ export const ProfileAPI = {
                 ...MOCK_USER_DB,
                 currentRank,
                 nextRank,
-                // The badges are already in MOCK_USER_DB
-                badges: MOCK_USER_DB.badges
+                favoriteComicBanner: banner,
             }
         };
     },
-
+    
     updateProfile: async (updateData) => {
         await delay(1500);
         Object.assign(MOCK_USER_DB, updateData);
@@ -351,16 +346,24 @@ export const ProfileAPI = {
 
     // --- FRIEND PROFILE ---
     
+    // UPDATED: Now looks up the actual friend from MockFriendService
     getFriendProfile: async (userId) => {
         await delay(800);
-        return { success: true, data: MOCK_FRIEND };
+        
+        // Find the friend in the exported list
+        const friendData = MOCK_FRIENDS_LIST.find(f => f.id === userId);
+
+        if (!friendData) {
+            return { success: true, data: GHOST_USER };
+        }
+
+        return { success: true, data: friendData };
     },
 
     // --- TROPHY CASE ---
 
     getTrophies: async () => {
         await delay(800);
-        // Returns the badges in the user's list
         return { success: true, data: MOCK_USER_DB.badges };
     },
 
@@ -375,7 +378,7 @@ export const ProfileAPI = {
                 name: MOCK_USER_DB.name,
                 handle: MOCK_USER_DB.handle,
                 email: MOCK_USER_DB.email,
-                joinDate: MOCK_USER_DB.joinDate, // Note: Provided userData didn't have joinDate, defaulting to hardcoded
+                joinDate: MOCK_USER_DB.joinDate, 
                 connected: MOCK_USER_DB.settings.connectedAccounts
             }
         };

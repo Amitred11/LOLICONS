@@ -33,6 +33,7 @@ import PrivacyScreen from '@features/profile/screens/settings/PrivacyScreen';
 import TrophyCaseScreen from '@features/profile/screens/TrophyCaseScreen';
 import ChangePasswordScreen from '@features/profile/screens/settings/ChangePasswordScreen';
 import FriendProfileScreen from '@features/profile/screens/FriendProfileScreen';
+import ViewAllHFScreen from '@features/profile/screens/ViewAllHFScreen';
 
 // HUB & MESSAGING
 import FriendsScreen from '@features/hub/Friends/FriendsScreen';
@@ -68,6 +69,7 @@ const MainStackNavigator = () => {
       <AppStack.Screen name="Privacy" component={PrivacyScreen} options={{ animation: 'slide_from_right' }}/>
       <AppStack.Screen name="TrophyCase" component={TrophyCaseScreen} />
       <AppStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+      <AppStack.Screen name="ViewAllHF" component = {ViewAllHFScreen} />
 
       {/* COMICS */}
       <AppStack.Screen name="ComicDetail" component={ComicDetailScreen} />

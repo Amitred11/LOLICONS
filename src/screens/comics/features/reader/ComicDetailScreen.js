@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { ComicService } from '@api/MockComicService'; 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics'; // Optional: for haptic feedback
 
 import { useLibrary } from '@context/LibraryContext';
 import { useDownloads } from '@context/DownloadContext';
@@ -42,76 +43,87 @@ const ProgressRing = ({ progress, size = 28 }) => {
 const ComicDetailScreen = ({ route, navigation }) => {
   const { comicId } = route.params;
   
-  // 1. Declare ALL Hooks at the top level unconditionally
-  // ---------------------------------------------------
+  // --- HOOKS ---
   
-  // State
   const [comic, setComic] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
   const [chapterSortOrder, setChapterSortOrder] = useState('desc');
+  const [isFavorite, setIsFavorite] = useState(false); // NEW STATE
 
-  // Contexts
   const { showAlert } = useAlert(); 
   const insets = useSafeAreaInsets();
   const { isInLibrary, addToLibrary, removeFromLibrary } = useLibrary();
   const modal = useModal();
   const { getChapterStatus, downloadChapters, deleteChapter, getDownloadInfo, getDownloadedCoverUri } = useDownloads();
 
-  // Animation Values
   const scrollY = useSharedValue(0); 
   const downloadProgress = useSharedValue(0);
 
-  // 2. Compute safe defaults for hook dependencies
-  // ---------------------------------------------------
-  // We need these values for the hooks below (useMemo/useEffect/styles), 
-  // but 'comic' might be null. We provide default values to prevent crashes.
-  const { downloadedCount, progress } = comic 
-    ? getDownloadInfo(comic.id, comic.chapters.length) 
-    : { downloadedCount: 0, progress: 0 };
+  // --- DERIVED STATE ---
+  
+  const downloadInfo = useMemo(() => {
+      if (!comic) return { downloadedCount: 0, progress: 0 };
+      return getDownloadInfo(comic.id, comic.chapters ? comic.chapters.length : 0);
+  }, [comic, getDownloadInfo]);
 
-  // 3. Effects & Memos
-  // ---------------------------------------------------
+  const { downloadedCount, progress } = downloadInfo;
 
-  // Fetch Comic Data
+  // --- EFFECTS ---
+
   useEffect(() => {
+    let isMounted = true;
     const loadComic = async () => {
         try {
             const data = await ComicService.getComicDetails(comicId);
-            setComic(data);
+            const favStatus = ComicService.isFavorite(comicId); // Check favorite status
+            if (isMounted) {
+                setComic(data);
+                setIsFavorite(favStatus);
+            }
         } catch (error) {
             console.error("Error loading comic details", error);
         } finally {
-            setLoading(false);
+            if (isMounted) setLoading(false);
         }
     };
     loadComic();
+    return () => { isMounted = false; };
   }, [comicId]);
 
-  // Update Download Progress Animation
   useEffect(() => {
     downloadProgress.value = withTiming(progress, { duration: 500 });
   }, [progress]);
 
+  // --- ANIMATIONS ---
+  
   const animatedProgressStyle = useAnimatedStyle(() => ({
     width: `${downloadProgress.value * 100}%`,
+  }));
+
+  const scrollHandler = useAnimatedScrollHandler((event) => { scrollY.value = event.contentOffset.y; });
+  
+  const animatedHeroStyle = useAnimatedStyle(() => ({ 
+      transform: [{ scale: interpolate(scrollY.value, [-HEADER_HEIGHT, 0], [2, 1], Extrapolate.CLAMP) }] 
+  }));
+  
+  const animatedHeaderStyle = useAnimatedStyle(() => ({ 
+      opacity: interpolate(scrollY.value, [HEADER_HEIGHT / 1.5, HEADER_HEIGHT - insets.top], [0, 1], Extrapolate.CLAMP) 
+  }));
+  
+  const animatedTitleStyle = useAnimatedStyle(() => ({ 
+      opacity: interpolate(scrollY.value, [HEADER_HEIGHT - insets.top, HEADER_HEIGHT - insets.top + 20], [0, 1], Extrapolate.CLAMP) 
   }));
 
   const sortedChapters = useMemo(() => {
     if (!comic?.chapters) return [];
     const chaptersCopy = [...comic.chapters];
-    return chapterSortOrder === 'asc' ? chaptersCopy.sort((a,b) => parseInt(a.id) - parseInt(b.id)) : chaptersCopy.sort((a,b) => parseInt(b.id) - parseInt(a.id));
+    return chapterSortOrder === 'asc' 
+        ? chaptersCopy.sort((a,b) => parseInt(a.id) - parseInt(b.id)) 
+        : chaptersCopy.sort((a,b) => parseInt(b.id) - parseInt(a.id));
   }, [comic?.chapters, chapterSortOrder]);
 
-  const scrollHandler = useAnimatedScrollHandler((event) => { scrollY.value = event.contentOffset.y; });
-  
-  const animatedHeroStyle = useAnimatedStyle(() => ({ transform: [{ scale: interpolate(scrollY.value, [-HEADER_HEIGHT, 0], [2, 1], Extrapolate.CLAMP) }] }));
-  const animatedHeaderStyle = useAnimatedStyle(() => ({ opacity: interpolate(scrollY.value, [HEADER_HEIGHT / 1.5, HEADER_HEIGHT - insets.top], [0, 1], Extrapolate.CLAMP) }));
-  const animatedTitleStyle = useAnimatedStyle(() => ({ opacity: interpolate(scrollY.value, [HEADER_HEIGHT - insets.top, HEADER_HEIGHT - insets.top + 20], [0, 1], Extrapolate.CLAMP) }));
-  
-  // 4. Conditional Rendering (Loading / Error)
-  // ---------------------------------------------------
-  // Now it is safe to return early because all hooks have been called.
+  // --- RENDER HELPERS ---
 
   if (loading) {
       return (
@@ -132,21 +144,36 @@ const ComicDetailScreen = ({ route, navigation }) => {
     );
   }
 
-  // 5. Variables & Handlers that require 'comic' to exist
-  // ---------------------------------------------------
   const isComicInLibrary = isInLibrary(comic.id);
   const coverImageUri = getDownloadedCoverUri(comic.id);
-  const imageSource = coverImageUri ? { uri: coverImageUri } : comic.localSource || comic.image;
+  const imageSource = coverImageUri 
+    ? { uri: coverImageUri } 
+    : (comic.cover || comic.image);
+
+  // --- ACTIONS ---
 
   const handleLibraryToggle = async () => { 
+      // Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // Optional
       if (isComicInLibrary) {
           removeFromLibrary(comic.id);
           await ComicService.removeFromLibrary(comic.id);
       } else {
           addToLibrary(comic.id);
           await ComicService.addToLibrary(comic.id);
-          showAlert({ title: "Added!", message: "Comic added to your library.", type: "success" });
+          showAlert({ title: "Added to Library", message: "Track reading progress here.", type: "success" });
       }
+  };
+
+  const handleFavoriteToggle = async () => {
+    // Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Optional
+    if (isFavorite) {
+        await ComicService.removeFromFavorites(comic.id);
+        setIsFavorite(false);
+    } else {
+        await ComicService.addToFavorites(comic.id);
+        setIsFavorite(true);
+        showAlert({ title: "Favorited!", message: "Added to your favorites collection.", type: "success" });
+    }
   };
 
   const handleReadPress = () => { 
@@ -178,7 +205,7 @@ const ComicDetailScreen = ({ route, navigation }) => {
             const pages = await ComicService.getChapterPages(comic.id, chapterId);
             const comicPagesMap = { [comic.id]: pages };
             downloadChapters(comic.id, [chapterId], { 
-                cover: comic.localSource || comic.image, 
+                cover: comic.cover || comic.image, 
                 pages: comicPagesMap 
             });
         } catch (e) {
@@ -230,6 +257,7 @@ const ComicDetailScreen = ({ route, navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
+      {/* Header */}
       <Animated.View style={[styles.header, { height: insets.top + 60 }, animatedHeaderStyle]}>
         <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
         <TouchableOpacity style={styles.headerButton} onPress={() => navigation.goBack()}><Ionicons name="arrow-back-outline" size={28} color={Colors.text} /></TouchableOpacity>
@@ -238,11 +266,13 @@ const ComicDetailScreen = ({ route, navigation }) => {
       </Animated.View>
       
       <AnimatedScrollView onScroll={scrollHandler} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
+        {/* Hero Section */}
         <View style={styles.heroContainer}>
             <Animated.Image source={imageSource} style={[styles.heroImage, animatedHeroStyle]} resizeMode="cover"/>
             <LinearGradient colors={['transparent', Colors.background]} style={styles.heroOverlay} locations={[0.5, 1]} />
         </View>
         
+        {/* Main Info */}
         <View style={styles.mainContent}>
           <Image source={imageSource} style={styles.coverImage} />
           <View style={styles.infoContainer}>
@@ -250,23 +280,49 @@ const ComicDetailScreen = ({ route, navigation }) => {
             <Text style={styles.author}>by {comic.author}</Text>
             <View style={styles.statsContainer}>
                 <View style={styles.statItem}><Text style={[styles.statText, styles.statusText(comic.status)]}>{comic.status}</Text></View>
-                <View style={styles.statItem}><Ionicons name="star" size={14} color={Colors.secondary} /><Text style={styles.statText}>4.8</Text></View>
-                <View style={styles.statItem}><Ionicons name="book-outline" size={14} color={Colors.textSecondary} /><Text style={styles.statText}>{sortedChapters.length} Chaps</Text></View>
+                <View style={styles.statItem}><Ionicons name="star" size={14} color={Colors.secondary} /><Text style={styles.statText}>{comic.rating}</Text></View>
+                <View style={styles.statItem}><Ionicons name="book-outline" size={14} color={Colors.textSecondary} /><Text style={styles.statText}>{comic.chapters ? comic.chapters.length : 0} Chaps</Text></View>
             </View>
           </View>
         </View>
 
         <View style={styles.actionsContainer}>
-            <TouchableOpacity style={styles.readButton} onPress={handleReadPress}><Ionicons name="book-outline" size={20} color={Colors.background} /><Text style={styles.readButtonText}>Start Reading</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.libraryButton} onPress={handleLibraryToggle}><Ionicons name={isComicInLibrary ? "checkmark-circle" : "add-circle-outline"} size={32} color={isComicInLibrary ? Colors.secondary : Colors.textSecondary} /></TouchableOpacity>
+            <TouchableOpacity style={styles.readButton} onPress={handleReadPress}>
+                <Ionicons name="book-outline" size={20} color={Colors.background} />
+                <Text style={styles.readButtonText}>Start Reading</Text>
+            </TouchableOpacity>
+
+            {/* Favorite Button */}
+            <TouchableOpacity style={styles.iconButton} onPress={handleFavoriteToggle}>
+                <Ionicons 
+                    name={isFavorite ? "heart" : "heart-outline"} 
+                    size={32} 
+                    color={isFavorite ? Colors.danger : Colors.textSecondary} 
+                />
+            </TouchableOpacity>
+
+            {/* Library Button */}
+            <TouchableOpacity style={styles.iconButton} onPress={handleLibraryToggle}>
+                <Ionicons 
+                    name={isComicInLibrary ? "checkmark-circle" : "add-circle-outline"} 
+                    size={32} 
+                    color={isComicInLibrary ? Colors.secondary : Colors.textSecondary} 
+                />
+            </TouchableOpacity>
         </View>
         
+        {/* Details & Chapters */}
         <View style={styles.detailsContainer}>
           <Text style={styles.sectionHeader}>Synopsis</Text>
           <Text style={styles.synopsis} numberOfLines={isSynopsisExpanded ? undefined : 3}>{comic.synopsis}</Text>
           <TouchableOpacity onPress={() => setIsSynopsisExpanded(!isSynopsisExpanded)}><Text style={styles.readMoreText}>{isSynopsisExpanded ? "Show Less" : "Read More"}</Text></TouchableOpacity>
-          <View style={styles.genreContainer}>{comic.genres.map(genre => (<View key={genre} style={styles.genreTag}><Text style={styles.genreTagText}>{genre}</Text></View>))}</View>
+          
+          <View style={styles.genreContainer}>
+              {comic.genres && comic.genres.map(genre => (<View key={genre} style={styles.genreTag}><Text style={styles.genreTagText}>{genre}</Text></View>))}
+          </View>
+          
           <View style={styles.divider} />
+          
           <View style={styles.chaptersHeaderContainer}>
             <TouchableOpacity onPress={showChapterListModal} style={{flexDirection: 'row', gap: 10, alignItems: 'center'}}>
               <Text style={styles.sectionHeader}>Chapters</Text>
@@ -333,10 +389,10 @@ const styles = StyleSheet.create({
     statItem: { flexDirection: 'row', alignItems: 'center', marginRight: 15, marginBottom: 5 },
     statText: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 14, marginLeft: 5 },
     statusText: (status) => ({ color: status === 'Ongoing' ? '#4caf50' : Colors.primary, fontFamily: 'Poppins_600SemiBold' }),
-    actionsContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginTop: 20, justifyContent: 'space-between' },
-    readButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.secondary, paddingVertical: 12, borderRadius: 25, marginRight: 15 },
+    actionsContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginTop: 20, justifyContent: 'space-between', gap: 15 },
+    readButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.secondary, paddingVertical: 12, borderRadius: 25 },
     readButtonText: { fontFamily: 'Poppins_600SemiBold', color: Colors.background, fontSize: 16, marginLeft: 8 },
-    libraryButton: { padding: 8 },
+    iconButton: { padding: 8 }, // Renamed from libraryButton for reuse
     detailsContainer: { paddingHorizontal: 20, marginTop: 25 },
     sectionHeader: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 20, marginBottom: 5 },
     synopsis: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 15, lineHeight: 24 },

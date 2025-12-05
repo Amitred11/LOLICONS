@@ -6,8 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Colors } from '@config/Colors';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-// REMOVE: import { comicsData as originalComicsData } from '@config/mockData';
-import { ComicService } from '@api/MockComicService'; // Import Service
+import { ComicService } from '@api/MockComicService'; 
 import { useLibrary } from '@context/LibraryContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -121,18 +120,31 @@ const BrowseHeader = ({ setViewMode, viewMode }) => {
     useEffect(() => {
         const loadFeatured = async () => {
             try {
-                const data = await ComicService.getFeaturedComics();
-                setPopularComics(data);
+                const response = await ComicService.getFeaturedComics();
+                // FIX: Check if response has data property (standard API format) or is the array itself
+                if (response.success && Array.isArray(response.data)) {
+                    setPopularComics(response.data);
+                } else if (Array.isArray(response)) {
+                    setPopularComics(response);
+                } else {
+                    console.warn("Unexpected response format for featured comics:", response);
+                    setPopularComics([]); 
+                }
             } catch (err) {
                 console.error(err);
+                setPopularComics([]);
             }
         };
         loadFeatured();
     }, []);
 
     const handleSeeAll = () => {
+        // Guard clause to prevent crash if data isn't loaded
+        if (!Array.isArray(popularComics)) return;
+
         const serializableData = popularComics.map(comic => {
             const newComic = { ...comic };
+            // Ensure dates are strings for navigation params
             if (newComic.lastRead instanceof Date) {
                 newComic.lastRead = newComic.lastRead.toISOString();
             }
@@ -198,21 +210,33 @@ const BrowseView = ({ scrollHandler, headerHeight, searchQuery, filters }) => {
         setIsLoading(true);
         try {
             // Use Service to fetch and filter
-            const data = await ComicService.getComics({
+            const response = await ComicService.getComics({
                 searchQuery,
                 filters
             });
 
             if (!isMounted) return;
 
-            // Handle Grid alignment
+            // FIX: Normalize data from response (handle both array and object returns)
+            let data = [];
+            if (response && response.data && Array.isArray(response.data)) {
+                data = response.data;
+            } else if (Array.isArray(response)) {
+                data = response;
+            }
+
+            // Handle Grid alignment placeholders
+            // We copy array to avoid mutating state directly/reference issues
+            let gridData = [...data];
             if (viewMode === 'grid') {
-                const itemsToAdd = GRID_NUM_COLUMNS - (data.length % GRID_NUM_COLUMNS);
+                const itemsToAdd = GRID_NUM_COLUMNS - (gridData.length % GRID_NUM_COLUMNS);
                 if (itemsToAdd > 0 && itemsToAdd < GRID_NUM_COLUMNS) {
-                    for (let i = 0; i < itemsToAdd; i++) { data.push({ id: `placeholder-${i}`, empty: true }); }
+                    for (let i = 0; i < itemsToAdd; i++) { 
+                        gridData.push({ id: `placeholder-${i}`, empty: true }); 
+                    }
                 }
             }
-            setFilteredData(data);
+            setFilteredData(gridData);
         } catch (error) {
             console.error("Failed to load comics", error);
         } finally {
@@ -260,7 +284,6 @@ const BrowseView = ({ scrollHandler, headerHeight, searchQuery, filters }) => {
   );
 };
 
-// ... keep existing styles
 const styles = StyleSheet.create({
   listContainer: { paddingBottom: 120 },
   sectionHeaderContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: PADDING, marginBottom: 10 },

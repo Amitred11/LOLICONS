@@ -2,11 +2,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, SectionList, Dimensions, Pressable, Image, TouchableOpacity, ActivityIndicator, Animated as RNAnimated } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native'; // Added useFocusEffect
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Colors } from '@config/Colors';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } from 'react-native-reanimated';
-// REMOVE: import { historyData as originalHistoryData } from '@config/mockData';
-import { ComicService } from '@api/MockComicService'; // Import Service
+import { ComicService } from '@api/MockComicService'; 
 import { Ionicons } from '@expo/vector-icons';
 import { Swipeable } from 'react-native-gesture-handler';
 
@@ -66,7 +65,7 @@ const HistoryItem = ({ item, index, onRemove }) => {
             <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
             <Text style={styles.itemSubtitle}>{item.lastChapterRead}</Text>
             <View style={styles.progressBarContainer}>
-                <View style={[styles.progressBar, { width: `${item.progress * 100}%` }]} />
+                <View style={[styles.progressBar, { width: `${(item.progress || 0) * 100}%` }]} />
             </View>
           </View>
         </Pressable>
@@ -106,8 +105,12 @@ const HistoryView = ({ scrollHandler, headerHeight, searchQuery }) => {
     // Only show loading indicator on initial load if list is empty
     if (historySections.length === 0) setIsLoading(true);
     try {
-        const data = await ComicService.getHistory(searchQuery);
-        setHistorySections(groupHistoryByDate(data));
+        // FIX: The service now supports filtering
+        const response = await ComicService.getHistory(searchQuery);
+        // FIX: Extract data from the response object
+        if (response.success && response.data) {
+            setHistorySections(groupHistoryByDate(response.data));
+        }
     } catch (error) {
         console.error("Failed to load history", error);
     } finally {
@@ -140,7 +143,8 @@ const HistoryView = ({ scrollHandler, headerHeight, searchQuery }) => {
         await ComicService.removeFromHistory(itemId);
     } catch (error) {
         console.error("Failed to remove history item", error);
-        // Revert optimization if needed (omitted for brevity)
+        // In a real app, revert the optimistic update here on error
+        loadHistory(); 
     }
   };
 

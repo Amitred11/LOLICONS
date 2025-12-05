@@ -2,19 +2,19 @@ import React from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
 import Animated, { useAnimatedStyle, interpolate, Extrapolate } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons'; // Added icon
+import { Ionicons } from '@expo/vector-icons'; 
 import { Colors } from '@config/Colors';
 
 const { width } = Dimensions.get('window');
 
 // --- Configuration ---
 const CARD_MARGIN = 12;
-const CARD_WIDTH = width - 48; // Slightly narrower to allow spacing
-const SNAP_SIZE = CARD_WIDTH + CARD_MARGIN; // The total interval distance
+const CARD_WIDTH = width - 48; 
+const SNAP_SIZE = CARD_WIDTH + CARD_MARGIN;
 
 const FeaturedCard = ({ item, onPress, index, scrollX }) => {
     
-    // Parallax Logic: Updated to account for the margin (SNAP_SIZE)
+    // Parallax Logic
     const inputRange = [
         (index - 1) * SNAP_SIZE,
         index * SNAP_SIZE,
@@ -25,7 +25,7 @@ const FeaturedCard = ({ item, onPress, index, scrollX }) => {
         const translateX = interpolate(
             scrollX.value, 
             inputRange, 
-            [-width * 0.25, 0, width * 0.25], // Moves the image slightly opposite to scroll
+            [-width * 0.25, 0, width * 0.25], 
             Extrapolate.CLAMP
         );
         return { transform: [{ translateX }] };
@@ -35,7 +35,7 @@ const FeaturedCard = ({ item, onPress, index, scrollX }) => {
         const scale = interpolate(
             scrollX.value,
             inputRange,
-            [0.95, 1, 0.95], // Subtle scale down for non-focused cards
+            [0.95, 1, 0.95], 
             Extrapolate.CLAMP
         );
         return { transform: [{ scale }] };
@@ -59,7 +59,7 @@ const FeaturedCard = ({ item, onPress, index, scrollX }) => {
 
                 {/* Gradient Overlay */}
                 <LinearGradient 
-                    colors={['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.9)']} 
+                    colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.9)']} 
                     style={styles.gradientOverlay}
                 >
                     <View style={styles.contentContainer}>
@@ -83,7 +83,7 @@ const FeaturedCard = ({ item, onPress, index, scrollX }) => {
                     </View>
                 </LinearGradient>
 
-                {/* Glass Border Effect */}
+                {/* Border Overlay */}
                 <View style={styles.borderOverlay} pointerEvents="none" />
             </TouchableOpacity>
         </Animated.View>
@@ -94,15 +94,14 @@ const styles = StyleSheet.create({
     container: {
         width: CARD_WIDTH,
         marginRight: CARD_MARGIN,
-        // Center the card vertically in the list
         justifyContent: 'center', 
     },
     cardContainer: {
         width: '100%',
-        height: width * 0.6, // Slightly taller for better aspect ratio
+        height: width * 0.6, 
         borderRadius: 24,
         overflow: 'hidden',
-        backgroundColor: '#1a1a1a', // Fallback color
+        backgroundColor: '#1a1a1a', 
         elevation: 8,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 10 },
@@ -114,7 +113,7 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     parallaxImage: {
-        width: CARD_WIDTH * 1.4, // Wider than card for parallax movement
+        width: CARD_WIDTH * 1.4, // Wider than card for parallax
         height: '100%',
     },
     gradientOverlay: {
@@ -128,7 +127,7 @@ const styles = StyleSheet.create({
     },
     badgeContainer: {
         alignSelf: 'flex-start',
-        backgroundColor: Colors.secondary || '#FF5A5F', // Use config color
+        backgroundColor: Colors.secondary || '#FF5A5F',
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 8,
@@ -154,14 +153,13 @@ const styles = StyleSheet.create({
     actionButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.2)', // Glass effect button
+        backgroundColor: 'rgba(255,255,255,0.2)',
         paddingHorizontal: 20,
         paddingVertical: 12,
         borderRadius: 30,
         alignSelf: 'flex-start',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.3)',
-        backdropFilter: 'blur(10px)', // Works on some versions/web
     },
     actionButtonText: {
         fontFamily: 'Poppins_600SemiBold',
