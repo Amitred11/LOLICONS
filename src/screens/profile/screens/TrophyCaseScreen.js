@@ -12,7 +12,7 @@ import * as Haptics from 'expo-haptics';
 
 import { Colors } from '@config/Colors';
 import EmptyState from '../components/empty/EmptyState';
-import { ProfileAPI } from '@api/MockProfileService'; // UPDATED IMPORT
+import { useProfile } from '@context/ProfileContext'; // IMPORT CONTEXT
 
 const { width } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
@@ -85,25 +85,20 @@ const TrophyDetailModal = ({ visible, item, onClose }) => {
 const TrophyCaseScreen = () => {
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
+    
+    // 1. Get Data from Context
+    const { profile, isLoading } = useProfile();
+    const trophies = profile?.badges || [];
+
     const [filter, setFilter] = useState('All');
     const [selectedTrophy, setSelectedTrophy] = useState(null);
-    const [trophies, setTrophies] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchTrophies = async () => {
-            try {
-                const response = await ProfileAPI.getTrophies();
-                if(response.success) setTrophies(response.data);
-            } catch (e) {
-                console.error("Trophy fetch error", e);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchTrophies();
-    }, []);
+    const handlePressTrophy = (item) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setSelectedTrophy(item);
+    };
 
+    // Filter Logic
     const displayedTrophies = useMemo(() => {
         if (filter === 'Unlocked') return trophies.filter(t => t.unlocked);
         if (filter === 'Locked') return trophies.filter(t => !t.unlocked);
@@ -113,19 +108,15 @@ const TrophyCaseScreen = () => {
     const unlockedCount = trophies.filter(t => t.unlocked).length;
     const progress = trophies.length > 0 ? unlockedCount / trophies.length : 0;
 
-    const handlePressTrophy = (item) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setSelectedTrophy(item);
-    };
-
-    if (isLoading) {
+    // Loading State
+    if (isLoading && !profile) {
         return (
             <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-                 <StatusBar barStyle="light-content" />
                 <ActivityIndicator size="large" color={Colors.secondary} />
             </View>
         );
     }
+
 
     return (
         <View style={styles.container}>

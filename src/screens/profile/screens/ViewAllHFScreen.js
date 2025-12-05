@@ -22,7 +22,7 @@ import * as Haptics from 'expo-haptics';
 
 // --- Imports ---
 import { Colors } from '@config/Colors'; 
-import { ComicService } from '@api/MockComicService'; 
+import { useProfile } from '@context/ProfileContext'; // IMPORT CONTEXT
 
 const { width } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
@@ -107,38 +107,20 @@ const ListItem = ({ item, index, onPress, onRemove }) => (
 );
 
 const ViewAllHFScreen = () => {
-    const insets = useSafeAreaInsets();
-    const navigation = useNavigation();
+    const { profile, removeItem } = useProfile(); // Use Bridge
     const route = useRoute();
+    const { type = 'favorites', title = 'Collection' } = route.params || {};
 
-    // Params: type ('favorites' | 'history'), data (Array), title (String)
-    const { type = 'favorites', data = [], title = 'Collection' } = route.params || {};
-    
-    // Local state to handle UI updates immediately
-    const [listData, setListData] = useState(data);
-
+    // Get live data from Context, not params (ensures sync)
     const isGrid = type === 'favorites';
 
-    // Handler to remove item
-    const handleRemoveItem = useCallback(async (itemId) => {
-        // 1. Haptic Feedback
+    const listData = type === 'favorites' ? profile?.favorites : profile?.history;
+
+    const handleRemoveItem = useCallback((itemId) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-        // 2. Update Local UI immediately (Optimistic Update)
-        setListData(currentData => currentData.filter(item => item.id !== itemId));
-
-        // 3. Update Backend/Service
-        try {
-            if (type === 'favorites') {
-                await ComicService.removeFromFavorites(itemId);
-            } else {
-                await ComicService.removeFromHistory(itemId);
-            }
-        } catch (error) {
-            console.error("Failed to remove item", error);
-            // Optional: Revert state if API fails
-        }
-    }, [type]);
+        // Call Bridge Method
+        removeItem(type, itemId); 
+    }, [type, removeItem]);
 
     const renderItem = ({ item, index }) => {
         if (isGrid) {

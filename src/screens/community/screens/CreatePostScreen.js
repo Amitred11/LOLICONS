@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { 
   View, Text, TextInput, StyleSheet, SafeAreaView, TouchableOpacity, 
-  Image, Keyboard, StatusBar, Platform, Alert, ActivityIndicator 
+  Image, Keyboard, StatusBar, Platform, ActivityIndicator 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { CommunityAPI } from '@api/MockCommunityService'; 
+import { useCommunity } from '@context/CommunityContext'; // Import Hook
 import { useAlert } from '@context/AlertContext';
 
 const CreatePostScreen = ({ navigation, route }) => {
   const { showAlert } = useAlert();
+  const { createPost } = useCommunity(); // Use Context Action
+  
   const { guildName, guildId } = route.params || { guildName: 'Community', guildId: null };
   
   const [content, setContent] = useState('');
@@ -16,28 +18,37 @@ const CreatePostScreen = ({ navigation, route }) => {
 
   const handlePost = async () => {
     if (!content.trim()) {
-      showAlert({title: "Empty Post", message: "Please write something to start a discussion.",  type: 'error'});
+      showAlert({
+        title: "Empty Post", 
+        message: "Please write something to start a discussion.",  
+        type: 'error'
+      });
       return;
     }
 
     setIsSubmitting(true);
 
-    try {
-      const newPost = {
-        user: 'CurrentUser', 
-        avatar: 'https://ui-avatars.com/api/?name=Current+User&background=random',
-        content: content,
-        time: 'Just now',
-        guild: guildName,
-        guildId: guildId, // Important for filtering in DiscussionScreen
-      };
+    const newPostData = {
+      user: 'CurrentUser', 
+      avatar: 'https://ui-avatars.com/api/?name=Current+User&background=random',
+      content: content,
+      time: 'Just now',
+      guild: guildName,
+      guildId: guildId, 
+    };
 
-      await CommunityAPI.createPost(newPost);
-      
+    // Use Context Action instead of direct API call
+    const success = await createPost(newPostData);
+
+    if (success) {
       Keyboard.dismiss();
       navigation.goBack();
-    } catch (error) {
-      showAlert({title: "Error", message: "Could not create post. Please try again.", type: 'error'});
+    } else {
+      showAlert({
+        title: "Error", 
+        message: "Could not create post. Please try again.", 
+        type: 'error'
+      });
       setIsSubmitting(false);
     }
   };

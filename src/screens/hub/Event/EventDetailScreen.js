@@ -1,17 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ImageBackground, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors';
 
-// API
-import { EventsService } from '@api/hub/MockEventsService';
+// IMPT: Import Context
+import { useEvents } from '@context/hub/EventsContext';
 
 const { width } = Dimensions.get('window');
 
-// --- TICKET COMPONENT ---
+// --- TICKET COMPONENT (Unchanged) ---
 const TicketView = ({ event }) => (
     <View style={styles.ticketContainer}>
         <View style={styles.ticketCard}>
@@ -47,9 +47,8 @@ const TicketView = ({ event }) => (
     </View>
 );
 
-// --- SCHEDULE COMPONENT ---
+// --- SCHEDULE COMPONENT (Unchanged) ---
 const ScheduleList = () => {
-    // Mock schedule data (could be moved to API as well)
     const schedule = [
         { time: '18:00', title: 'Opening', location: 'Main Stage', status: 'done' },
         { time: '18:30', title: 'Keynote', location: 'Auditorium A', status: 'live' },
@@ -73,7 +72,7 @@ const ScheduleList = () => {
     );
 };
 
-// --- OVERVIEW COMPONENT ---
+// --- OVERVIEW COMPONENT (Updated Props) ---
 const OverviewTab = ({ event, isRegistered, isRegistering, onRegister }) => (
     <View style={styles.overviewContainer}>
         <Text style={styles.sectionHeader}>About Event</Text>
@@ -118,18 +117,26 @@ const EventDetailScreen = () => {
     // Data from navigation
     const { eventData } = route.params || {}; 
     
-    // Local State
+    // Context
+    const { joinEvent, hasTicket } = useEvents();
+    
+    // State
     const [activeTab, setActiveTab] = useState('Overview');
-    const [isRegistered, setIsRegistered] = useState(false);
     const [isRegistering, setIsRegistering] = useState(false);
+
+    // Derived State from Context
+    const userHasTicket = hasTicket(eventData?.id);
 
     const handleRegister = async () => {
         setIsRegistering(true);
-        const response = await EventsService.joinEvent(eventData?.id);
+        
+        // Use Context action
+        const success = await joinEvent(eventData?.id);
+        
         setIsRegistering(false);
         
-        if (response.success) {
-            setIsRegistered(true);
+        if (success) {
+            // Auto switch to ticket view after animation
             setTimeout(() => setActiveTab('Ticket'), 800);
         } else {
             Alert.alert("Error", "Could not register for event");
@@ -163,14 +170,14 @@ const EventDetailScreen = () => {
                 {activeTab === 'Overview' && (
                     <OverviewTab 
                         event={eventData} 
-                        isRegistered={isRegistered} 
+                        isRegistered={userHasTicket} 
                         isRegistering={isRegistering}
                         onRegister={handleRegister} 
                     />
                 )}
                 {activeTab === 'Schedule' && <ScheduleList />}
                 {activeTab === 'Ticket' && (
-                    isRegistered ? <TicketView event={eventData} /> : <View style={styles.emptyTicketState}><Text style={styles.emptyText}>Register to view ticket</Text></View>
+                    userHasTicket ? <TicketView event={eventData} /> : <View style={styles.emptyTicketState}><Text style={styles.emptyText}>Register to view ticket</Text></View>
                 )}
             </ScrollView>
         </View>

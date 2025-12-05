@@ -7,20 +7,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Colors } from '@config/Colors'; 
-import { ChatAPI } from '@api/hub/MockChatService';
-
-// IMPT: Import your Alert Hook
 import { useAlert } from '@context/AlertContext';
+import { useChat } from '@context/hub/ChatContext';
 
 const ChatSettingsScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = route.params;
-  const { showAlert } = useAlert(); // Using the custom alert
+  const { showAlert } = useAlert(); 
 
-  // --- State ---
-  const [isMuted, setIsMuted] = useState(false);
+  // Consuming Context
+  const { toggleMute, blockUser, reportUser, clearChatHistory } = useChat();
+
+  // State
+  const [isMuted, setIsMuted] = useState(false); // Initial state can be derived if passed via params
   const [saveMedia, setSaveMedia] = useState(true);
   const [disappearingMessages, setDisappearingMessages] = useState(false);
   const [showEncryptionModal, setShowEncryptionModal] = useState(false);
@@ -29,11 +30,11 @@ const ChatSettingsScreen = () => {
   // --- Actions ---
 
   const handleMuteToggle = async () => {
-    const newState = !isMuted;
-    setIsMuted(newState); // Optimistic Update
-
     try {
-      await ChatAPI.toggleMute(user.id, newState);
+      // Toggle using context, returns new state
+      const newState = await toggleMute(user.id, isMuted);
+      setIsMuted(newState);
+      
       showAlert({
         title: newState ? "Muted" : "Unmuted",
         message: newState 
@@ -43,19 +44,13 @@ const ChatSettingsScreen = () => {
         btnText: 'Okay'
       });
     } catch(e) {
-      setIsMuted(!newState); // Revert
-      showAlert({
-        title: "Error",
-        message: "Could not update notification settings.",
-        type: 'error'
-      });
+      showAlert({ title: "Error", message: "Could not update notification settings.", type: 'error' });
     }
   };
 
   const handleDisappearingToggle = async () => {
     const newState = !disappearingMessages;
     setDisappearingMessages(newState);
-
     showAlert({
       title: newState ? "Timer Set" : "Timer Off",
       message: newState 
@@ -63,13 +58,7 @@ const ChatSettingsScreen = () => {
         : "Messages will remain in the chat history.",
       type: 'info'
     });
-    
-    // Simulate API call in background
-    try {
-        await ChatAPI.updatePrivacySettings({ disappearing: newState });
-    } catch(e) {
-        setDisappearingMessages(!newState); // Revert on fail
-    }
+    // Assuming API update happens here or via context if added later
   };
 
   const handleBlock = () => {
@@ -80,11 +69,10 @@ const ChatSettingsScreen = () => {
       btnText: 'Block User',
       secondaryBtnText: 'Cancel',
       onClose: async () => {
-        // This runs on Primary Button (Block)
         setIsLoadingAction(true);
         try {
-            await ChatAPI.blockUser(user.id);
-            navigation.navigate('ChatList');
+            await blockUser(user.id);
+            navigation.navigate('ChatList'); // Go back to list
         } catch (e) {
             showAlert({ title: "Error", message: "Failed to block user.", type: 'error' });
         } finally {
@@ -95,17 +83,16 @@ const ChatSettingsScreen = () => {
   };
 
   const handleReport = () => {
-    // Simplified report flow since CustomAlert is a modal, not an action sheet
     showAlert({
       title: "Report User",
-      message: "Do you want to report this user for spam or inappropriate content? We will review the last 5 messages.",
+      message: "Do you want to report this user for spam or inappropriate content?",
       type: 'error',
       btnText: 'Report',
       secondaryBtnText: 'Cancel',
       onClose: async () => {
         setIsLoadingAction(true);
         try {
-            await ChatAPI.reportUser(user.id, 'general_abuse');
+            await reportUser(user.id);
             setTimeout(() => {
                 showAlert({ title: "Report Sent", message: "Thank you for keeping our community safe.", type: 'success' });
             }, 500);
@@ -128,8 +115,7 @@ const ChatSettingsScreen = () => {
         onClose: async () => {
             setIsLoadingAction(true);
             try {
-                // Simulate clearing chat
-                await new Promise(r => setTimeout(r, 1000)); 
+                await clearChatHistory(user.id);
                 showAlert({ title: "Success", message: "Chat history cleared.", type: 'success' });
             } catch(e) {
                 showAlert({ title: "Error", message: "Failed to clear chat.", type: 'error' });
@@ -152,8 +138,7 @@ const ChatSettingsScreen = () => {
     }, 1500);
   };
 
-  // --- Render Components ---
-
+  // ... Render Helpers (SettingRow) remain the same ...
   const SettingRow = ({ icon, title, value, onToggle, isDestructive, onPress, hasArrow, subTitle }) => (
     <TouchableOpacity 
       activeOpacity={onPress || onToggle ? 0.7 : 1}
@@ -186,7 +171,6 @@ const ChatSettingsScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* Loading Overlay */}
       {isLoadingAction && (
           <View style={styles.loadingOverlay}>
               <ActivityIndicator size="large" color="#FFF" />
@@ -194,7 +178,6 @@ const ChatSettingsScreen = () => {
           </View>
       )}
 
-      {/* Encryption Modal (Keeping Native Modal for complex info) */}
       <Modal visible={showEncryptionModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -210,7 +193,6 @@ const ChatSettingsScreen = () => {
         </View>
       </Modal>
 
-      {/* Header */}
       <View style={[styles.header, { marginTop: insets.top + 15 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.navBtn}>
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
@@ -221,7 +203,6 @@ const ChatSettingsScreen = () => {
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         
-        {/* Profile Hero */}
         <View style={styles.profileContainer}>
           <Image source={{ uri: user.avatar }} style={styles.avatar} />
           <Text style={styles.userName}>{user.name}</Text>
@@ -244,7 +225,6 @@ const ChatSettingsScreen = () => {
           </View>
         </View>
 
-        {/* Section: Privacy */}
         <Text style={styles.sectionHeader}>PRIVACY</Text>
         <View style={styles.card}>
             <SettingRow 
@@ -264,7 +244,6 @@ const ChatSettingsScreen = () => {
             />
         </View>
 
-        {/* Section: Media & Storage */}
         <Text style={styles.sectionHeader}>MEDIA & STORAGE</Text>
         <View style={styles.card}>
             <SettingRow 
@@ -282,7 +261,6 @@ const ChatSettingsScreen = () => {
             />
         </View>
 
-        {/* Section: Danger Zone */}
         <Text style={styles.sectionHeader}>SUPPORT & ACTIONS</Text>
         <View style={[styles.card, { marginBottom: 30 }]}>
             <SettingRow 
@@ -315,31 +293,20 @@ const ChatSettingsScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', zIndex: 999 },
-  
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 10 },
   headerTitle: { color: Colors.text, fontSize: 17, fontWeight: '600' },
   navBtn: { padding: 8 },
-
   scrollContent: { paddingBottom: 50 },
-
-  // Profile
   profileContainer: { alignItems: 'center', marginTop: 10, marginBottom: 30 },
   avatar: { width: 100, height: 100, borderRadius: 50, borderWidth: 4, borderColor: Colors.background },
   userName: { color: Colors.text, fontSize: 24, fontWeight: '700', marginTop: 15 },
   userHandle: { color: Colors.textSecondary, fontSize: 14, marginTop: 5 },
-
-  // Actions
   actionGrid: { flexDirection: 'row', marginTop: 25, gap: 25 },
   actionBtn: { alignItems: 'center', width: 60 },
   actionIcon: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center', marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   actionLabel: { color: Colors.textSecondary, fontSize: 11, fontWeight: '500' },
-
-  // Sections
   sectionHeader: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700', marginLeft: 25, marginBottom: 8, marginTop: 10 },
-  sectionContainer: { paddingHorizontal: 20 },
   card: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginHorizontal: 20 },
-  
-  // Rows
   settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16 },
   settingLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   iconBox: { width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
@@ -348,8 +315,6 @@ const styles = StyleSheet.create({
   subTitle: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
   destructiveText: { color: '#FF453A' },
   divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginLeft: 60 },
-
-  // Encryption Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { width: '80%', backgroundColor: '#1E1E1E', borderRadius: 24, padding: 30, alignItems: 'center' },
   modalTitle: { color: Colors.text, fontSize: 20, fontWeight: '700', marginTop: 15, marginBottom: 10 },

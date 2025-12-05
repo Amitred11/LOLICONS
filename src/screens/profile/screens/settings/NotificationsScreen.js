@@ -1,16 +1,12 @@
-// screens/profile/NotificationsScreen.js
-
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Switch, TouchableOpacity, StatusBar, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, Switch, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@config/Colors';
 import { useModal } from '@context/ModalContext';
+import { useProfile } from '@context/ProfileContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-
-// Import the API Service
-import { ProfileAPI } from '@api/MockProfileService'; 
 
 const NotificationRow = ({ label, description, value, onValueChange, isLast, disabled }) => (
     <View style={[styles.row, !isLast && styles.rowBorder, disabled && { opacity: 0.5 }]}>
@@ -24,7 +20,6 @@ const NotificationRow = ({ label, description, value, onValueChange, isLast, dis
             trackColor={{ false: Colors.surface, true: Colors.secondary }}
             thumbColor={value ? Colors.text : '#f4f3f4'}
             disabled={disabled}
-            ios_backgroundColor={Colors.surface}
         />
     </View>
 );
@@ -37,7 +32,7 @@ const QuietHoursRow = ({ onPress, currentSettings }) => (
         </View>
         <View style={styles.rowRight}>
             <Text style={styles.quietHoursValue}>
-                {currentSettings.enabled ? `${currentSettings.start} - ${currentSettings.end}` : 'Off'}
+                {currentSettings?.enabled ? `${currentSettings.start} - ${currentSettings.end}` : 'Off'}
             </Text>
             <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
         </View>
@@ -47,173 +42,74 @@ const QuietHoursRow = ({ onPress, currentSettings }) => (
 const NotificationsScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
     const { show: showModal } = useModal();
-    
-    // --- State Management ---
-    const [isLoading, setIsLoading] = useState(true);
+    const { profile, updateNotificationPreference, updateQuietHours } = useProfile();
 
-    // Master toggle state
-    const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-    
-    // Quiet Hours state
-    const [quietHours, setQuietHours] = useState({
-        enabled: false,
-        start: '10:00 PM',
-        end: '8:00 AM',
-    });
-
-    // Individual categories state
-    // Initializing with defaults to prevent render errors before API loads
-    const [settings, setSettings] = useState({
-        newChapters: false,
-        recommendations: false,
-        newFollowers: false,
-        comments: false,
-        dms: false,
-        promotions: false,
-    });
-
-    /**
-     * Effect to fetch notification preferences on mount using ProfileAPI.
-     */
-    useEffect(() => {
-        const fetchPreferences = async () => {
-            try {
-                const response = await ProfileAPI.getNotificationSettings();
-                
-                if (response.success) {
-                    const data = response.data;
-                    setNotificationsEnabled(data.globalEnabled);
-                    // FIX: Access 'preferences', not 'categories'
-                    if (data.preferences) {
-                        setSettings(data.preferences);
-                    }
-                    setQuietHours(data.quietHours);
-                } else {
-                    console.error("API Error:", response.message);
-                }
-            } catch (error) {
-                console.error("Failed to load notification settings", error);
-                Alert.alert("Error", "Could not load settings.");
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchPreferences();
-    }, []);
-
-    // Handler to toggle individual settings
-    const toggleSetting = async (key) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); 
-        
-        // 1. Optimistic UI Update
-        const newValue = !settings[key];
-        setSettings(prev => ({ ...prev, [key]: newValue }));
-
-        // 2. Persist to API
-        try {
-            // FIX: Using the singular update method defined in MockProfileService
-            await ProfileAPI.updateNotificationSetting(key, newValue);
-            console.log(`Updated ${key} to ${newValue}`);
-        } catch (error) {
-            console.error("Failed to update setting", error);
-            // Revert on failure
-            setSettings(prev => ({ ...prev, [key]: !newValue }));
-        }
+    const notifSettings = profile?.settings?.notifications || {
+        global: false,
+        preferences: { newChapters: false, recommendations: false, newFollowers: false, comments: false, dms: false, promotions: false },
+        quietHours: { enabled: false, start: '10:00 PM', end: '8:00 AM' }
     };
     
-    // Handler for the master toggle switch
-    const handleMasterToggle = async (value) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        
-        // 1. Optimistic Update
-        setNotificationsEnabled(value);
+    const notificationsEnabled = notifSettings.global;
+    const preferences = notifSettings.preferences;
+    const quietHours = notifSettings.quietHours;
 
-        // 2. Persist to API
-        try {
-            // FIX: Sending 'global' as the key, as expected by MockProfileService
-            await ProfileAPI.updateNotificationSetting('global', value);
-            console.log(`Global notifications set to ${value}`);
-        } catch (error) {
-            console.error("Failed to update global toggle", error);
-            setNotificationsEnabled(!value);
-        }
-    }
+    const toggleSetting = (key) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); 
+        updateNotificationPreference(key, !preferences[key]);
+    };
+    
+    const handleMasterToggle = (value) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        updateNotificationPreference('global', value);
+    };
     
     const handleQuietHoursPress = () => {
         showModal('quietHours', {
             initialSettings: quietHours,
-            onSave: async (newSettings) => {
-                // Update Local State
-                setQuietHours(newSettings);
-                
-                // Persist to API
-                try {
-                    // FIX: Using updateQuietHours method defined in MockProfileService
-                    await ProfileAPI.updateQuietHours(newSettings);
-                    console.log('Quiet Hours saved:', newSettings);
-                } catch (error) {
-                    console.error("Failed to save Quiet Hours", error);
-                    Alert.alert("Error", "Failed to save Quiet Hours settings.");
-                }
-            }
+            onSave: (newSettings) => updateQuietHours(newSettings)
         });
     };
-
-    if (isLoading) {
-        return (
-            <LinearGradient colors={[Colors.background, '#1a1a2e']} style={[styles.container, styles.loadingContainer]}>
-                <StatusBar barStyle="light-content" />
-                <ActivityIndicator size="large" color={Colors.secondary} />
-            </LinearGradient>
-        );
-    }
 
     return (
         <LinearGradient colors={[Colors.background, '#1a1a2e']} style={styles.container}>
             <StatusBar barStyle="light-content" />
-            {/* Standard screen header */}
             <View style={[styles.header, { paddingTop: insets.top }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}><Ionicons name="arrow-back" size={24} color={Colors.text} /></TouchableOpacity>
                 <Text style={styles.headerTitle}>Notifications</Text>
                 <View style={styles.headerButton} />
             </View>
             <ScrollView contentContainerStyle={styles.scrollContainer}>
-                {/* Introductory section */}
                 <View style={styles.introHeader}>
                     <View style={styles.iconContainer}><Ionicons name="notifications-outline" size={40} color={Colors.secondary} /></View>
                     <Text style={styles.introTitle}>Control Your Alerts</Text>
-                    <Text style={styles.introSubtitle}>Choose what updates you receive to stay in the loop without the noise.</Text>
+                    <Text style={styles.introSubtitle}>Choose what updates you receive.</Text>
                 </View>
 
-                {/* General Notification Settings */}
                 <View style={styles.card}>
                     <NotificationRow label="Allow Notifications" description="Receive all push notifications" value={notificationsEnabled} onValueChange={handleMasterToggle} />
                     <View style={styles.divider} />
-                    <NotificationRow label="New Chapter Releases" value={settings.newChapters} onValueChange={() => toggleSetting('newChapters')} disabled={!notificationsEnabled} />
-                    <NotificationRow label="Personalized Recommendations" value={settings.recommendations} onValueChange={() => toggleSetting('recommendations')} isLast disabled={!notificationsEnabled} />
+                    <NotificationRow label="New Chapter Releases" value={preferences.newChapters} onValueChange={() => toggleSetting('newChapters')} disabled={!notificationsEnabled} />
+                    <NotificationRow label="Personalized Recommendations" value={preferences.recommendations} onValueChange={() => toggleSetting('recommendations')} isLast disabled={!notificationsEnabled} />
                 </View>
                 
-                {/* Social Notification Settings */}
                 <Text style={styles.sectionTitle}>Social</Text>
                 <View style={styles.card}>
-                     <NotificationRow label="New Followers" value={settings.newFollowers} onValueChange={() => toggleSetting('newFollowers')} disabled={!notificationsEnabled} />
-                     <NotificationRow label="Comments & Replies" value={settings.comments} onValueChange={() => toggleSetting('comments')} disabled={!notificationsEnabled} />
-                     <NotificationRow label="Direct Messages" value={settings.dms} onValueChange={() => toggleSetting('dms')} isLast disabled={!notificationsEnabled} />
+                     <NotificationRow label="New Followers" value={preferences.newFollowers} onValueChange={() => toggleSetting('newFollowers')} disabled={!notificationsEnabled} />
+                     <NotificationRow label="Comments & Replies" value={preferences.comments} onValueChange={() => toggleSetting('comments')} disabled={!notificationsEnabled} />
+                     <NotificationRow label="Direct Messages" value={preferences.dms} onValueChange={() => toggleSetting('dms')} isLast disabled={!notificationsEnabled} />
                 </View>
 
-                {/* Other Notification Settings */}
                 <Text style={styles.sectionTitle}>Other</Text>
                 <View style={styles.card}>
                     <QuietHoursRow onPress={handleQuietHoursPress} currentSettings={quietHours} />
-                    <NotificationRow label="Promotions & Events" value={settings.promotions} onValueChange={() => toggleSetting('promotions')} isLast disabled={!notificationsEnabled} />
+                    <NotificationRow label="Promotions & Events" value={preferences.promotions} onValueChange={() => toggleSetting('promotions')} isLast disabled={!notificationsEnabled} />
                 </View>
             </ScrollView>
         </LinearGradient>
     );
 };
-
-// --- Stylesheet ---
+// ... styles (same as provided)
 const styles = StyleSheet.create({
     container: { flex: 1, paddingBottom: 5 },
     loadingContainer: { justifyContent: 'center', alignItems: 'center' },

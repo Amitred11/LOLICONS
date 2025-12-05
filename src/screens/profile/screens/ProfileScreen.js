@@ -1,21 +1,13 @@
 // screens/profile/ProfileScreen.js
-
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, StatusBar, TouchableOpacity, FlatList, Dimensions, ImageBackground, ActivityIndicator } from 'react-native';
 import { Colors } from '@config/Colors';
 import { useAuth } from '@context/AuthContext';
+import { useProfile } from '@context/ProfileContext'; // IMPORT CONTEXT
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { 
-    useSharedValue, 
-    useAnimatedStyle, 
-    withDelay, 
-    withSpring, 
-    withTiming, 
-    useAnimatedScrollHandler, 
-    interpolate, 
-    Extrapolate,
-    useAnimatedReaction,
-    runOnJS
+    useSharedValue, useAnimatedStyle, withDelay, withSpring, withTiming, 
+    useAnimatedScrollHandler, interpolate, Extrapolate, useAnimatedReaction, runOnJS
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -23,8 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
-// --- Imports ---
-import { ProfileAPI } from '@api/MockProfileService';
+// --- Components ---
 import RankInfoModal from '../components/modals/RankInfoModal';
 import AchievementModal from '../components/modals/AchievementModal';
 import GlitchEffect from '../components/ui/GlitchEffect';
@@ -33,7 +24,6 @@ import EmptyState from '../components/empty/EmptyState';
 const { width } = Dimensions.get('window');
 const HEADER_BANNER_HEIGHT = 250;
 const AVATAR_SIZE = 110;
-
 // --- Helper Functions ---
 const getStatusColor = (statusType) => ({ online: '#2ecc71', 'in-game': '#3498db', offline: '#95a5a6', reading: '#d47e2cff' }[statusType] || '#95a5a6');
 
@@ -69,99 +59,107 @@ const HistoryItem = ({ item }) => ( <TouchableOpacity style={styles.historyItem}
 const RankCrest = ({ rank }) => ( <View style={styles.crestContainer}><BlurView intensity={50} tint="dark" style={[styles.crestBlur, { borderColor: rank.color }]}><Text style={[styles.crestText, { color: rank.color }]}>{rank.name}</Text></BlurView></View> );
 const ProfileRow = ({ icon, label, onPress, color = Colors.text, isLast = false }) => ( <TouchableOpacity onPress={onPress} style={[styles.rowContainer, isLast && { borderBottomWidth: 0 }]}><View style={styles.rowLeft}><Ionicons name={icon} size={22} color={color} style={{ width: 25 }} /><Text style={[styles.rowLabel, { color }]}>{label}</Text></View><Ionicons name="chevron-forward-outline" size={22} color={Colors.textSecondary} /></TouchableOpacity> );
 
-// --- Main Profile Screen ---
 const ProfileScreen = () => {
-  const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
-  const { logout } = useAuth();
-  const [activeTab, setActiveTab] = useState(0);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedBadge, setSelectedBadge] = useState(null);
-  const scrollY = useSharedValue(0);
-  const tabIndicatorPos = useSharedValue(0);
-  const [isRankModalVisible, setIsRankModalVisible] = useState(false);
-  const [isHeaderInteractive, setIsHeaderInteractive] = useState(false);
+    // 1. Use the Bridge (Context)
+    const { profile, isLoading, fetchProfile, getRankProgress } = useProfile();
+    const { logout } = useAuth();
+    
+    const insets = useSafeAreaInsets();
+    const navigation = useNavigation();
 
-  // --- Data State ---
-  const [profile, setProfile] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+    // 2. UI State
+    const [activeTab, setActiveTab] = useState(0);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [selectedBadge, setSelectedBadge] = useState(null);
+    const [isRankModalVisible, setIsRankModalVisible] = useState(false);
+    const [isHeaderInteractive, setIsHeaderInteractive] = useState(false);
 
-  // Fetch Data
-  const fetchData = async () => {
-      // Don't set loading to true on refetch to avoid flickering
-      if(!profile) setIsLoading(true); 
-      try {
-          const response = await ProfileAPI.getProfile();
-          if(response.success) {
-              setProfile(response.data);
-          }
-      } catch (e) {
-          console.error("Profile Fetch Error", e);
-      } finally {
-          setIsLoading(false);
-      }
-  };
-
-  // Refetch when screen comes into focus
-  useFocusEffect(
-      React.useCallback(() => {
-          fetchData();
-      }, [])
-  );
-
-  // Derived Values
-  const currentRank = profile?.currentRank || { name: 'Loading', color: Colors.textSecondary, minXp: 0 };
-  const nextRank = profile?.nextRank;
-  const xp = profile?.xp || 0;
+    // 3. Animation Values
+    const scrollY = useSharedValue(0);
+    const tabIndicatorPos = useSharedValue(0);
+    const currentRank = profile?.currentRank || { name: 'Loading', color: Colors.textSecondary, minXp: 0 };
+    const nextRank = profile?.nextRank;
+    const xp = profile?.xp || 0;
   
-  const rankProgress = nextRank 
+    const rankProgress = nextRank 
       ? (xp - currentRank.minXp) / (nextRank.minXp - currentRank.minXp) 
       : 1;
 
-  const xpFill = useSharedValue(0);
+    const xpFill = useSharedValue(0);
 
-  useEffect(() => { 
+    useEffect(() => { 
       if (!isLoading) {
         xpFill.value = withDelay(500, withSpring(Math.max(0, Math.min(1, rankProgress)))); 
       }
-  }, [rankProgress, isLoading]);
+    }, [rankProgress, isLoading]);
 
-  const scrollHandler = useAnimatedScrollHandler((event) => { scrollY.value = event.contentOffset.y; });
-  
-  useAnimatedReaction(
-    () => scrollY.value > 150,
-    (isInteractive, prev) => {
+    useAnimatedReaction(
+      () => scrollY.value > 150,
+      (isInteractive, prev) => {
         if (isInteractive !== prev) {
             runOnJS(setIsHeaderInteractive)(isInteractive);
         }
-    }
-  );
+      }
+    );
+    
+    const handleOpenRankModal = () => setIsRankModalVisible(true);
+    const handleCloseRankModal = () => setIsRankModalVisible(false);
+    const handleBadgePress = (badge) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setSelectedBadge(badge);
+        setModalVisible(true);
+    };
+    
+    const handleCloseModal = () => setModalVisible(false);
+    // 4. Refresh data when screen focuses (e.g. returning from reading a chapter)
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchProfile(true); // Pass true to fetch quietly (background)
+        }, [fetchProfile])
+    );
+    
+    // 5. Update XP bar when profile changes
+    useEffect(() => { 
+        if (profile && !isLoading) {
+            const progress = getRankProgress();
+            xpFill.value = withDelay(500, withSpring(progress)); 
+        }
+    }, [profile, isLoading, getRankProgress]);
 
-  const handleTabPress = (index) => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setActiveTab(index); const tabWidth = (width - 40 - 10) / 2; tabIndicatorPos.value = withTiming(index * tabWidth + (index * 10)); };
-  const handleBadgePress = (badge) => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setSelectedBadge(badge); setModalVisible(true); };
-  const handleCloseModal = () => setModalVisible(false);
-  const handleOpenRankModal = () => setIsRankModalVisible(true);
-  const handleCloseRankModal = () => setIsRankModalVisible(false);
+    // Handle Header Interactivity
+    useAnimatedReaction(
+        () => scrollY.value > 150,
+        (isInteractive, prev) => {
+            if (isInteractive !== prev) {
+                runOnJS(setIsHeaderInteractive)(isInteractive);
+            }
+        }
+    );
 
-  // --- NEW: Handle See All Navigation ---
-  const handleSeeAll = () => {
-      if (!profile) return;
-      const type = activeTab === 0 ? 'favorites' : 'history';
-      const data = activeTab === 0 ? profile.favorites : profile.history;
-      const title = activeTab === 0 ? 'My Collection' : 'Reading History';
-      
-      navigation.navigate('ViewAllHF', {
-          type,
-          data,
-          title
-      });
-  };
+    const scrollHandler = useAnimatedScrollHandler((event) => { scrollY.value = event.contentOffset.y; });
 
-  const animatedXpFillStyle = useAnimatedStyle(() => ({ width: `${xpFill.value * 100}%` }));
-  const animatedHeaderBannerStyle = useAnimatedStyle(() => ({ transform: [{ scale: interpolate(scrollY.value, [-HEADER_BANNER_HEIGHT, 0], [1.5, 1], Extrapolate.CLAMP) }] }));
-  const animatedAvatarContainerStyle = useAnimatedStyle(() => ({ transform: [{ translateY: interpolate(scrollY.value, [0, 120], [0, -60], Extrapolate.CLAMP) }], opacity: interpolate(scrollY.value, [100, 150], [1, 0], Extrapolate.CLAMP) }));
-  const animatedCompactHeaderStyle = useAnimatedStyle(() => ({ opacity: interpolate(scrollY.value, [180, 210], [0, 1], Extrapolate.CLAMP) }));
-  const animatedTabIndicatorStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tabIndicatorPos.value }] }));
+    // Handlers
+    const handleTabPress = (index) => { 
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); 
+        setActiveTab(index); 
+        const tabWidth = (width - 40 - 10) / 2; 
+        tabIndicatorPos.value = withTiming(index * tabWidth + (index * 10)); 
+    };
+
+    const handleSeeAll = () => {
+        if (!profile) return;
+        const type = activeTab === 0 ? 'favorites' : 'history';
+        const title = activeTab === 0 ? 'My Collection' : 'Reading History';
+        // Note: We pass the type so ViewAllHFScreen knows which Context method to call
+        navigation.navigate('ViewAllHF', { type, title });
+    };
+
+    // Animated Styles
+    const animatedXpFillStyle = useAnimatedStyle(() => ({ width: `${xpFill.value * 100}%` }));
+    const animatedHeaderBannerStyle = useAnimatedStyle(() => ({ transform: [{ scale: interpolate(scrollY.value, [-HEADER_BANNER_HEIGHT, 0], [1.5, 1], Extrapolate.CLAMP) }] }));
+    const animatedAvatarContainerStyle = useAnimatedStyle(() => ({ transform: [{ translateY: interpolate(scrollY.value, [0, 120], [0, -60], Extrapolate.CLAMP) }], opacity: interpolate(scrollY.value, [100, 150], [1, 0], Extrapolate.CLAMP) }));
+    const animatedCompactHeaderStyle = useAnimatedStyle(() => ({ opacity: interpolate(scrollY.value, [180, 210], [0, 1], Extrapolate.CLAMP) }));
+    const animatedTabIndicatorStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tabIndicatorPos.value }] }));
 
   if (isLoading) {
       return (
@@ -355,3 +353,4 @@ const styles = StyleSheet.create({
 });
 
 export default ProfileScreen;
+ 

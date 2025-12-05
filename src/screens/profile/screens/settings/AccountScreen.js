@@ -1,6 +1,4 @@
-// screens/profile/AccountScreen.js
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
     View, Text, StyleSheet, TouchableOpacity, StatusBar, 
     ScrollView, ActivityIndicator 
@@ -10,13 +8,9 @@ import { Colors } from '@config/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAlert } from '@context/AlertContext'; 
+import { useProfile } from '@context/ProfileContext';
 
-// --- ADDED: Import the API Service ---
-import { ProfileAPI } from '@api/MockProfileService';
-
-/**
- * A reusable row component for displaying account information.
- */
+// ... Row Components (same as before) ...
 const AccountRow = ({ icon, label, value, subtitle, onPress, isLast, color = Colors.text }) => (
     <TouchableOpacity onPress={onPress} style={[styles.row, !isLast && styles.rowBorder]} disabled={!onPress}>
         <View style={styles.rowLeft}>
@@ -33,9 +27,6 @@ const AccountRow = ({ icon, label, value, subtitle, onPress, isLast, color = Col
     </TouchableOpacity>
 );
 
-/**
- * A reusable row component specifically for displaying connected social accounts.
- */
 const ConnectedAccountRow = ({ icon, name, isConnected, onConnect, isLast, isLoading }) => (
      <View style={[styles.row, !isLast && styles.rowBorder]}>
         <View style={styles.rowLeft}>
@@ -63,89 +54,25 @@ const ConnectedAccountRow = ({ icon, name, isConnected, onConnect, isLast, isLoa
     </View>
 );
 
-/**
- * The main screen for managing user account details.
- */
 const AccountScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
     const { showAlert } = useAlert();
-
-    // State for loading initial data
-    const [isLoading, setIsLoading] = useState(true);
-    
-    // State for user profile data (Initialized as empty/null)
-    const [profile, setProfile] = useState({
-        name: '',
-        handle: '',
-        id: '',
-        joinDate: '',
-        email: ''
-    });
-
-    // State to manage the connection status of social accounts.
-    const [connectedAccounts, setConnectedAccounts] = useState({
-        google: { name: 'Google', icon: 'logo-google', isConnected: false },
-        github: { name: 'Github', icon: 'logo-github', isConnected: false }, 
-        facebook: { name: 'Facebook', icon: 'logo-facebook', isConnected: false },
-    });
-
+    const { profile, connectSocial, deleteAccount } = useProfile();
     const [connectingProvider, setConnectingProvider] = useState(null); 
 
-    // Fetch account data on mount
-    useEffect(() => {
-        fetchAccountData();
-    }, []);
+    const connected = profile?.settings?.connectedAccounts || {};
 
-    const fetchAccountData = async () => {
-        setIsLoading(true);
-        try {
-            // --- UPDATED: Use ProfileAPI ---
-            const response = await ProfileAPI.getAccountDetails();
-            
-            if (response.success) {
-                const data = response.data;
-                setProfile({
-                    name: data.name,
-                    handle: data.handle,
-                    id: data.id,
-                    joinDate: data.joinDate,
-                    email: data.email
-                });
-                
-                // Update social states based on backend response
-                setConnectedAccounts(prev => ({
-                    google: { ...prev.google, isConnected: data.connected.google },
-                    github: { ...prev.github, isConnected: data.connected.github },
-                    facebook: { ...prev.facebook, isConnected: data.connected.facebook },
-                }));
-            }
-        } catch (error) {
-            console.error(error);
-            showAlert({ title: "Error", message: "Failed to load account details.", type: 'error' });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleConnect = (key) => {
+    const handleConnect = (key, name) => {
         showAlert({
-            title: `Connect ${connectedAccounts[key].name}`,
-            message: `You are about to connect your ${connectedAccounts[key].name} account. Continue?`,
+            title: `Connect ${name}`,
+            message: `Connect your ${name} account?`,
             btnText: "Connect",
             secondaryBtnText: "Cancel",
             onClose: async () => {
                 setConnectingProvider(key);
                 try {
-                    // --- UPDATED: Use ProfileAPI ---
-                    const response = await ProfileAPI.connectSocialAccount(key);
-                    
-                    if (response.success) {
-                        setConnectedAccounts(prev => ({
-                            ...prev,
-                            [key]: { ...prev[key], isConnected: true }
-                        }));
-                        showAlert({ title: "Success", message: `${connectedAccounts[key].name} connected successfully!`, type: 'success' });
-                    }
+                    await connectSocial(key);
+                    showAlert({ title: "Success", message: `${name} connected!`, type: 'success' });
                 } catch (error) {
                     showAlert({ title: "Error", message: "Connection failed.", type: 'error' });
                 } finally {
@@ -155,35 +82,16 @@ const AccountScreen = ({ navigation }) => {
         });
     };
 
-    const handleChangeEmail = () => {
-        showAlert({
-            title: "Update Email",
-            message: "To update your email, we will send a verification link to your current address.",
-            btnText: "Send Link",
-            secondaryBtnText: "Cancel",
-            onClose: () => {
-                showAlert({ title: "Sent", message: "Check your inbox for instructions.", type: 'success' });
-            }
-        });
-    };
-
-    const handleChangePassword = () => {
-        navigation.navigate('ChangePassword');
-    };
-
     const handleDelete = () => {
         showAlert({
             title: "Delete Account",
-            message: "Are you sure? This action is permanent and will erase all your data.",
+            message: "Are you sure? This action is permanent.",
             type: 'error',
             btnText: "Delete Forever",
             secondaryBtnText: "Cancel",
             onClose: async () => {
                 try {
-                    // --- UPDATED: Use ProfileAPI ---
-                    await ProfileAPI.deleteAccount();
-                    // Navigate to Auth stack or Login screen
-                    console.log("Account Deleted");
+                    await deleteAccount();
                 } catch (err) {
                     showAlert({ title: "Error", message: "Failed to delete account.", type: 'error' });
                 }
@@ -200,65 +108,36 @@ const AccountScreen = ({ navigation }) => {
                 <View style={styles.headerButton} />
             </View>
 
-            {isLoading ? (
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={Colors.primary} />
+            <ScrollView contentContainerStyle={styles.scrollContainer}>
+                <Text style={styles.sectionTitle}>Profile Details</Text>
+                <View style={styles.card}>
+                    <AccountRow icon="person-outline" label={profile?.name || "Unknown"} subtitle={profile?.handle ? `@${profile.handle}` : ''} />
+                    <AccountRow icon="id-card-outline" label="User ID" value={profile?.id ? profile.id.substring(0, 12) + '...' : 'N/A'} />
+                    <AccountRow icon="calendar-outline" label="Join Date" value={profile?.joinDate || "N/A"} isLast />
                 </View>
-            ) : (
-                <ScrollView contentContainerStyle={styles.scrollContainer}>
-                    {/* Profile Details Section */}
-                    <Text style={styles.sectionTitle}>Profile Details</Text>
-                    <View style={styles.card}>
-                        <AccountRow icon="person-outline" label={profile.name || "Unknown"} subtitle={profile.handle ? `@${profile.handle}` : ''} />
-                        <AccountRow icon="id-card-outline" label="User ID" value={profile.id ? profile.id.substring(0, 12) + '...' : 'N/A'} />
-                        <AccountRow icon="calendar-outline" label="Join Date" value={profile.joinDate} isLast />
-                    </View>
 
-                    {/* Login Credentials Section */}
-                    <Text style={styles.sectionTitle}>Login Credentials</Text>
-                    <View style={styles.card}>
-                        <AccountRow 
-                            icon="mail-outline" 
-                            label="Email Address" 
-                            value={profile.email && profile.email.length > 3 ? profile.email.replace(/(.{2})(.*)(@.*)/, "$1***$3").substring(0, 7) + '...' : 'N/A'} 
-                            onPress={handleChangeEmail} 
-                        />
-                        <AccountRow 
-                            icon="lock-closed-outline" 
-                            label="Password" 
-                            value="Change" 
-                            onPress={handleChangePassword} 
-                            isLast 
-                        />
-                    </View>
+                <Text style={styles.sectionTitle}>Login Credentials</Text>
+                <View style={styles.card}>
+                    <AccountRow icon="mail-outline" label="Email Address" value={profile?.email && profile.email.length > 3 ? profile.email.replace(/(.{2})(.*)(@.*)/, "$1***$3").substring(0, 7) + '...' : 'N/A'} onPress={() => {}} />
+                    <AccountRow icon="lock-closed-outline" label="Password" value="Change" onPress={() => navigation.navigate('ChangePassword')} isLast />
+                </View>
 
-                    {/* Connected Accounts Section */}
-                    <Text style={styles.sectionTitle}>Connected Accounts</Text>
-                    <View style={styles.card}>
-                        {Object.keys(connectedAccounts).map((key, index, arr) => (
-                            <ConnectedAccountRow 
-                                key={key}
-                                name={connectedAccounts[key].name}
-                                icon={connectedAccounts[key].icon}
-                                isConnected={connectedAccounts[key].isConnected}
-                                isLoading={connectingProvider === key}
-                                onConnect={() => connectingProvider ? null : handleConnect(key)}
-                                isLast={index === arr.length - 1}
-                            />
-                        ))}
-                    </View>
+                <Text style={styles.sectionTitle}>Connected Accounts</Text>
+                <View style={styles.card}>
+                    <ConnectedAccountRow icon="logo-google" name="Google" isConnected={connected.google} isLoading={connectingProvider === 'google'} onConnect={() => handleConnect('google', 'Google')} />
+                    <ConnectedAccountRow icon="logo-github" name="Github" isConnected={connected.github} isLoading={connectingProvider === 'github'} onConnect={() => handleConnect('github', 'Github')} />
+                    <ConnectedAccountRow icon="logo-facebook" name="Facebook" isConnected={connected.facebook} isLoading={connectingProvider === 'facebook'} onConnect={() => handleConnect('facebook', 'Facebook')} isLast />
+                </View>
 
-                    {/* Danger Zone Section */}
-                    <Text style={styles.sectionTitle}>Danger Zone</Text>
-                    <View style={styles.card}>
-                        <AccountRow icon="trash-outline" label="Delete Account" value="" onPress={handleDelete} isLast color={Colors.danger}/>
-                    </View>
-                </ScrollView>
-            )}
+                <Text style={styles.sectionTitle}>Danger Zone</Text>
+                <View style={styles.card}>
+                    <AccountRow icon="trash-outline" label="Delete Account" value="" onPress={handleDelete} isLast color={Colors.danger}/>
+                </View>
+            </ScrollView>
         </LinearGradient>
     );
 };
-
+// ... styles (same as provided)
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },

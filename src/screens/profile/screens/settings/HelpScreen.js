@@ -11,6 +11,8 @@ import { useModal } from '@context/ModalContext';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, measure, runOnUI, interpolate, Extrapolate, useAnimatedScrollHandler, useAnimatedRef } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
+// NOTE: We import API directly here because FAQ/Help data is static 
+// and doesn't need to be managed by the User Profile Context.
 import { ProfileAPI } from '@api/MockProfileService';
 
 // --- Animation Constants ---
@@ -31,22 +33,39 @@ const FaqItem = ({ item }) => {
             answerHeight.value = withTiming(0);
         } else {
             animatedRotation.value = withTiming(180);
-            runOnUI(() => { 'worklet'; answerHeight.value = withTiming(measure(answerRef).height); })();
+            // Measure the absolute positioned view to get exact text height
+            runOnUI(() => { 
+                'worklet'; 
+                const measured = measure(answerRef);
+                if (measured) {
+                    answerHeight.value = withTiming(measured.height);
+                }
+            })();
         }
         setIsExpanded(!isExpanded);
     };
 
-    const animatedAnswerStyle = useAnimatedStyle(() => ({ height: answerHeight.value, opacity: answerHeight.value > 0 ? 1 : 0 }));
-    const animatedIconStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${animatedRotation.value}deg` }] }));
+    const animatedAnswerStyle = useAnimatedStyle(() => ({ 
+        height: answerHeight.value, 
+        opacity: answerHeight.value > 0 ? 1 : 0 
+    }));
+    
+    const animatedIconStyle = useAnimatedStyle(() => ({ 
+        transform: [{ rotate: `${animatedRotation.value}deg` }] 
+    }));
 
     return (
         <View style={styles.rowBorder}>
             <TouchableOpacity onPress={toggle} style={styles.row}>
                 <Text style={styles.rowLabel}>{item.q}</Text>
-                <Animated.View style={animatedIconStyle}><Ionicons name="chevron-down" size={20} color={Colors.textSecondary} /></Animated.View>
+                <Animated.View style={animatedIconStyle}>
+                    <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />
+                </Animated.View>
             </TouchableOpacity>
             <Animated.View style={[styles.answerContainer, animatedAnswerStyle]}>
-                <View ref={answerRef} style={{ position: 'absolute' }}><Text style={styles.answerText}>{item.a}</Text></View>
+                <View ref={answerRef} style={{ position: 'absolute', width: '100%' }}>
+                    <Text style={styles.answerText}>{item.a}</Text>
+                </View>
             </Animated.View>
         </View>
     );
@@ -78,7 +97,6 @@ const HelpScreen = ({ navigation }) => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // FIX: Call getFAQ and getContactTopics separately
                 const [faqRes, topicsRes] = await Promise.all([
                     ProfileAPI.getFAQ(),
                     ProfileAPI.getContactTopics()
@@ -162,8 +180,18 @@ const HelpScreen = ({ navigation }) => {
                         <Animated.View style={[styles.searchBarWrapper, animatedSearchBarStyle]}>
                             <View style={styles.searchBarContainer}>
                                 <Ionicons name="search" size={20} color={Colors.textSecondary} />
-                                <TextInput placeholder="Search help articles..." placeholderTextColor={Colors.textSecondary} style={styles.searchInput} value={searchQuery} onChangeText={setSearchQuery}/>
-                                {isSearching && <TouchableOpacity style={styles.clearButton} onPress={() => setSearchQuery('')}><Ionicons name="close-circle" size={20} color={Colors.textSecondary} /></TouchableOpacity>}
+                                <TextInput 
+                                    placeholder="Search help articles..." 
+                                    placeholderTextColor={Colors.textSecondary} 
+                                    style={styles.searchInput} 
+                                    value={searchQuery} 
+                                    onChangeText={setSearchQuery}
+                                />
+                                {isSearching && (
+                                    <TouchableOpacity style={styles.clearButton} onPress={() => setSearchQuery('')}>
+                                        <Ionicons name="close-circle" size={20} color={Colors.textSecondary} />
+                                    </TouchableOpacity>
+                                )}
                             </View>
                         </Animated.View>
                     </View>
@@ -182,7 +210,10 @@ const HelpScreen = ({ navigation }) => {
                             {filteredFaqs.length > 0 ? (
                                 filteredFaqs.map((item, index) => <FaqItem key={index} item={item} />)
                             ) : (
-                                <View style={styles.emptyStateContainer}><Ionicons name="sad-outline" size={40} color={Colors.textSecondary}/><Text style={styles.emptyStateText}>No results found.</Text></View>
+                                <View style={styles.emptyStateContainer}>
+                                    <Ionicons name="sad-outline" size={40} color={Colors.textSecondary}/>
+                                    <Text style={styles.emptyStateText}>No results found.</Text>
+                                </View>
                             )}
                         </View>
                         
@@ -205,7 +236,7 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1, overflow: 'hidden', borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },
     headerContent: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
-    backButton: { position: 'absolute', left: 15, padding: 10 },
+    backButton: { position: 'absolute', left: 15, padding: 10, zIndex: 10 },
     headerTitleWrapper: { flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' },
     largeHeaderContent: { alignItems: 'center', marginBottom: 20 },
     iconContainer: { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },

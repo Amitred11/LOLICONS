@@ -6,8 +6,10 @@ import { useNavigation } from '@react-navigation/native';
 import { Colors } from '@config/Colors';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+// CHANGE: Import unified Context
+import { useComic } from '@context/ComicContext';
+// CHANGE: We still import Service for lists that aren't global user data (like "Browse" or "Search")
 import { ComicService } from '@api/MockComicService'; 
-import { useLibrary } from '@context/LibraryContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 
@@ -22,15 +24,26 @@ const FEATURED_CARD_WIDTH = width * 0.7;
 const FEATURED_CARD_ASPECT_RATIO = 16 / 9;
 
 const AddToLibraryButton = ({ comicId, style }) => {
-    const { isInLibrary, addToLibrary, removeFromLibrary } = useLibrary();
+    // CHANGE: Use unified context
+    const { isInLibrary, addToLibrary, removeFromLibrary } = useComic();
     const isComicInLibrary = isInLibrary(comicId);
 
     const handleLibraryToggle = () => {
-        isComicInLibrary ? removeFromLibrary(comicId) : addToLibrary(comicId);
+        // We need the full comic object to add, but for Browse list items we might only have ID here cleanly.
+        // Ideally, pass the full item to this button or fetch it. 
+        // For now, assuming the context handles ID-based removal, but requires object for add.
+        // To fix this cleanly without passing 'item' prop everywhere, we'll assume the parent passes 'item' 
+        // OR we just toggle ID and let context handle fetching if missing (advanced).
+        // SIMPLIFICATION: We will change props of this component to accept 'item' instead of just ID.
+        console.warn("AddToLibraryButton in BrowseView needs the full item object to function perfectly with Context state.");
     };
 
     return (
-        <TouchableOpacity onPress={handleLibraryToggle} style={[styles.addButton, style]}>
+        <TouchableOpacity 
+             // Logic moved to parent for now to access 'item'
+            style={[styles.addButton, style]}
+            disabled={true} // See BrowseListItem below for actual implementation
+        >
             <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFillObject}>
                 <View style={styles.addButtonIconContainer}>
                     <Ionicons name={isComicInLibrary ? "checkmark-sharp" : "add-sharp"} size={22} color={isComicInLibrary ? Colors.secondary : Colors.text} />
@@ -39,6 +52,26 @@ const AddToLibraryButton = ({ comicId, style }) => {
         </TouchableOpacity>
     );
 };
+
+// HELPER for the button logic inside items
+const LibraryToggleButton = ({ item, style }) => {
+    const { isInLibrary, addToLibrary, removeFromLibrary } = useComic();
+    const isIn = isInLibrary(item.id);
+
+    return (
+        <TouchableOpacity 
+            onPress={() => isIn ? removeFromLibrary(item.id) : addToLibrary(item)} 
+            style={[styles.addButton, style]}
+        >
+            <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFillObject}>
+                <View style={styles.addButtonIconContainer}>
+                    <Ionicons name={isIn ? "checkmark-sharp" : "add-sharp"} size={22} color={isIn ? Colors.secondary : Colors.text} />
+                </View>
+            </BlurView>
+        </TouchableOpacity>
+    );
+};
+
 
 const BrowseListItem = ({ item, index }) => {
     const navigation = useNavigation();
@@ -74,7 +107,8 @@ const BrowseListItem = ({ item, index }) => {
                         ))}
                     </View>
                 </View>
-                <AddToLibraryButton comicId={item.id} style={{ right: 0 }}/>
+                {/* CHANGE: Use new button component */}
+                <LibraryToggleButton item={item} style={{ right: 0 }}/>
             </Pressable>
         </Animated.View>
     );
@@ -107,7 +141,8 @@ const BrowseGridItem = ({ item, index, cardStyle, imageStyle }) => {
           </LinearGradient>
         </ImageBackground>
       </Pressable>
-      <AddToLibraryButton comicId={item.id} />
+      {/* CHANGE: Use new button component */}
+      <LibraryToggleButton item={item} />
     </Animated.View>
   );
 };
@@ -116,41 +151,33 @@ const BrowseHeader = ({ setViewMode, viewMode }) => {
     const [popularComics, setPopularComics] = useState([]);
     const navigation = useNavigation();
 
-    // Fetch popular comics
     useEffect(() => {
         const loadFeatured = async () => {
             try {
+                // Featured data is ephemeral, keep using Service directly is fine, 
+                // or add it to HomeContext/ComicContext if you want global caching.
                 const response = await ComicService.getFeaturedComics();
-                // FIX: Check if response has data property (standard API format) or is the array itself
                 if (response.success && Array.isArray(response.data)) {
                     setPopularComics(response.data);
                 } else if (Array.isArray(response)) {
                     setPopularComics(response);
-                } else {
-                    console.warn("Unexpected response format for featured comics:", response);
-                    setPopularComics([]); 
                 }
             } catch (err) {
                 console.error(err);
-                setPopularComics([]);
             }
         };
         loadFeatured();
     }, []);
 
     const handleSeeAll = () => {
-        // Guard clause to prevent crash if data isn't loaded
         if (!Array.isArray(popularComics)) return;
-
         const serializableData = popularComics.map(comic => {
             const newComic = { ...comic };
-            // Ensure dates are strings for navigation params
             if (newComic.lastRead instanceof Date) {
                 newComic.lastRead = newComic.lastRead.toISOString();
             }
             return newComic;
         });
-
         navigation.navigate('SeeAll', { 
             title: 'Popular This Week', 
             data: serializableData
@@ -209,7 +236,7 @@ const BrowseView = ({ scrollHandler, headerHeight, searchQuery, filters }) => {
     const loadComics = async () => {
         setIsLoading(true);
         try {
-            // Use Service to fetch and filter
+            // "Browsing" is usually server-side search, so we use Service, not Context state.
             const response = await ComicService.getComics({
                 searchQuery,
                 filters
@@ -217,7 +244,6 @@ const BrowseView = ({ scrollHandler, headerHeight, searchQuery, filters }) => {
 
             if (!isMounted) return;
 
-            // FIX: Normalize data from response (handle both array and object returns)
             let data = [];
             if (response && response.data && Array.isArray(response.data)) {
                 data = response.data;
@@ -225,8 +251,6 @@ const BrowseView = ({ scrollHandler, headerHeight, searchQuery, filters }) => {
                 data = response;
             }
 
-            // Handle Grid alignment placeholders
-            // We copy array to avoid mutating state directly/reference issues
             let gridData = [...data];
             if (viewMode === 'grid') {
                 const itemsToAdd = GRID_NUM_COLUMNS - (gridData.length % GRID_NUM_COLUMNS);
@@ -245,7 +269,6 @@ const BrowseView = ({ scrollHandler, headerHeight, searchQuery, filters }) => {
     };
 
     loadComics();
-
     return () => { isMounted = false; };
   }, [searchQuery, filters, viewMode]);
 

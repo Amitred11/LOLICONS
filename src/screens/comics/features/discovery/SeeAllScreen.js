@@ -6,7 +6,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Colors } from '@config/Colors';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { useLibrary } from '@context/LibraryContext';
+// CHANGE: Context
+import { useComic } from '@context/ComicContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,19 +19,19 @@ const GAP = 15;
 const GRID_NUM_COLUMNS = 3;
 const GRID_CARD_WIDTH = (width - (PADDING * 2) - (GAP * (GRID_NUM_COLUMNS - 1))) / GRID_NUM_COLUMNS;
 
-const AddToLibraryButton = ({ comicId, style }) => {
-    const { isInLibrary, addToLibrary, removeFromLibrary } = useLibrary();
-    const isComicInLibrary = isInLibrary(comicId);
-
-    const handleLibraryToggle = () => {
-        isComicInLibrary ? removeFromLibrary(comicId) : addToLibrary(comicId);
-    };
+// CHANGE: Updated button to use ComicContext
+const LibraryToggleButton = ({ item, style }) => {
+    const { isInLibrary, addToLibrary, removeFromLibrary } = useComic();
+    const isIn = isInLibrary(item.id);
 
     return (
-        <TouchableOpacity onPress={handleLibraryToggle} style={[styles.addButton, style]}>
+        <TouchableOpacity 
+            onPress={() => isIn ? removeFromLibrary(item.id) : addToLibrary(item)} 
+            style={[styles.addButton, style]}
+        >
             <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFillObject}>
                 <View style={styles.addButtonIconContainer}>
-                    <Ionicons name={isComicInLibrary ? "checkmark-sharp" : "add-sharp"} size={22} color={isComicInLibrary ? Colors.secondary : Colors.text} />
+                    <Ionicons name={isIn ? "checkmark-sharp" : "add-sharp"} size={22} color={isIn ? Colors.secondary : Colors.text} />
                 </View>
             </BlurView>
         </TouchableOpacity>
@@ -70,7 +71,8 @@ const BrowseListItem = ({ item, index }) => {
                         ))}
                     </View>
                 </View>
-                <AddToLibraryButton comicId={item.id} style={{ right: 0 }}/>
+                {/* CHANGE: Use Button */}
+                <LibraryToggleButton item={item} style={{ right: 0 }}/>
             </Pressable>
         </Animated.View>
     );
@@ -102,11 +104,13 @@ const BrowseGridItem = ({ item, index }) => {
           </LinearGradient>
         </ImageBackground>
       </Pressable>
-      <AddToLibraryButton comicId={item.id} />
+      {/* CHANGE: Use Button */}
+      <LibraryToggleButton item={item} />
     </Animated.View>
   );
 };
 
+// ... Rest of SeeAllScreen logic remains standard ...
 const SeeAllScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -117,9 +121,7 @@ const SeeAllScreen = () => {
   const [listData, setListData] = useState([]);
 
   useEffect(() => {
-    // Ensure data is treated as an array
     let preparedData = Array.isArray(data) ? [...data] : [];
-    
     if (viewMode === 'grid') {
         const itemsToAdd = GRID_NUM_COLUMNS - (preparedData.length % GRID_NUM_COLUMNS);
         if (itemsToAdd > 0 && itemsToAdd < GRID_NUM_COLUMNS) {

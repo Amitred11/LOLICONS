@@ -1,19 +1,12 @@
-// screens/profile/DataAndStorageScreen.js
-
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@config/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { useProfile } from '@context/ProfileContext';
 
-// --- ADDED: Import the API Service ---
-import { ProfileAPI } from '@api/MockProfileService';
-
-/**
- * A reusable row component for a single setting option.
- */
 const SettingsRow = ({ icon, label, details, onPress, isLast, color = Colors.text }) => (
     <TouchableOpacity onPress={onPress} style={[styles.row, !isLast && styles.rowBorder]}>
         <Ionicons name={icon} size={22} color={color} style={{ marginRight: 15 }} />
@@ -25,69 +18,35 @@ const SettingsRow = ({ icon, label, details, onPress, isLast, color = Colors.tex
     </TouchableOpacity>
 );
 
-/**
- * The main screen for managing app data and storage.
- */
 const DataAndStorageScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
+    const { profile, clearCache, clearDownloads } = useProfile();
+    
+    // Format helper since ProfileAPI does logic but we read from state now
+    const format = (b) => {
+        if(b === 0) return '0 B';
+        const i = Math.floor(Math.log(b) / Math.log(1024));
+        return (b / Math.pow(1024, i)).toFixed(1) + ' ' + ['B','KB','MB','GB'][i];
+    };
 
-    // --- State Management for Storage Data ---
-    const [storageUsage, setStorageUsage] = useState({
-        downloads: 0,
-        appData: 0,
-        cache: 0,
-        downloadsLabel: '0 B',
-        appDataLabel: '0 B',
-        cacheLabel: '0 B'
-    });
+    const storage = profile?.settings?.storage || { downloads: 0, appData: 0, cache: 0 };
+    const downloadsLabel = format(storage.downloads);
+    const appDataLabel = format(storage.appData);
+    const cacheLabel = format(storage.cache);
 
-    /**
-     * Effect to fetch storage details on mount via ProfileAPI.
-     */
-    useEffect(() => {
-        const fetchStorageData = async () => {
-            try {
-                // --- UPDATED: Fetch from API ---
-                const response = await ProfileAPI.getStorageUsage();
-                if (response.success) {
-                    setStorageUsage(response.data);
-                }
-            } catch (error) {
-                console.error("Failed to load storage data", error);
-            }
-        };
-
-        fetchStorageData();
-    }, []);
-
-    // Helper to calculate flex ratios for the progress bar
-    const totalSize = storageUsage.downloads + storageUsage.appData + storageUsage.cache;
-    const downloadFlex = totalSize > 0 ? storageUsage.downloads / totalSize : 0;
-    const appDataFlex = totalSize > 0 ? storageUsage.appData / totalSize : 0;
-    const cacheFlex = totalSize > 0 ? storageUsage.cache / totalSize : 0;
+    const totalSize = storage.downloads + storage.appData + storage.cache;
+    const downloadFlex = totalSize > 0 ? storage.downloads / totalSize : 0;
+    const appDataFlex = totalSize > 0 ? storage.appData / totalSize : 0;
+    const cacheFlex = totalSize > 0 ? storage.cache / totalSize : 0;
 
     const handleClearCache = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         Alert.alert(
             "Clear Cache",
-            "This will clear temporary data but won't delete your downloads. Are you sure?",
+            "Are you sure?",
             [
                 { text: "Cancel", style: "cancel" },
-                { 
-                    text: "Clear", 
-                    style: "destructive", 
-                    onPress: async () => {
-                        // --- UPDATED: Call API ---
-                        try {
-                            const response = await ProfileAPI.clearCache();
-                            if (response.success) {
-                                setStorageUsage(prev => ({ ...prev, cache: 0, cacheLabel: '0 B' }));
-                            }
-                        } catch (error) {
-                            Alert.alert("Error", "Failed to clear cache.");
-                        }
-                    } 
-                }
+                { text: "Clear", style: "destructive", onPress: clearCache }
             ]
         );
     };
@@ -96,24 +55,10 @@ const DataAndStorageScreen = ({ navigation }) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         Alert.alert(
             "Clear All Downloads",
-            "This action is permanent and will remove all downloaded comics from this device.",
+            "This will remove all downloaded comics. Continue?",
             [
                 { text: "Cancel", style: "cancel" },
-                { 
-                    text: "Delete All", 
-                    style: "destructive", 
-                    onPress: async () => {
-                        // --- UPDATED: Call API ---
-                        try {
-                            const response = await ProfileAPI.clearDownloads();
-                            if (response.success) {
-                                setStorageUsage(prev => ({ ...prev, downloads: 0, downloadsLabel: '0 B' }));
-                            }
-                        } catch (error) {
-                            Alert.alert("Error", "Failed to clear downloads.");
-                        }
-                    } 
-                }
+                { text: "Delete All", style: "destructive", onPress: clearDownloads }
             ]
         );
     };
@@ -127,11 +72,8 @@ const DataAndStorageScreen = ({ navigation }) => {
                 <View style={styles.headerButton} />
             </View>
             <ScrollView contentContainerStyle={styles.scrollContainer}>
-                {/* Storage Usage Visual Card */}
                 <View style={styles.storageCard}>
                     <Text style={styles.storageTitle}>Storage Usage</Text>
-                    
-                    {/* Visual Progress Bar */}
                     <View style={styles.progressBar}>
                         {totalSize > 0 ? (
                             <>
@@ -143,34 +85,17 @@ const DataAndStorageScreen = ({ navigation }) => {
                             <View style={[styles.progressSegment, { flex: 1, backgroundColor: Colors.surface, opacity: 0.5 }]} />
                         )}
                     </View>
-                    
                     <View style={styles.legendContainer}>
-                        <View style={styles.legendItem}>
-                            <View style={[styles.legendDot, { backgroundColor: Colors.secondary }]} />
-                            <Text style={styles.legendText}>Downloads ({storageUsage.downloadsLabel})</Text>
-                        </View>
-                        <View style={styles.legendItem}>
-                            <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
-                            <Text style={styles.legendText}>App Data ({storageUsage.appDataLabel})</Text>
-                        </View>
-                        <View style={styles.legendItem}>
-                            <View style={[styles.legendDot, { backgroundColor: Colors.textSecondary }]} />
-                            <Text style={styles.legendText}>Cache ({storageUsage.cacheLabel})</Text>
-                        </View>
+                        <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.secondary }]} /><Text style={styles.legendText}>Downloads ({downloadsLabel})</Text></View>
+                        <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.primary }]} /><Text style={styles.legendText}>App Data ({appDataLabel})</Text></View>
+                        <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.textSecondary }]} /><Text style={styles.legendText}>Cache ({cacheLabel})</Text></View>
                     </View>
                 </View>
 
-                {/* Settings Actions */}
                 <Text style={styles.sectionTitle}>Manage Data</Text>
                 <View style={styles.card}>
                     <SettingsRow icon="folder-open-outline" label="Manage Downloads" details="View by comic" onPress={() => {}} />
-                    <SettingsRow 
-                        icon="trash-bin-outline" 
-                        label="Clear Cache" 
-                        details={storageUsage.cacheLabel} 
-                        onPress={handleClearCache} 
-                        isLast 
-                    />
+                    <SettingsRow icon="trash-bin-outline" label="Clear Cache" details={cacheLabel} onPress={handleClearCache} isLast />
                 </View>
                 
                 <Text style={styles.sectionTitle}>Danger Zone</Text>
@@ -181,8 +106,7 @@ const DataAndStorageScreen = ({ navigation }) => {
         </LinearGradient>
     );
 };
-
-// --- Stylesheet ---
+// ... styles (same as provided)
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, paddingBottom: 10, marginTop: 15, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },

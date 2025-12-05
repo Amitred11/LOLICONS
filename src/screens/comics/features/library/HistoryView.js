@@ -2,18 +2,20 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, SectionList, Dimensions, Pressable, Image, TouchableOpacity, ActivityIndicator, Animated as RNAnimated } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { Colors } from '@config/Colors';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } from 'react-native-reanimated';
-import { ComicService } from '@api/MockComicService'; 
 import { Ionicons } from '@expo/vector-icons';
 import { Swipeable } from 'react-native-gesture-handler';
+// CHANGE: Context
+import { useComic } from '@context/ComicContext';
 
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
 const { height } = Dimensions.get('window');
 const PADDING = 15;
 
 const HistoryItem = ({ item, index, onRemove }) => {
+  // ... (Same rendering logic as before) ...
   const navigation = useNavigation();
   const swipeableRef = useRef(null); 
   const entryOpacity = useSharedValue(0);
@@ -75,16 +77,16 @@ const HistoryItem = ({ item, index, onRemove }) => {
 };
 
 const HistoryView = ({ scrollHandler, headerHeight, searchQuery }) => {
+  // CHANGE: Get state and actions from Context
+  const { history, isLoadingUserData, removeFromHistory } = useComic();
   const [historySections, setHistorySections] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Groups an array of history items into sections
+  // Helper to group logic
   const groupHistoryByDate = (data) => {
     const sections = { Today: [], Yesterday: [], 'Last 7 Days': [], Older: [] };
     const now = new Date();
     
     data.forEach(item => {
-      // Ensure lastRead is a Date object (if mocked JSON stored string)
       const dateObj = new Date(item.lastRead);
       const diffTime = now.getTime() - dateObj.getTime();
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
@@ -100,55 +102,26 @@ const HistoryView = ({ scrollHandler, headerHeight, searchQuery }) => {
       .filter(section => section.data.length > 0);
   };
 
-  // Fetch History Function
-  const loadHistory = async () => {
-    // Only show loading indicator on initial load if list is empty
-    if (historySections.length === 0) setIsLoading(true);
-    try {
-        // FIX: The service now supports filtering
-        const response = await ComicService.getHistory(searchQuery);
-        // FIX: Extract data from the response object
-        if (response.success && response.data) {
-            setHistorySections(groupHistoryByDate(response.data));
-        }
-    } catch (error) {
-        console.error("Failed to load history", error);
-    } finally {
-        setIsLoading(false);
-    }
-  };
-
-  // Fetch on mount and when query changes
+  // React to changes in Context History or Search Query
   useEffect(() => {
-    loadHistory();
-  }, [searchQuery]);
+    let filteredHistory = [...history];
 
-  // Also fetch when tab comes into focus (in case history changed elsewhere)
-  useFocusEffect(
-      React.useCallback(() => {
-          loadHistory();
-      }, [])
-  );
+    if (searchQuery) {
+        const lowerQ = searchQuery.toLowerCase();
+        filteredHistory = filteredHistory.filter(h => h.title.toLowerCase().includes(lowerQ));
+    }
+    // Context history should already be sorted by Service, but safe to sort again
+    filteredHistory.sort((a, b) => new Date(b.lastRead) - new Date(a.lastRead));
+
+    setHistorySections(groupHistoryByDate(filteredHistory));
+  }, [history, searchQuery]);
   
   const handleRemoveItem = async (itemId) => {
-    // Optimistic Update
-    const newSections = historySections.map(section => ({
-        ...section,
-        data: section.data.filter(item => item.id !== itemId)
-    })).filter(section => section.data.length > 0);
-    setHistorySections(newSections);
-
-    // Call API
-    try {
-        await ComicService.removeFromHistory(itemId);
-    } catch (error) {
-        console.error("Failed to remove history item", error);
-        // In a real app, revert the optimistic update here on error
-        loadHistory(); 
-    }
+    // Context handles removal
+    await removeFromHistory(itemId);
   };
 
-  if (isLoading && historySections.length === 0) {
+  if (isLoadingUserData && history.length === 0) {
       return (
           <View style={[styles.emptyContainer, { paddingTop: headerHeight }]}>
               <ActivityIndicator size="large" color={Colors.secondary} />

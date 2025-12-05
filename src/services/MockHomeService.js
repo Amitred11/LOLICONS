@@ -1,6 +1,6 @@
 // services/MockHomeService.js
 import { EventsService } from '@api/hub/MockEventsService';
-import { ComicService } from '@api/MockComicService'; // Import the source of truth
+import { ComicService } from '@api/MockComicService';
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -10,7 +10,6 @@ const MOCK_MISSIONS = [
     { id: 'm3', title: 'Rate a Comic', progress: 0, total: 1, completed: false, icon: 'star-outline' },
 ];
 
-// Helper to format large numbers (e.g., 2500000 -> 2.5M)
 const formatViews = (num) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
@@ -18,18 +17,20 @@ const formatViews = (num) => {
 };
 
 export const HomeService = {
-    // 1. Featured Comics (Fetched from ComicService based on Views)
+    // 1. Featured Comics
     getFeaturedComics: async () => {
         try {
-            const featured = await ComicService.getFeaturedComics();
+            const response = await ComicService.getFeaturedComics();
             
-            // Map the ComicService data structure to the Home UI structure
-            const mappedData = featured.map(comic => ({
+            // FIX: Check for success and extract .data
+            const comics = response.success ? response.data : [];
+
+            const mappedData = comics.map(comic => ({
                 id: comic.id,
                 title: comic.title,
                 author: comic.author,
-                cover: comic.image, // Map 'image' to 'cover' for UI
-                localSource: comic.image, // Ensure localSource exists for AnimatedCards
+                cover: comic.image,
+                localSource: comic.image,
                 rating: comic.rating,
                 views: formatViews(comic.views),
                 tags: comic.genres || [],
@@ -44,19 +45,20 @@ export const HomeService = {
         }
     },
 
-    // 2. Continue Reading (Fetched from ComicService History)
+    // 2. Continue Reading
     getContinueReading: async () => {
         try {
-            const history = await ComicService.getHistory();
+            const response = await ComicService.getHistory();
             
-            // Map History data to Card expectations
+            // FIX: Check for success and extract .data
+            const history = response.success ? response.data : [];
+
             const mappedHistory = history.map(item => ({
                 ...item,
-                cover: item.image, // UI often expects 'cover'
+                cover: item.image,
                 localSource: item.image,
-                // Ensure specific fields exist for the Progress Bar in Card
                 totalChapters: item.totalChapters || 100, 
-                chapters: [{ id: item.lastChapterRead }] // Mock for card display
+                chapters: [{ id: item.lastChapterRead }] 
             }));
 
             return { success: true, data: mappedHistory };
@@ -66,7 +68,7 @@ export const HomeService = {
         }
     },
 
-    // 3. Daily Goals (Kept local for now, or could act as a bridge to a MissionService)
+    // 3. Daily Goals
     getDailyGoals: async () => {
         await delay(500);
         return { success: true, data: MOCK_MISSIONS };
@@ -75,7 +77,8 @@ export const HomeService = {
     // 4. Upcoming Events
     getUpcomingEvents: async () => {
         try {
-            if (EventsService && EventsService.getEvents) {
+            // Check if EventsService exists to prevent crashes if module is missing
+            if (typeof EventsService !== 'undefined' && EventsService.getEvents) {
                 return await EventsService.getEvents();
             }
             return { success: true, data: [] };
@@ -84,12 +87,16 @@ export const HomeService = {
         }
     },
 
-    // 5. Search (Delegates to ComicService)
+    // 5. Search
     searchContent: async (query) => {
         try {
-            const results = await ComicService.getComics({ searchQuery: query });
+            // This method usually returns a raw array in ComicService, 
+            // but let's handle it safely if it returns an object.
+            const rawResults = await ComicService.getComics({ searchQuery: query });
             
-            // Map results for consistency
+            // Handle both Array return or { success, data } return
+            const results = Array.isArray(rawResults) ? rawResults : (rawResults.data || []);
+            
             const mappedResults = results.map(c => ({
                 ...c,
                 cover: c.image,

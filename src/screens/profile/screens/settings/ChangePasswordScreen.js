@@ -1,5 +1,3 @@
-// screens/profile/ChangePasswordScreen.js
-
 import React, { useState } from 'react';
 import { 
     View, Text, StyleSheet, TouchableOpacity, StatusBar, 
@@ -10,10 +8,9 @@ import { Colors } from '@config/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAlert } from '@context/AlertContext'; 
+import { useProfile } from '@context/ProfileContext';
 
-// --- ADDED: Import the API Service ---
-import { ProfileAPI } from '@api/MockProfileService';
-
+// ... PasswordInput Component (same as before) ...
 const PasswordInput = ({ label, value, onChangeText, placeholder, isSecure, onToggleSecurity }) => (
     <View style={styles.inputGroup}>
         <Text style={styles.label}>{label}</Text>
@@ -42,70 +39,34 @@ const PasswordInput = ({ label, value, onChangeText, placeholder, isSecure, onTo
 const ChangePasswordScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
     const { showAlert } = useAlert();
+    const { changePassword } = useProfile(); // Context Bridge
 
-    const [form, setForm] = useState({
-        current: '',
-        new: '',
-        confirm: ''
-    });
-
-    const [visibility, setVisibility] = useState({
-        current: true,
-        new: true,
-        confirm: true
-    });
-
+    const [form, setForm] = useState({ current: '', new: '', confirm: '' });
+    const [visibility, setVisibility] = useState({ current: true, new: true, confirm: true });
     const [isLoading, setIsLoading] = useState(false);
 
-    const toggleVisibility = (field) => {
-        setVisibility(prev => ({ ...prev, [field]: !prev[field] }));
-    };
+    const toggleVisibility = (field) => setVisibility(prev => ({ ...prev, [field]: !prev[field] }));
 
     const handleUpdate = async () => {
         Keyboard.dismiss();
+        if (!form.current || !form.new || !form.confirm) return showAlert({ title: "Missing Fields", message: "Fill all fields.", type: 'error' });
+        if (form.new.length < 6) return showAlert({ title: "Weak Password", message: "Min 6 chars.", type: 'error' });
+        if (form.new !== form.confirm) return showAlert({ title: "Mismatch", message: "Passwords don't match.", type: 'error' });
 
-        // 1. Client-side Validation
-        if (!form.current || !form.new || !form.confirm) {
-            showAlert({ title: "Missing Fields", message: "Please fill in all fields.", type: 'error' });
-            return;
-        }
-        if (form.new.length < 6) {
-            showAlert({ title: "Weak Password", message: "New password must be at least 6 characters long.", type: 'error' });
-            return;
-        }
-        if (form.new !== form.confirm) {
-            showAlert({ title: "Mismatch", message: "New passwords do not match.", type: 'error' });
-            return;
-        }
-        if (form.current === form.new) {
-            showAlert({ title: "No Change", message: "New password cannot be the same as the old one.", type: 'info' });
-            return;
-        }
-
-        // 2. API Call
         setIsLoading(true);
         try {
-            // --- UPDATED: Use ProfileAPI ---
-            const response = await ProfileAPI.changePassword(form.current, form.new);
-            
+            const response = await changePassword(form.current, form.new);
             if (response.success) {
-                showAlert({
-                    title: "Success",
-                    message: "Your password has been updated successfully.",
-                    type: 'success',
-                    btnText: "Back to Account",
-                    onClose: () => navigation.goBack()
-                });
-            } else {
-                 throw new Error(response.message || "Failed to update.");
-            }
+                showAlert({ title: "Success", message: "Password updated.", type: 'success', btnText: "Back", onClose: () => navigation.goBack() });
+            } else { throw new Error(response.message); }
         } catch (error) {
-            showAlert({ title: "Error", message: error.message || "Failed to update password.", type: 'error' });
+            showAlert({ title: "Error", message: error.message || "Failed to update.", type: 'error' });
         } finally {
             setIsLoading(false);
         }
     };
-
+    
+    // ... Render (Same as before)
     return (
         <LinearGradient colors={[Colors.background, '#1a1a2e']} style={styles.container}>
             <StatusBar barStyle="light-content" />
@@ -186,7 +147,7 @@ const ChangePasswordScreen = ({ navigation }) => {
         </LinearGradient>
     );
 };
-
+// ... styles (same as provided)
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },

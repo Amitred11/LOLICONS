@@ -1,6 +1,4 @@
-// screens/NotificationScreen.js
-
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -10,34 +8,26 @@ import {
   SafeAreaView, 
   StatusBar, 
   Platform,
-  ActivityIndicator // Added for loading state
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@config/Colors'; 
-
-// Import the service
-import { NotificationAPI } from '@api/MockNotificationService';
+import { useNotifications } from '@context/NotificationContext'; // Import Hook
 
 const NotificationScreen = ({ navigation }) => {
-  const [notifications, setNotifications] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // 1. Use Context
+  const { 
+    notifications, 
+    isLoading, 
+    fetchNotifications, 
+    markAsRead, 
+    markAllAsRead 
+  } = useNotifications();
 
-  // Fetch data on mount
+  // 2. Fetch on mount
   useEffect(() => {
-    loadNotifications();
-  }, []);
-
-  const loadNotifications = async () => {
-    setIsLoading(true);
-    try {
-      const data = await NotificationAPI.getNotifications();
-      setNotifications(data);
-    } catch (error) {
-      console.error("Failed to load notifications", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   const getNotificationIcon = (type) => {
     switch (type) {
@@ -50,33 +40,15 @@ const NotificationScreen = ({ navigation }) => {
     }
   };
 
-  const handleMarkAllRead = async () => {
-    if (notifications.length === 0) return;
-    
-    // Optimistic Update: Update UI immediately
-    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
-    
-    // API Call in background
-    try {
-      await NotificationAPI.markAllAsRead();
-    } catch (error) {
-      console.error("Failed to mark all as read");
-      // Optional: Revert state on error
+  const handleMarkAllRead = () => {
+    if (notifications.length > 0) {
+      markAllAsRead();
     }
   };
 
-  const handleNotificationPress = async (id) => {
-    // Optimistic Update
-    setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, unread: false } : n)
-    );
-
-    // API Call
-    try {
-      await NotificationAPI.markAsRead(id);
-    } catch (error) {
-      console.error(`Failed to mark ${id} as read`);
-    }
+  const handleNotificationPress = (id) => {
+    markAsRead(id);
+    // You could also navigate to specific screens here based on notification type
   };
 
   const renderHeader = () => (
@@ -287,7 +259,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: Colors.secondary,
   },
-  // Empty State Styles
   emptyContainer: {
     flex: 1,
     alignItems: 'center',

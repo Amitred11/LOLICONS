@@ -9,9 +9,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
 
-// API & Context
-import { MediaService } from '@api/hub/MockMediaService';
 import { useAlert } from '@context/AlertContext';
+import { useMedia } from '@context/hub/MediaContext'; // IMPT: Import Context
 
 const { width, height } = Dimensions.get('window');
 const ITEM_WIDTH = width * 0.35;
@@ -28,32 +27,20 @@ const Theme = {
 
 const CATEGORIES = ['All', 'Movies', 'TV Shows', 'K-Drama', 'Anime'];
 
-// --- SUB-COMPONENTS ---
-
-// MODIFIED: Replaced Title with Back Button & Linked Avatar
+// ... (Sub-components: GlassHeader, CinematicHero, PortraitCard, SearchResultItem remain same as original) ...
 const GlassHeader = ({ scrollY, query, onQueryChange, insets }) => {
     const navigation = useNavigation();
-    
-    const headerOpacity = scrollY.interpolate({
-        inputRange: [0, 100],
-        outputRange: [0, 1],
-        extrapolate: 'clamp'
-    });
-    
+    const headerOpacity = scrollY.interpolate({ inputRange: [0, 100], outputRange: [0, 1], extrapolate: 'clamp' });
     return (
         <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
             <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
                 <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
                 <View style={{...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)'}} />
             </Animated.View>
-
             <View style={styles.headerContent}>
-                {/* 1. Back Button Replacement */}
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                     <Ionicons name="arrow-back" size={26} color={Theme.text} />
                 </TouchableOpacity>
-
-                {/* Search Bar */}
                 <View style={[styles.searchPill, query.length > 0 && styles.searchPillActive]}>
                     <Ionicons name="search" size={18} color={query ? Theme.text : Theme.textSecondary} />
                     <TextInput
@@ -69,13 +56,8 @@ const GlassHeader = ({ scrollY, query, onQueryChange, insets }) => {
                         </TouchableOpacity>
                     )}
                 </View>
-
-                {/* 2. Avatar Links to MediaProfile */}
                 {!query && (
-                    <TouchableOpacity 
-                        style={styles.avatarContainer}
-                        onPress={() => navigation.navigate('MediaProfile')}
-                    >
+                    <TouchableOpacity style={styles.avatarContainer} onPress={() => navigation.navigate('MediaProfile')}>
                         <Image source={{ uri: 'https://i.pravatar.cc/100?img=8' }} style={styles.avatar} />
                     </TouchableOpacity>
                 )}
@@ -137,63 +119,39 @@ const SearchResultItem = ({ item, onPress }) => (
     </TouchableOpacity>
 );
 
-// --- MAIN SCREEN ---
-
 const MediaScreen = () => {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
     const { showAlert } = useAlert();
     const scrollY = useRef(new Animated.Value(0)).current;
 
-    const [loading, setLoading] = useState(true);
-    const [mediaData, setMediaData] = useState([]);
+    // Consume Context
+    const { mediaData, isLoading, searchResults, searchMedia, toggleFavorite, loadMedia } = useMedia();
+
     const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState([]);
     const [activeCategory, setActiveCategory] = useState('All');
 
-    // Fetch Initial Data
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    // Refresh data when screen comes into focus (in case favorites changed in Profile)
+    // Refresh data on focus (optional, usually context handles this)
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
-            fetchData();
+            loadMedia();
         });
         return unsubscribe;
-    }, [navigation]);
+    }, [navigation, loadMedia]);
 
-    const fetchData = async () => {
-        // We don't set loading true here to avoid flickering on re-focus
-        const response = await MediaService.getAllMedia();
-        if (response.success) {
-            setMediaData(response.data);
-            setLoading(false);
-        } else {
-            showAlert({ title: 'Error', message: 'Failed to load media.', type: 'error' });
-            setLoading(false);
-        }
-    };
-
-    // Handle Search
+    // Handle Search Debounce
     useEffect(() => {
-        if (searchQuery.length > 1) {
-            const timer = setTimeout(async () => {
-                const response = await MediaService.searchMedia(searchQuery);
-                if (response.success) setSearchResults(response.data);
-            }, 500);
-            return () => clearTimeout(timer);
-        } else {
-            setSearchResults([]);
-        }
-    }, [searchQuery]);
+        const timer = setTimeout(() => {
+            if (searchQuery.length > 1) {
+                searchMedia(searchQuery);
+            }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery, searchMedia]);
 
-    // Handle "Add to List" on Hero
     const handleHeroListToggle = async (id) => {
-        const response = await MediaService.toggleFavorite(id);
+        const response = await toggleFavorite(id);
         if (response.success) {
-            setMediaData(prev => prev.map(item => item.id === id ? { ...item, isFavorite: response.isFavorite } : item));
             showAlert({ 
                 title: response.isFavorite ? 'Saved' : 'Removed', 
                 message: response.message, 
@@ -212,7 +170,7 @@ const MediaScreen = () => {
     const featuredItem = mediaData.find(i => i.tags.includes('Trending')) || mediaData[0];
     const trending = mediaData.filter(i => i.tags.includes('Trending'));
 
-    if (loading) {
+    if (isLoading && mediaData.length === 0) {
         return (
             <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
                 <ActivityIndicator size="large" color={Theme.primary} />
@@ -305,17 +263,14 @@ const MediaScreen = () => {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Theme.background },
-    
-    // Header Styles
     headerContainer: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100, height: 100, justifyContent: 'flex-end', paddingBottom: 15, paddingHorizontal: 20 },
     headerContent: { flexDirection: 'row', alignItems: 'center', gap: 15 },
-    backBtn: { width: 30, alignItems: 'flex-start' }, // New style for back button
+    backBtn: { width: 30, alignItems: 'flex-start' },
     searchPill: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', height: 40, borderRadius: 20, paddingHorizontal: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     searchPillActive: { backgroundColor: '#000', borderColor: Theme.primary },
     searchInput: { flex: 1, marginLeft: 10, color: Theme.text, fontSize: 13 },
     avatarContainer: { width: 36, height: 36, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: '#fff' },
     avatar: { width: '100%', height: '100%' },
-
     heroContainer: { width: width, height: height * 0.75 },
     heroImage: { width: '100%', height: '100%' },
     heroGradient: { width: '100%', height: '100%', justifyContent: 'flex-end', paddingBottom: 50, paddingHorizontal: 24 },

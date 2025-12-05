@@ -7,7 +7,8 @@ import { Colors } from '@config/Colors';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import { useDownloads } from '@context/DownloadContext'; // Context for download state and logic.
+// CHANGE: Use unified ComicContext instead of DownloadContext
+import { useComic } from '@context/ComicContext'; 
 import Svg, { Circle } from 'react-native-svg';
 import { useAlert } from '@context/AlertContext';
 
@@ -48,7 +49,9 @@ const ProgressRing = ({ progress, size = 24 }) => {
  * @param {boolean} props.isSelected - True if the chapter is currently selected.
  */
 const ChapterDownloadItem = ({ item, onToggle, isSelected }) => {
-    const { getChapterStatus } = useDownloads(); // Hook to get status from the context.
+    // CHANGE: Hook to get status from the unified context.
+    const { getChapterStatus } = useComic(); 
+    
     const { status, progress } = getChapterStatus(item.comicId, item.id);
     const isDisabled = status !== 'none'; // Disable selection if already downloaded or in queue.
 
@@ -81,7 +84,9 @@ const ChapterDownloadItem = ({ item, onToggle, isSelected }) => {
  * @param {object} props.comicPages - The object containing the source data for the comic's pages, required for downloading.
  */
 const DownloadModal = ({ isVisible, onClose, comic, comicPages }) => {
-  const { downloadChapters, getChapterStatus } = useDownloads();
+  // CHANGE: Destructure download actions from ComicContext
+  const { downloadChapters, getChapterStatus } = useComic();
+  
   const [selectedChapters, setSelectedChapters] = useState([]);
   const modalProgress = useSharedValue(0); // For the entry/exit animation.
   const { showAlert } = useAlert();
@@ -120,7 +125,7 @@ const DownloadModal = ({ isVisible, onClose, comic, comicPages }) => {
         onClose();
         return;
       }
-      downloadChapters(comic.id, selectedChapters, { cover: comic.localSource, pages: comicPages });
+      downloadChapters(comic.id, selectedChapters, { cover: comic.localSource || comic.cover || comic.image, pages: comicPages });
     }
     onClose();
   };

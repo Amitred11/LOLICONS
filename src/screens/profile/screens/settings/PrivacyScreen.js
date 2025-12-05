@@ -1,6 +1,4 @@
-// screens/profile/PrivacyScreen.js
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
     View, Text, StyleSheet, TouchableOpacity, StatusBar, 
     ScrollView, Modal, FlatList, TextInput, ActivityIndicator 
@@ -10,9 +8,7 @@ import { Colors } from '@config/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAlert } from '@context/AlertContext'; 
-
-// Import the ProfileAPI service
-import { ProfileAPI } from '@api/MockProfileService'; 
+import { useProfile } from '@context/ProfileContext';
 
 const SettingsRow = ({ icon, label, details, onPress, isLast, color = Colors.text }) => (
     <TouchableOpacity onPress={onPress} style={[styles.row, !isLast && styles.rowBorder]}>
@@ -28,40 +24,16 @@ const SettingsRow = ({ icon, label, details, onPress, isLast, color = Colors.tex
 const PrivacyScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
     const { showAlert } = useAlert();
+    const { profile, toggleTwoFactor, logoutAllSessions, blockUser, unblockUser } = useProfile();
 
-    const [isLoading, setIsLoading] = useState(true);
-    const [settings, setSettings] = useState({ twoFactor: false, sessions: 1 });
-    const [blockedUsers, setBlockedUsers] = useState([]);
-    
-    // Blocked Users Modal State
     const [isBlockModalVisible, setBlockModalVisible] = useState(false);
     const [newBlockName, setNewBlockName] = useState('');
     const [isBlockingLoader, setIsBlockingLoader] = useState(false);
 
-    // Initial Data Fetch
-    useEffect(() => {
-        fetchData();
-    }, []);
+    // Derived State from Context
+    const settings = profile?.settings?.privacy || { twoFactor: false, activeSessions: 1, blockedUsers: [] };
+    const blockedUsers = settings.blockedUsers || [];
 
-    const fetchData = async () => {
-        setIsLoading(true);
-        try {
-            // FIX: Correct method name is getPrivacySettings
-            const response = await ProfileAPI.getPrivacySettings();
-            if (response.success) {
-                const data = response.data;
-                setSettings({ twoFactor: data.twoFactor, sessions: data.sessions });
-                setBlockedUsers(data.blocked);
-            }
-        } catch (error) {
-            console.error(error);
-            showAlert({ title: "Error", message: "Failed to load settings from server.", type: 'error' });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // --- 2FA Handler ---
     const handleTwoFactor = () => {
         showAlert({
             title: "Two-Factor Authentication",
@@ -73,9 +45,7 @@ const PrivacyScreen = ({ navigation }) => {
             secondaryBtnText: "Cancel",
             onClose: async () => {
                 try {
-                    // FIX: Use ProfileAPI, not PrivacyAPI
-                    const newState = await ProfileAPI.toggle2FA(settings.twoFactor);
-                    setSettings(prev => ({ ...prev, twoFactor: newState }));
+                    const newState = await toggleTwoFactor(settings.twoFactor);
                     showAlert({ 
                         title: "Success", 
                         message: `2FA has been ${newState ? 'enabled' : 'disabled'}.`, 
@@ -88,25 +58,21 @@ const PrivacyScreen = ({ navigation }) => {
         });
     };
 
-    // --- Manage Sessions Handler ---
     const handleManageSessions = () => {
-        if (settings.sessions <= 1) {
+        if (settings.activeSessions <= 1) {
             showAlert({ title: "Secure", message: "Only this device is currently active.", type: 'success' });
             return;
         }
 
         showAlert({
             title: "Manage Sessions",
-            message: `You have ${settings.sessions} active session(s). Do you want to log out all other devices?`,
+            message: `You have ${settings.activeSessions} active session(s). Log out others?`,
             type: 'info',
             btnText: "Log Out Others",
             secondaryBtnText: "Cancel", 
-            onSecondaryPress: () => {}, 
             onClose: async () => {
                 try {
-                    // FIX: Correct method is logoutAllSessions, and use ProfileAPI
-                    await ProfileAPI.logoutAllSessions();
-                    setSettings(prev => ({ ...prev, sessions: 1 }));
+                    await logoutAllSessions();
                     showAlert({ title: "Success", message: "All other devices have been logged out.", type: 'success' });
                 } catch (err) {
                     showAlert({ title: "Error", message: "Failed to log out sessions.", type: 'error' });
@@ -115,22 +81,15 @@ const PrivacyScreen = ({ navigation }) => {
         });
     };
 
-    // --- Blocked Users Handlers ---
-    const handleOpenBlocked = () => {
-        setBlockModalVisible(true);
-    };
-
     const handleUnblock = (user) => {
         showAlert({
             title: "Unblock User",
-            message: `Are you sure you want to unblock ${user.name}?`,
+            message: `Unblock ${user.name}?`,
             btnText: "Unblock",
             secondaryBtnText: "Cancel",
             onClose: async () => {
                 try {
-                    // FIX: Use ProfileAPI
-                    await ProfileAPI.unblockUser(user.id);
-                    setBlockedUsers(prev => prev.filter(u => u.id !== user.id));
+                    await unblockUser(user.id);
                 } catch (err) {
                     showAlert({ title: "Error", message: "Failed to unblock user.", type: 'error' });
                 }
@@ -142,18 +101,15 @@ const PrivacyScreen = ({ navigation }) => {
         if (!newBlockName.trim()) return;
         setIsBlockingLoader(true);
         try {
-            // FIX: Use ProfileAPI
-            const newUser = await ProfileAPI.blockUser(newBlockName);
-            setBlockedUsers(prev => [...prev, newUser]);
+            await blockUser(newBlockName);
             setNewBlockName('');
         } catch (err) {
-            showAlert({ title: "Error", message: "Could not block user. Please check the username.", type: 'error' });
+            showAlert({ title: "Error", message: "Could not block user. Check username.", type: 'error' });
         } finally {
             setIsBlockingLoader(false);
         }
     };
 
-    // --- Render Blocked User Modal Content ---
     const renderBlockModal = () => (
         <Modal 
             visible={isBlockModalVisible} 
@@ -169,8 +125,6 @@ const PrivacyScreen = ({ navigation }) => {
                             <Ionicons name="close" size={24} color={Colors.text} />
                         </TouchableOpacity>
                     </View>
-
-                    {/* Add User Section */}
                     <View style={styles.addBlockContainer}>
                         <TextInput 
                             style={styles.input}
@@ -184,37 +138,17 @@ const PrivacyScreen = ({ navigation }) => {
                             onPress={handleAddBlock}
                             disabled={isBlockingLoader}
                         >
-                            {isBlockingLoader ? (
-                                <ActivityIndicator color="#FFF" size="small" />
-                            ) : (
-                                <Text style={styles.addBtnText}>Block</Text>
-                            )}
+                            {isBlockingLoader ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.addBtnText}>Block</Text>}
                         </TouchableOpacity>
                     </View>
-
-                    {/* List */}
                     <FlatList 
                         data={blockedUsers}
                         keyExtractor={item => item.id}
-                        contentContainerStyle={{ paddingBottom: 20 }}
-                        ListEmptyComponent={
-                            <View style={styles.emptyState}>
-                                <Ionicons name="people-outline" size={40} color={Colors.textSecondary} />
-                                <Text style={styles.emptyText}>No blocked users found.</Text>
-                            </View>
-                        }
+                        ListEmptyComponent={<View style={styles.emptyState}><Ionicons name="people-outline" size={40} color={Colors.textSecondary} /><Text style={styles.emptyText}>No blocked users.</Text></View>}
                         renderItem={({ item }) => (
                             <View style={styles.blockedUserRow}>
-                                <View>
-                                    <Text style={styles.blockedName}>{item.name}</Text>
-                                    <Text style={styles.blockedDate}>Blocked on {item.date}</Text>
-                                </View>
-                                <TouchableOpacity 
-                                    style={styles.unblockBtn} 
-                                    onPress={() => handleUnblock(item)}
-                                >
-                                    <Text style={styles.unblockText}>Unblock</Text>
-                                </TouchableOpacity>
+                                <View><Text style={styles.blockedName}>{item.name}</Text><Text style={styles.blockedDate}>Blocked on {item.date}</Text></View>
+                                <TouchableOpacity style={styles.unblockBtn} onPress={() => handleUnblock(item)}><Text style={styles.unblockText}>Unblock</Text></TouchableOpacity>
                             </View>
                         )}
                     />
@@ -226,65 +160,33 @@ const PrivacyScreen = ({ navigation }) => {
     return (
         <LinearGradient colors={[Colors.background, '#1a1a2e']} style={styles.container}>
             <StatusBar barStyle="light-content" />
-            
-            {/* Header */}
             <View style={[styles.header, { paddingTop: insets.top }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
-                    <Ionicons name="arrow-back" size={24} color={Colors.text} />
-                </TouchableOpacity>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}><Ionicons name="arrow-back" size={24} color={Colors.text} /></TouchableOpacity>
                 <Text style={styles.headerTitle}>Privacy</Text>
                 <View style={styles.headerButton} />
             </View>
 
-            {isLoading ? (
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={Colors.primary} />
+            <ScrollView contentContainerStyle={styles.scrollContainer}>
+                <View style={styles.introHeader}>
+                    <View style={styles.iconContainer}><Ionicons name="shield-checkmark-outline" size={40} color={Colors.secondary} /></View>
+                    <Text style={styles.introTitle}>Your Privacy Matters</Text>
+                    <Text style={styles.introSubtitle}>Manage how your data is used and control your account's security.</Text>
                 </View>
-            ) : (
-                <ScrollView contentContainerStyle={styles.scrollContainer}>
-                    <View style={styles.introHeader}>
-                        <View style={styles.iconContainer}>
-                            <Ionicons name="shield-checkmark-outline" size={40} color={Colors.secondary} />
-                        </View>
-                        <Text style={styles.introTitle}>Your Privacy Matters</Text>
-                        <Text style={styles.introSubtitle}>Manage how your data is used and control your account's security.</Text>
-                    </View>
-
-                    <Text style={styles.sectionTitle}>Security</Text>
-                    <View style={styles.card}>
-                        <SettingsRow 
-                            icon="lock-closed-outline" 
-                            label="Two-Factor Authentication" 
-                            details={settings.twoFactor ? "On" : "Off"} 
-                            onPress={handleTwoFactor} 
-                        />
-                        <SettingsRow 
-                            icon="keypad-outline" 
-                            label="Manage Sessions" 
-                            details={`${settings.sessions} Active`} 
-                            onPress={handleManageSessions} 
-                            isLast 
-                        />
-                    </View>
-
-                    <Text style={styles.sectionTitle}>Community</Text>
-                    <View style={styles.card}>
-                        <SettingsRow 
-                            icon="people-circle-outline" 
-                            label="Blocked Users" 
-                            details={`${blockedUsers.length}`} 
-                            onPress={handleOpenBlocked} 
-                            isLast 
-                        />
-                    </View>
-                </ScrollView>
-            )}
-
+                <Text style={styles.sectionTitle}>Security</Text>
+                <View style={styles.card}>
+                    <SettingsRow icon="lock-closed-outline" label="Two-Factor Authentication" details={settings.twoFactor ? "On" : "Off"} onPress={handleTwoFactor} />
+                    <SettingsRow icon="keypad-outline" label="Manage Sessions" details={`${settings.activeSessions} Active`} onPress={handleManageSessions} isLast />
+                </View>
+                <Text style={styles.sectionTitle}>Community</Text>
+                <View style={styles.card}>
+                    <SettingsRow icon="people-circle-outline" label="Blocked Users" details={`${blockedUsers.length}`} onPress={() => setBlockModalVisible(true)} isLast />
+                </View>
+            </ScrollView>
             {renderBlockModal()}
         </LinearGradient>
     );
 };
-
+// ... styles (same as provided)
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15, paddingHorizontal: 15, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },

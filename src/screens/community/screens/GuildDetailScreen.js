@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { CommunityAPI } from '@api/MockCommunityService'; // Import Service
+import { useCommunity } from '@context/CommunityContext'; // Import Hook
 import { Colors } from '@config/Colors';
 
 const { width } = Dimensions.get('window');
@@ -13,29 +13,17 @@ const { width } = Dimensions.get('window');
 const GuildDetailScreen = ({ route, navigation }) => {
   const { guildId } = route.params;
   
-  // 1. State for data & loading
-  const [guild, setGuild] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // 1. Use Context
+  const { currentGuild, fetchGuildDetails, isLoadingGuilds } = useCommunity();
   const [isJoined, setIsJoined] = useState(false);
 
-  // 2. Fetch Guild Data
+  // 2. Fetch Guild Data via Context
   useEffect(() => {
-    const loadGuild = async () => {
-      try {
-        const data = await CommunityAPI.getGuildById(guildId);
-        setGuild(data);
-      } catch (error) {
-        console.error("Failed to load guild details", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadGuild();
-  }, [guildId]);
+    fetchGuildDetails(guildId);
+  }, [guildId, fetchGuildDetails]);
 
   // 3. Loading State
-  if (isLoading) {
+  if (isLoadingGuilds) {
     return (
       <View style={[styles.container, styles.center]}>
         <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
@@ -44,8 +32,8 @@ const GuildDetailScreen = ({ route, navigation }) => {
     );
   }
 
-  // 4. Error/Not Found State
-  if (!guild) {
+  // 4. Error/Not Found State (Check if currentGuild exists and matches ID)
+  if (!currentGuild || currentGuild.id !== guildId) {
     return (
       <View style={[styles.container, styles.center]}>
         <Text style={{ color: Colors.textSecondary }}>Guild not found</Text>
@@ -58,7 +46,7 @@ const GuildDetailScreen = ({ route, navigation }) => {
 
   const handleJoinAction = () => {
     if (isJoined) {
-      navigation.navigate('Discussion', { guildId: guild.id, guildName: guild.name });
+      navigation.navigate('Discussion', { guildId: currentGuild.id, guildName: currentGuild.name });
     } else {
       setIsJoined(true);
     }
@@ -71,7 +59,7 @@ const GuildDetailScreen = ({ route, navigation }) => {
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         {/* Hero Section */}
         <View style={styles.heroContainer}>
-          <Image source={{ uri: guild.cover }} style={styles.heroImage} />
+          <Image source={{ uri: currentGuild.cover }} style={styles.heroImage} />
           <LinearGradient
             colors={['transparent', Colors.background]} 
             style={styles.heroGradient}
@@ -89,13 +77,13 @@ const GuildDetailScreen = ({ route, navigation }) => {
         <View style={styles.body}>
           {/* Header Info */}
           <View style={styles.headerContent}>
-             <View style={[styles.iconBox, { backgroundColor: guild.accent || Colors.primary }]}>
-                <Ionicons name={guild.icon} size={32} color="#FFF" />
+             <View style={[styles.iconBox, { backgroundColor: currentGuild.accent || Colors.primary }]}>
+                <Ionicons name={currentGuild.icon} size={32} color="#FFF" />
              </View>
-             <Text style={styles.title}>{guild.name}</Text>
+             <Text style={styles.title}>{currentGuild.name}</Text>
              <View style={styles.statBadge}>
                 <Ionicons name="people" size={14} color={Colors.textSecondary} />
-                <Text style={styles.statText}>{guild.members} Members • Public Realm</Text>
+                <Text style={styles.statText}>{currentGuild.members} Members • Public Realm</Text>
              </View>
           </View>
 
@@ -121,7 +109,7 @@ const GuildDetailScreen = ({ route, navigation }) => {
           {/* About Section */}
           <Text style={styles.sectionTitle}>About</Text>
           <Text style={styles.description}>
-            {guild.desc || "A community dedicated to enthusiasts sharing knowledge, trading gear, and organizing meetups. Join us to get access to exclusive content and discussions."}
+            {currentGuild.desc || "A community dedicated to enthusiasts sharing knowledge, trading gear, and organizing meetups. Join us to get access to exclusive content and discussions."}
           </Text>
 
           {/* Rules / Info Grid */}

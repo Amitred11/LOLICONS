@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, SafeAreaView, Alert, StatusBar 
+  View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, SafeAreaView, StatusBar 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +9,7 @@ import { useAlert } from '@context/AlertContext';
 
 const MarketDetailScreen = ({ route, navigation }) => {
   const { item } = route.params;
+  const { showAlert } = useAlert();
   const [isWishlisted, setIsWishlisted] = useState(false);
 
   // --- Functions ---

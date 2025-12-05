@@ -1,3 +1,4 @@
+// App.js
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -11,11 +12,18 @@ import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } fr
 // Import Contexts
 import { AuthProvider } from '@context/AuthContext';
 import { ModalProvider } from '@context/ModalContext';
-import { LibraryProvider } from '@context/LibraryContext'; 
-import { DownloadProvider } from '@context/DownloadContext';
 import { AlertProvider } from '@context/AlertContext';
-import { CommunityProvider } from '@context/CommunityContext'; 
+import { CommunityProvider } from '@context/CommunityContext';
+import { ComicProvider } from '@context/ComicContext'; 
+import { HomeProvider } from '@context/HomeContext';
+import { ProfileProvider } from '@context/ProfileContext';
+import { NotificationProvider } from '@context/NotificationContext';
 
+// Hub Contexts
+import { ChatProvider } from '@context/hub/ChatContext';
+import { EventsProvider } from '@context/hub/EventsContext';
+import { FriendProvider } from '@context/hub/FriendContext';
+import { MediaProvider } from '@context/hub/MediaContext';
 
 // Import App Logic
 import AppNavigator from '@navigation/AppNavigator';
@@ -42,17 +50,31 @@ const AppProviders = ({ children }) => (
     <ActionSheetProvider>
       <MenuProvider>
         <AlertProvider>
-          <ModalProvider>
-            <AuthProvider>
-              <CommunityProvider>
-                <LibraryProvider>
-                  <DownloadProvider>
-                    {children}
-                  </DownloadProvider>
-                </LibraryProvider>
-              </CommunityProvider>
-            </AuthProvider>
-          </ModalProvider>
+          <AuthProvider>
+            <ProfileProvider>
+              {/* Hub Contexts */}
+              <ChatProvider>
+                <EventsProvider>
+                  <FriendProvider>
+                    <MediaProvider>
+                      {/* Feature Contexts */}
+                      <NotificationProvider>
+                        <ComicProvider>
+                          <HomeProvider>
+                            <CommunityProvider>
+                              <ModalProvider>
+                                {children}
+                              </ModalProvider>
+                            </CommunityProvider>
+                          </HomeProvider>
+                        </ComicProvider>
+                      </NotificationProvider>
+                    </MediaProvider>
+                  </FriendProvider>
+                </EventsProvider>
+              </ChatProvider>
+            </ProfileProvider>
+          </AuthProvider>
         </AlertProvider> 
       </MenuProvider>
     </ActionSheetProvider>
@@ -79,8 +101,12 @@ export default function App() {
           </NavigationContainer>
         </AppProviders>
         
-        {/* VISUAL PRIVACY: High z-index ensures it covers Modals too */}
-        <View style={styles.privacyContainer} pointerEvents="none">
+        {/* VISUAL PRIVACY: 
+            pointerEvents="box-none" allows the PrivacyOverlay to block touches 
+            only when it is visible/active, while letting clicks pass through to the 
+            App when it is hidden. 
+        */}
+        <View style={styles.privacyContainer} pointerEvents="box-none">
            <PrivacyOverlay />
         </View>
     </GestureHandlerRootView>
@@ -96,7 +122,7 @@ const styles = StyleSheet.create({
   },
   privacyContainer: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 99999, // Ensure this is above everything, including Alerts/Modals
-    elevation: 99999, // Android elevation
+    zIndex: 99999, 
+    elevation: 99999, 
   }
 });

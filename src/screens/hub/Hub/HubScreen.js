@@ -1,6 +1,6 @@
 // screens/hub/HubScreen.js
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedScrollHandler } from 'react-native-reanimated';
@@ -12,8 +12,8 @@ import { HEADER_EXPANDED_HEIGHT } from './components/constants';
 import HubHeader from './components/HubHeader';
 import { FeaturedSectionCard } from './components/HubComponents';
 
-// Import the Service
-import { EventsService } from '@api/hub/MockEventsService';
+// Use Context
+import { useEvents } from '@context/hub/EventsContext';
 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
@@ -37,27 +37,8 @@ const HubScreen = () => {
   const navigation = useNavigation();
   const scrollY = useSharedValue(0);
 
-  // --- State for Events ---
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // --- Fetch Data ---
-  useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const response = await EventsService.getEvents();
-        if (response.success) {
-          setEvents(response.data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch events:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEvents();
-  }, []);
+  // --- Consume Context ---
+  const { events, isLoading } = useEvents();
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -66,21 +47,22 @@ const HubScreen = () => {
   });
 
   // Calculate main event for display
-  // We use a fallback object to prevent "undefined" errors if the array is empty
   const mainEvent = events.length > 0 
     ? events[0] 
     : { 
-        title: "No Events Available", 
+        id: 'placeholder',
+        title: "No Live Events", 
         date: "Check back later", 
-        image: { uri: 'https://via.placeholder.com/800x600' } // Fallback image
+        image: { uri: 'https://via.placeholder.com/800x600' } 
       };
 
   return (
     <View style={styles.container}>
+      {/* Pass scrollY to Header for animation */}
       <HubHeader scrollY={scrollY} />
 
       {/* Loading Indicator Layer */}
-      {loading ? (
+      {isLoading && events.length === 0 ? (
          <View style={[styles.loadingContainer, { paddingTop: HEADER_EXPANDED_HEIGHT + insets.top }]}>
             <ActivityIndicator size="large" color={Colors.primary} />
          </View>

@@ -111,7 +111,7 @@ export const MOCK_RANKS = [
     description: 'The final apotheosis. The power to wield the origin and shape the void into new realities. A true creator of worlds.' 
   },
 ];
-
+//static help, not a mockdata
 const MOCK_FAQ = [
     { q: "How do I reset my password?", a: "Go to Account > Login Credentials > Password to initiate a reset link sent to your email." },
     { q: "Can I download comics offline?", a: "Yes! Premium members can download unlimited chapters. Check Data & Storage settings to manage them." },
@@ -129,7 +129,7 @@ const MOCK_CONTACT_TOPICS = [
 
 // --- 2. MAIN USER DATABASE ---
 
-const MOCK_USER_DB = {
+export const MOCK_USER_DB = {
   id: 'usr_a1b2c3d4e5f6g7h8',
   email: 'loli.hunter@example.com',
   name: 'AMITRED11',

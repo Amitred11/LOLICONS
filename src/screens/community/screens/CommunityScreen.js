@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, TouchableOpacity, 
   SafeAreaView, StatusBar, Platform, ActivityIndicator 
@@ -6,29 +6,19 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import GuildCard from '../components/GuildCard';
-import { CommunityAPI } from '@api/MockCommunityService'; // Import the Service
+import { useCommunity } from '@context/CommunityContext'; // Import Hook
 import { Colors } from '@config/Colors'; 
+import { useNotifications } from '@context/NotificationContext';
+
 
 const CommunityScreen = ({ navigation }) => {
-  // 1. State for data and loading status
-  const [guilds, setGuilds] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // 2. Fetch data on component mount
+  // 1. Use Context instead of local state
+  const { guilds, fetchGuilds, isLoadingGuilds } = useCommunity();
+  const { unreadCount } = useNotifications();
+  // 2. Fetch data via context on mount
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const data = await CommunityAPI.getGuilds();
-        setGuilds(data);
-      } catch (error) {
-        console.error("Failed to load guilds", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadData();
-  }, []);
+    fetchGuilds(); 
+  }, [fetchGuilds]);
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
@@ -39,16 +29,13 @@ const CommunityScreen = ({ navigation }) => {
           <Text style={styles.welcomeText}>Welcome back</Text>
           <Text style={styles.titleText}>Community Hub</Text>
         </View>
-        <TouchableOpacity 
-          style={styles.iconButton}
-          onPress={() => navigation.navigate('Notifications')}
-        >
+        <TouchableOpacity onPress={() => navigation.navigate('Notifications')}>
           <Ionicons name="notifications-outline" size={24} color={Colors.text} />
-          <View style={styles.notificationBadge} />
+          {unreadCount > 0 && <View style={styles.notificationBadge} />} 
         </TouchableOpacity>
       </View>
 
-      {/* Modern Marketplace Banner */}
+      {/* Marketplace Banner */}
       <TouchableOpacity 
         activeOpacity={0.9}
         onPress={() => navigation.navigate('Marketplace')}
@@ -79,8 +66,8 @@ const CommunityScreen = ({ navigation }) => {
     </View>
   );
 
-  // 3. Render Loading State
-  if (isLoading) {
+  // 3. Render Loading State from Context
+  if (isLoadingGuilds) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
         <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
@@ -93,7 +80,7 @@ const CommunityScreen = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
       <FlatList
-        data={guilds} // 4. Use dynamic state data
+        data={guilds} 
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <GuildCard 
@@ -115,8 +102,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background 
   },
   loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    backgroundColor: Colors.background
   },
   listContent: {
     paddingHorizontal: 20,
@@ -166,8 +155,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.surface
   },
-  
-  // Banner Styles
   banner: { 
     borderRadius: 24, 
     padding: 20, 
@@ -215,7 +202,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center', 
     alignItems: 'center' 
   },
-  
   sectionTitle: { 
     color: Colors.text, 
     fontSize: 22, 

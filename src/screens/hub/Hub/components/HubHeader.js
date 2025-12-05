@@ -1,18 +1,18 @@
 // screens/hub/components/HubHeader.js
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ImageBackground } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, interpolate, Extrapolate, useSharedValue, withSpring } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 
 import { Colors } from '@config/Colors';
 import { HEADER_EXPANDED_HEIGHT, HEADER_COLLAPSED_HEIGHT } from './constants';
 
-// Use the Service instead of direct mock import
-import { ProfileAPI } from '@api/MockProfileService';
+// Use Context
+import { useProfile } from '@context/ProfileContext';
 
 const SCROLL_DISTANCE = HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT;
 
@@ -40,31 +40,16 @@ const QuickActionButton = ({ icon, label, color, onPress }) => {
 const HubHeader = ({ scrollY }) => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const isFocused = useIsFocused(); // Hook to trigger refresh when returning to screen
 
-  // Local state for user data
-  const [user, setUser] = useState({ 
-      name: 'Loading...', 
-      avatarUrl: 'https://via.placeholder.com/150' // Default placeholder
-  });
+  // --- Consume Context ---
+  // The context handles fetching and state management
+  const { profile } = useProfile();
 
-  // Fetch user data on mount and when screen is focused
-  useEffect(() => {
-      const fetchUser = async () => {
-          try {
-              const response = await ProfileAPI.getProfile();
-              if (response.success) {
-                  setUser(response.data);
-              }
-          } catch (e) {
-              console.error("HubHeader profile fetch error", e);
-          }
-      };
-
-      if (isFocused) {
-          fetchUser();
-      }
-  }, [isFocused]);
+  // Default fallback data
+  const user = profile || { 
+      name: 'User', 
+      avatarUrl: 'https://via.placeholder.com/150' 
+  };
 
   const animatedHeaderStyle = useAnimatedStyle(() => ({
     height: interpolate(scrollY.value, [0, SCROLL_DISTANCE], [HEADER_EXPANDED_HEIGHT + insets.top, HEADER_COLLAPSED_HEIGHT + insets.top], Extrapolate.CLAMP),

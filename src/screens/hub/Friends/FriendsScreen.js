@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, 
   Modal, Image, Alert, StatusBar, ActivityIndicator, LayoutAnimation, 
-  Platform, UIManager, ScrollView, TouchableWithoutFeedback
+  Platform, UIManager, ScrollView
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,9 +10,10 @@ import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors';
 
-// Components & API
+// Components & Context
 import FriendItem from './components/FriendItem'; 
-import { FriendAPI } from '@api/hub/MockFriendService';
+import { useFriend } from '@context/hub/FriendContext'; // IMPT: Import Context
+import { useAlert } from '@context/AlertContext'; // Assuming you have this from previous steps
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -23,33 +24,26 @@ const FILTERS = ['All', 'Online', 'Offline'];
 const FriendsScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const { showAlert } = useAlert(); // Optional: if you want custom alerts instead of RN Alert
   
-  // Data
-  const [friendsData, setFriendsData] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Consuming Context
+  const { friends, onlineFriends, isLoading, loadFriends, createEntity } = useFriend();
   
-  // UI State
+  // UI State (Local)
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
   const [selectedFriends, setSelectedFriends] = useState(new Set());
   
   // Menu & Selection State
-  const [showMenu, setShowMenu] = useState(false); // Controls top-right menu
+  const [showMenu, setShowMenu] = useState(false); 
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [pendingCreationType, setPendingCreationType] = useState(null); // 'Group' | 'Guild' | null
   
   // Creation Processing State
   const [isCreating, setIsCreating] = useState(false);
 
-  useEffect(() => { loadFriends(); }, []);
-
-  const loadFriends = async () => {
-    try {
-      const response = await FriendAPI.fetchFriends();
-      if (response.success) setFriendsData(response.data);
-    } catch (e) { console.error(e); } 
-    finally { setIsLoading(false); }
-  };
+  // Load data on mount
+  useEffect(() => { loadFriends(); }, [loadFriends]);
 
   // --- Actions ---
 
@@ -63,7 +57,7 @@ const FriendsScreen = () => {
     setIsSelectionMode(true);
 
     if (type === 'Select') {
-      setPendingCreationType(null); // Just selecting, no specific creation intent yet
+      setPendingCreationType(null); 
     } else {
       setPendingCreationType(type); // 'Group' or 'Guild'
     }
@@ -92,11 +86,9 @@ const FriendsScreen = () => {
   const handleFabPress = () => {
     if (selectedFriends.size < 2) return Alert.alert("Select Friends", "Select at least 2 friends to proceed.");
 
-    // If we already know what we are creating (from the menu), proceed directly
     if (pendingCreationType) {
       promptForName(pendingCreationType);
     } else {
-      // If we just clicked "Select" earlier, now we ask what to do
       Alert.alert(
         "Action",
         "What would you like to do with selected friends?",
@@ -126,29 +118,37 @@ const FriendsScreen = () => {
   const executeCreation = async (type, name) => {
     setIsCreating(true);
     const memberIds = Array.from(selectedFriends);
-    const res = await FriendAPI.createEntity(type, name || `New ${type}`, memberIds);
     
-    setIsCreating(false);
-    cancelSelectionMode();
-    
-    if(res.success) {
-        Alert.alert("Success", `${type} created successfully!`);
-        navigation.navigate('ChatDetail', { user: res.data });
+    try {
+        // Call Context Method
+        const res = await createEntity(type, name || `New ${type}`, memberIds);
+        
+        setIsCreating(false);
+        cancelSelectionMode();
+        
+        if(res.success) {
+            // Navigate to ChatDetail with the new Chat Object
+            navigation.navigate('ChatDetail', { user: res.data });
+        }
+    } catch (e) {
+        setIsCreating(false);
+        Alert.alert("Error", "Failed to create group.");
     }
   };
 
+  // Filter Logic
   const filteredData = useMemo(() => {
-    return friendsData.filter(item => {
+    return friends.filter(item => {
       const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
       const matchesFilter = activeFilter === 'All' 
         ? true 
         : activeFilter === 'Online' ? item.status === 'Online' : item.status !== 'Online';
       return matchesSearch && matchesFilter;
     });
-  }, [search, friendsData, activeFilter]);
+  }, [search, friends, activeFilter]);
 
-  // Favorites (Top 5 Online)
-  const favoritesData = friendsData.filter(f => f.status === 'Online').slice(0, 5);
+  // Favorites (Top 5 Online from Context)
+  const favoritesData = onlineFriends.slice(0, 5);
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
@@ -171,7 +171,7 @@ const FriendsScreen = () => {
             )}
           </View>
 
-          {/* THE MENU BUTTON */}
+          {/* Menu Button */}
           <View>
             <TouchableOpacity 
                 onPress={() => isSelectionMode ? cancelSelectionMode() : setShowMenu(true)} 
@@ -184,11 +184,9 @@ const FriendsScreen = () => {
                 />
             </TouchableOpacity>
 
-            {/* DROP DOWN MENU */}
+            {/* Dropdown Menu */}
             <Modal visible={showMenu} transparent animationType="fade" onRequestClose={() => setShowMenu(false)}>
               <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setShowMenu(false)}>
-                
-                {/* Positioned relative to top right */}
                 <View style={[styles.menuDropdown, { top: insets.top + 50 }]}>
                   <Text style={styles.menuHeader}>Create & Manage</Text>
                   
@@ -208,13 +206,12 @@ const FriendsScreen = () => {
                     <Text style={styles.menuText}>Select / Manage</Text>
                   </TouchableOpacity>
                 </View>
-
               </TouchableOpacity>
             </Modal>
           </View>
       </View>
 
-      {/* Favorites & Search (Hidden in selection mode to focus) */}
+      {/* Favorites & Search (Hidden in selection mode) */}
       {!isSelectionMode && (
         <>
             <View style={styles.favoritesSection}>
@@ -272,25 +269,28 @@ const FriendsScreen = () => {
       <StatusBar barStyle="light-content" />
       <View style={styles.bgGlow} />
 
-      {/* Main List */}
-      <FlatList
-        data={filteredData}
-        keyExtractor={item => item.id}
-        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
-        ListHeaderComponent={renderHeader}
-        renderItem={({ item, index }) => (
-          <FriendItem 
-            item={item} 
-            index={index}
-            mode={isSelectionMode ? 'selection' : 'default'}
-            isSelected={selectedFriends.has(item.id)}
-            onPress={() => handleFriendPress(item)} 
-            onQuickAction={() => navigation.navigate('ChatDetail', { user: item })}
-          />
-        )}
-      />
+      {isLoading ? (
+          <View style={{flex:1, justifyContent:'center'}}><ActivityIndicator color={Colors.primary} /></View>
+      ) : (
+        <FlatList
+            data={filteredData}
+            keyExtractor={item => item.id}
+            contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+            ListHeaderComponent={renderHeader}
+            renderItem={({ item, index }) => (
+            <FriendItem 
+                item={item} 
+                index={index}
+                mode={isSelectionMode ? 'selection' : 'default'}
+                isSelected={selectedFriends.has(item.id)}
+                onPress={() => handleFriendPress(item)} 
+                onQuickAction={() => navigation.navigate('ChatDetail', { user: item })}
+            />
+            )}
+        />
+      )}
 
-      {/* Creation FAB (Only visible when selecting friends) */}
+      {/* Creation FAB */}
       {isSelectionMode && (
         <TouchableOpacity 
             style={[styles.fab, selectedFriends.size < 2 && { opacity: 0.5 }]} 
@@ -319,7 +319,6 @@ const styles = StyleSheet.create({
   iconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   activeIconBtn: { backgroundColor: 'rgba(255, 69, 58, 0.15)', borderColor: 'rgba(255, 69, 58, 0.3)' },
 
-  // --- MENU DROPDOWN STYLES ---
   menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.2)' },
   menuDropdown: {
     position: 'absolute', right: 20,
@@ -329,7 +328,6 @@ const styles = StyleSheet.create({
     padding: 8,
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
     shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.5, shadowRadius: 20, elevation: 10,
-    backdropFilter: 'blur(20px)', // Works on iOS mostly
   },
   menuHeader: { color: Colors.textSecondary, fontSize: 11, fontWeight: '700', marginLeft: 10, marginBottom: 8, marginTop: 4, textTransform: 'uppercase' },
   menuItem: { flexDirection: 'row', alignItems: 'center', padding: 10, borderRadius: 12 },
@@ -337,7 +335,6 @@ const styles = StyleSheet.create({
   menuText: { color: Colors.text, fontSize: 14, fontWeight: '600' },
   menuDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 6, marginHorizontal: 10 },
 
-  // Favorites
   favoritesSection: { marginBottom: 25 },
   sectionLabel: { color: Colors.textSecondary, fontSize: 11, fontWeight: '700', marginLeft: 5, marginBottom: 12, letterSpacing: 1 },
   favItem: { alignItems: 'center', marginRight: 15 },
@@ -346,7 +343,6 @@ const styles = StyleSheet.create({
   favName: { color: Colors.text, fontSize: 11, fontWeight: '500' },
   addStoryCircle: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderStyle: 'dashed', marginBottom: 6 },
 
-  // Search & Filter
   searchSection: { marginTop: 5 },
   searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1C1C1E', height: 46, borderRadius: 16, paddingHorizontal: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   searchInput: { flex: 1, marginLeft: 10, color: Colors.text },
@@ -354,7 +350,6 @@ const styles = StyleSheet.create({
   filterChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   filterText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
 
-  // FAB
   fab: { position: 'absolute', bottom: 40, right: 30, shadowColor: Colors.primary, shadowOffset: {width:0, height:8}, shadowOpacity:0.4, shadowRadius:12, elevation: 8 },
   fabGradient: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center' },
 });

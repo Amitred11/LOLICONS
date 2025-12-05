@@ -8,7 +8,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-na
 import { useNavigation } from '@react-navigation/native';
 
 // API
-import { HomeService } from '@api/MockHomeService';
+import { useHome } from '@context/HomeContext';
 
 // --- Static UI Recommendations ---
 const popularSearches = ["Action", "Solo Leveling", "Fantasy", "Isekai", "Villainess"];
@@ -72,17 +72,23 @@ const Recommendations = ({ onTagPress }) => {
 const SearchScreen = () => {
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
+    
+    // Use Context instead of Service
+    const { searchComics } = useHome();
+    
     const [searchQuery, setSearchQuery] = useState('');
     const [results, setResults] = useState([]);
     const isTyping = searchQuery.trim().length > 0;
-
     const clearButtonOpacity = useSharedValue(0);
 
     useEffect(() => {
         const fetchResults = async () => {
             if (isTyping) {
                 clearButtonOpacity.value = withTiming(1);
-                const response = await HomeService.searchContent(searchQuery);
+                
+                // Call context function
+                const response = await searchComics(searchQuery);
+                
                 if (response.success) {
                     setResults(response.data);
                 }
@@ -91,10 +97,9 @@ const SearchScreen = () => {
                 setResults([]);
             }
         };
-        // Debounce simple impl
         const timer = setTimeout(fetchResults, 300);
         return () => clearTimeout(timer);
-    }, [searchQuery]);
+    }, [searchQuery, searchComics]);
 
     const animatedClearButtonStyle = useAnimatedStyle(() => ({
         opacity: clearButtonOpacity.value,

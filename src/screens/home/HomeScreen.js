@@ -1,8 +1,10 @@
 // screens/home/HomeScreen.js
-import React, { useMemo, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, Dimensions, FlatList, TouchableOpacity, StatusBar, ActivityIndicator } from 'react-native';
+import React, { useMemo } from 'react'; // Removed useState, useEffect
+import { View, Text, StyleSheet, Image, Dimensions, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl } from 'react-native';
 import { useAuth } from '@context/AuthContext';
 import { useAlert } from '@context/AlertContext'; 
+// Import the new Context
+import { useHome } from '@context/HomeContext';
 import { Colors } from '@config/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, useAnimatedScrollHandler, interpolate } from 'react-native-reanimated';
@@ -17,9 +19,6 @@ import DailyGoalsWidget from './components/DailyGoalsWidget';
 import QuickActions from './components/QuickActions';
 import EventCard from './components/EventCard';
 import EmptyState from './components/empty/EmptyState';
-
-// Updated import to use the consolidated service
-import { ComicService } from '@api/MockComicService';
 
 const friendlyActions = [
     { title: 'My Bookshelf', subtitle: 'Saved Comics', icon: 'bookmarks-outline', color: '#4A90E2', target: 'Comics' },
@@ -48,47 +47,28 @@ const HomeScreen = () => {
   const navigation = useNavigation();
   const { user } = useAuth();
   const { showAlert } = useAlert();
+  
+  // --- CONNECT TO CONTEXT ---
+  const { 
+    isLoading, 
+    isRefreshing, 
+    featuredComics, 
+    continueReading, 
+    dailyGoals, 
+    upcomingEvents, 
+    refreshData 
+  } = useHome();
+
   const scrollY = useSharedValue(0);
   const scrollX = useSharedValue(0);
-
-  const [loading, setLoading] = useState(true);
-  const [featuredComics, setFeaturedComics] = useState([]);
-  const [historyComics, setHistoryComics] = useState([]);
-  const [goals, setGoals] = useState([]);
-  const [events, setEvents] = useState([]);
-
-  useEffect(() => {
-    const loadHomeData = async () => {
-        try {
-            // Using ComicService for all data calls
-            const [featRes, histRes, goalRes, eventRes] = await Promise.all([
-                ComicService.getFeaturedComics(), 
-                ComicService.getContinueReading(),
-                ComicService.getDailyGoals(),
-                ComicService.getUpcomingEvents()
-            ]);
-
-            if (featRes.success) setFeaturedComics(featRes.data || []);
-            if (histRes.success) setHistoryComics(histRes.data || []);
-            if (goalRes.success) setGoals(goalRes.data || []);
-            if (eventRes.success) setEvents(eventRes.data || []);
-
-        } catch (error) {
-            console.error("Failed to load home data", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-    loadHomeData();
-  }, []);
 
   const greeting = getGreeting();
   
   const dailyProgress = useMemo(() => {
-    if (!goals || goals.length === 0) return 0;
-    const completedCount = goals.filter(g => (g.progress || 0) >= (g.total || 1)).length;
-    return completedCount / goals.length;
-  }, [goals]);
+    if (!dailyGoals || dailyGoals.length === 0) return 0;
+    const completedCount = dailyGoals.filter(g => (g.progress || 0) >= (g.total || 1)).length;
+    return completedCount / dailyGoals.length;
+  }, [dailyGoals]);
   
   const displayUser = user || { name: 'Guest', xp: 0, avatarUrl: null, username: 'Guest' };
 
@@ -173,7 +153,7 @@ const HomeScreen = () => {
         </View>
       </Animated.View>
 
-      {loading ? (
+      {isLoading ? (
           <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
               <ActivityIndicator size="large" color={Colors.primary} />
           </View>
@@ -187,6 +167,14 @@ const HomeScreen = () => {
                 { paddingTop: insets.top + HEADER_HEIGHT, flexGrow: 1 }
             ]}
             showsVerticalScrollIndicator={false}
+            // Add Refresh Control here
+            refreshControl={
+                <RefreshControl 
+                    refreshing={isRefreshing} 
+                    onRefresh={refreshData}
+                    tintColor={Colors.primary}
+                />
+            }
         >
             {/* Featured Section */}
             <AnimatedSection index={0}>
@@ -195,7 +183,7 @@ const HomeScreen = () => {
                         data={featuredComics} 
                         renderItem={({ item, index }) => (
                             <FeaturedCard 
-                                item={{...item, localSource: item.image}} // Pass 'image' as 'localSource' for the card
+                                item={{...item, localSource: item.image}} 
                                 index={index} 
                                 scrollX={scrollX} 
                                 onPress={() => navigation.navigate('ComicDetail', { comicId: item.id })} 
@@ -209,7 +197,7 @@ const HomeScreen = () => {
                         snapToInterval={SNAP_SIZE} 
                         decelerationRate="fast"
                         snapToAlignment="center"
-                        removeClippedSubviews={false} // Prevent crashes on Android
+                        removeClippedSubviews={false} 
                     />
                 ) : (
                     <View style={{ marginHorizontal: 20 }}>
@@ -236,9 +224,9 @@ const HomeScreen = () => {
                         </TouchableOpacity>
                     </View>
 
-                    {historyComics && historyComics.length > 0 ? (
+                    {continueReading && continueReading.length > 0 ? (
                         <FlatList 
-                            data={historyComics} 
+                            data={continueReading} 
                             renderItem={({ item }) => (
                                 <ContinueReadingCard 
                                     item={{...item, localSource: item.image}} 
@@ -265,9 +253,9 @@ const HomeScreen = () => {
 
             {/* Daily Goals Widget */}
             <AnimatedSection index={2}>
-                {goals && goals.length > 0 ? (
+                {dailyGoals && dailyGoals.length > 0 ? (
                     <DailyGoalsWidget 
-                        goals={goals}
+                        goals={dailyGoals}
                         dailyProgress={dailyProgress}
                         onGoalPress={showGoalAlert}
                     />
@@ -300,10 +288,10 @@ const HomeScreen = () => {
                         <Text style={styles.sectionTitle}>Upcoming Events</Text>
                     </View>
                     
-                    {events && events.length > 0 ? (
+                    {upcomingEvents && upcomingEvents.length > 0 ? (
                         <EventCard 
-                        item={events[0]} 
-                        onPress={() => navigation.navigate('EventDetail', { eventData: events[0] })} 
+                        item={upcomingEvents[0]} 
+                        onPress={() => navigation.navigate('EventDetail', { eventData: upcomingEvents[0] })} 
                         />
                     ) : (
                         <EmptyState 
@@ -320,6 +308,7 @@ const HomeScreen = () => {
   );
 };
 
+// Styles remain the same...
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1, justifyContent: 'flex-end' },

@@ -9,10 +9,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-// Imports
 import WatchSelectionModal from './components/WatchSelectionModal'; 
-import { MediaService } from '@api/hub/MockMediaService';
 import { useAlert } from '@context/AlertContext';
+import { useMedia } from '@context/hub/MediaContext'; // IMPT: Import Context
 
 const { width, height } = Dimensions.get('window');
 
@@ -29,6 +28,9 @@ const MediaDetailScreen = () => {
     const { showAlert } = useAlert();
     const { mediaId } = route.params;
 
+    // Use Context
+    const { getMediaById, getCast, toggleFavorite } = useMedia();
+
     const [loading, setLoading] = useState(true);
     const [mediaItem, setMediaItem] = useState(null);
     const [castMembers, setCastMembers] = useState([]);
@@ -41,10 +43,10 @@ const MediaDetailScreen = () => {
 
     const loadData = async () => {
         setLoading(true);
-        // Parallel fetching
+        // Parallel fetching via Context actions
         const [mediaRes, castRes] = await Promise.all([
-            MediaService.getMediaById(mediaId),
-            MediaService.getCast(mediaId)
+            getMediaById(mediaId),
+            getCast(mediaId)
         ]);
 
         if (mediaRes.success) {
@@ -59,8 +61,8 @@ const MediaDetailScreen = () => {
         setLoading(false);
     };
 
-    const toggleFavorite = async () => {
-        const res = await MediaService.toggleFavorite(mediaId);
+    const handleToggleFavorite = async () => {
+        const res = await toggleFavorite(mediaId);
         if (res.success) {
             setIsFavorite(res.isFavorite);
             showAlert({ title: res.isFavorite ? 'Saved' : 'Removed', message: res.message, type: 'success' });
@@ -143,7 +145,7 @@ const MediaDetailScreen = () => {
                     <Text style={styles.description} numberOfLines={4}>{mediaItem.description}</Text>
 
                     <View style={styles.iconGrid}>
-                        <TouchableOpacity style={styles.gridAction} onPress={toggleFavorite}>
+                        <TouchableOpacity style={styles.gridAction} onPress={handleToggleFavorite}>
                             <Ionicons name={isFavorite ? "checkmark" : "add"} size={26} color="#fff" />
                             <Text style={styles.gridText}>My List</Text>
                         </TouchableOpacity>

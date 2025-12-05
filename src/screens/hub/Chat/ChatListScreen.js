@@ -9,10 +9,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors'; 
-import { ChatAPI } from '@api/hub/MockChatService';
 import { useAlert } from '@context/AlertContext';
+import { useChat } from '@context/hub/ChatContext'; // IMPT: Import Context
 
-// Enable Layout Animation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -20,39 +19,38 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 const { width } = Dimensions.get('window');
 const CATEGORIES = ['All', 'Direct', 'Group', 'Community'];
 
-// --- Animated List Item Component ---
+// ... AnimatedChatItem Component remains the same ...
 const AnimatedChatItem = ({ index, children }) => {
-  const animatedValue = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(animatedValue, {
-      toValue: 1,
-      duration: 400,
-      delay: index * 100,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  const translateY = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [50, 0],
-  });
-
-  return (
-    <Animated.View style={{ opacity: animatedValue, transform: [{ translateY }] }}>
-      {children}
-    </Animated.View>
-  );
+    const animatedValue = useRef(new Animated.Value(0)).current;
+    useEffect(() => {
+        Animated.timing(animatedValue, { toValue: 1, duration: 400, delay: index * 100, useNativeDriver: true }).start();
+    }, []);
+    const translateY = animatedValue.interpolate({ inputRange: [0, 1], outputRange: [50, 0] });
+    return (
+        <Animated.View style={{ opacity: animatedValue, transform: [{ translateY }] }}>
+            {children}
+        </Animated.View>
+    );
 };
 
 const ChatListScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { showAlert } = useAlert(); 
+  const { showAlert } = useAlert();
   
-  // State
-  const [chats, setChats] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Consuming Context
+  const { 
+      chats, 
+      isLoadingChats, 
+      loadChats, 
+      pinChat, 
+      toggleReadStatus, 
+      toggleMute, 
+      archiveChat, 
+      deleteChat 
+  } = useChat();
+  
+  // Local UI State
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('All'); 
   const [searchText, setSearchText] = useState('');
@@ -64,25 +62,11 @@ const ChatListScreen = () => {
     loadChats();
   }, []);
 
-  const loadChats = async () => {
-    try {
-      const response = await ChatAPI.fetchChatList();
-      if (response.success) {
-        const dataWithPins = response.data.map(c => ({...c, pinned: c.id === '1'}));
-        setChats(dataWithPins);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    loadChats();
-  }, []);
+    await loadChats(true);
+    setRefreshing(false);
+  }, [loadChats]);
 
   const processedChats = useMemo(() => {
     let result = chats.filter(chat => {
@@ -102,13 +86,16 @@ const ChatListScreen = () => {
 
   const performAction = (action) => {
     setModalVisible(false);
+    
+    // Animate layout changes for list updates
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
     switch (action) {
       case 'pin':
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setChats(prev => prev.map(c => c.id === selectedChat.id ? { ...c, pinned: !c.pinned } : c));
+        pinChat(selectedChat.id);
         break;
       case 'read':
-        setChats(prev => prev.map(c => c.id === selectedChat.id ? { ...c, unread: c.unread > 0 ? 0 : 1 } : c));
+        toggleReadStatus(selectedChat.id);
         break;
       case 'mute':
         showAlert({
@@ -118,7 +105,7 @@ const ChatListScreen = () => {
             btnText: "Mute",
             secondaryBtnText: "Cancel",
             onClose: async () => {
-                await ChatAPI.toggleMute(selectedChat.id, true);
+                await toggleMute(selectedChat.id, false); // Assuming false = currently not muted
                 showAlert({ title: "Muted", message: "Notifications silenced.", type: 'success' });
             }
         });
@@ -131,9 +118,7 @@ const ChatListScreen = () => {
             btnText: "Archive",
             secondaryBtnText: "Cancel",
             onClose: async () => {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                await ChatAPI.archiveChat(selectedChat.id);
-                setChats(prev => prev.filter(c => c.id !== selectedChat.id));
+                await archiveChat(selectedChat.id);
             }
         });
         break;
@@ -145,16 +130,13 @@ const ChatListScreen = () => {
             btnText: "Delete",
             secondaryBtnText: "Cancel",
             onClose: async () => {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                await ChatAPI.deleteChat(selectedChat.id);
-                setChats(prev => prev.filter(c => c.id !== selectedChat.id));
+                await deleteChat(selectedChat.id);
             }
         });
         break;
     }
   };
 
-  // --- Render Item ---
   const renderChat = ({ item, index }) => (
     <AnimatedChatItem index={index}>
         <TouchableOpacity 
@@ -210,19 +192,15 @@ const ChatListScreen = () => {
       <View style={styles.bgGlowTop} />
       <View style={styles.bgGlowBottom} />
 
-      {/* --- HEADER WITH BACK BUTTON --- */}
+      {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        
-        {/* Back Button */}
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-
         <View style={{ flex: 1, marginLeft: 10 }}>
             <Text style={styles.headerLabel}>Good Morning,</Text>
             <Text style={styles.headerTitle}>Messages</Text>
         </View>
-        
         <TouchableOpacity style={styles.fabHeader} onPress={() => navigation.navigate('Friends')}>
             <LinearGradient colors={[Colors.primary, '#2E86DE']} style={styles.fabGradient}>
                 <Ionicons name="add" size={24} color="#000" />
@@ -269,7 +247,7 @@ const ChatListScreen = () => {
       </View>
 
       {/* List */}
-      {isLoading ? (
+      {isLoadingChats && !refreshing ? (
         <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color={Colors.primary} />
         </View>
@@ -332,16 +310,12 @@ const styles = StyleSheet.create({
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   bgGlowTop: { position: 'absolute', top: -100, right: -50, width: 300, height: 300, backgroundColor: Colors.primary, opacity: 0.1, borderRadius: 150, blurRadius: 100 },
   bgGlowBottom: { position: 'absolute', bottom: -100, left: -50, width: 300, height: 300, backgroundColor: Colors.secondary, opacity: 0.05, borderRadius: 150, blurRadius: 100 },
-
-  // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 20 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center', marginRight: 5 },
   headerLabel: { color: Colors.textSecondary, fontSize: 14, fontWeight: '600', marginBottom: 4 },
   headerTitle: { fontSize: 32, fontWeight: '800', color: Colors.text, letterSpacing: -0.5 },
   fabHeader: { shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
   fabGradient: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
-
-  // Search & Filters
   searchContainer: { paddingHorizontal: 20, marginBottom: 20 },
   searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', height: 50, borderRadius: 16, paddingHorizontal: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   searchInput: { flex: 1, marginLeft: 10, color: Colors.text, fontSize: 16 },
@@ -350,8 +324,6 @@ const styles = StyleSheet.create({
   filterPillActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   filterText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
   filterTextActive: { color: '#000', fontWeight: '700' },
-
-  // List Item
   chatCard: { marginBottom: 12, padding: 16, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.02)' },
   pinnedCard: { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.1)' },
   chatRow: { flexDirection: 'row', alignItems: 'center' },
@@ -368,8 +340,6 @@ const styles = StyleSheet.create({
   unreadText: { color: '#000', fontSize: 11, fontWeight: '800' },
   emptyContainer: { alignItems: 'center', marginTop: 100 },
   emptyText: { color: Colors.textSecondary, marginTop: 20, fontSize: 16, fontWeight: '500' },
-
-  // Modal Styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#1C1C1E', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', shadowColor: '#000', shadowOffset: {width: 0, height: -5}, shadowOpacity: 0.5, shadowRadius: 20, elevation: 20 },
   modalIndicator: { width: 40, height: 5, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2.5, alignSelf: 'center', marginBottom: 20 },

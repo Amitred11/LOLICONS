@@ -7,8 +7,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
 // --- IMPORTS ---
-// REMOVE: import { comicsData, comicPagesData } from '@config/mockData'; 
-import { ComicService } from '@api/MockComicService'; // Import Service
+import { ComicService } from '@api/MockComicService'; 
 import ReaderSettingsModal from './ReaderSettingsModal';
 import ChapterListModal from './ChapterListModal'; 
 
@@ -23,7 +22,6 @@ const Theme = {
 };
 
 const ReaderScreen = ({ route }) => {
-    // Default fallback if params are missing
     const { comicId, chapterId = 1 } = route.params || {}; 
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
@@ -44,7 +42,7 @@ const ReaderScreen = ({ route }) => {
     
     // Reader Settings
     const [settings, setSettings] = useState({
-        mode: 'webtoon', // 'webtoon' | 'single'
+        mode: 'webtoon', 
         bg: '#121212',
         margin: 0,
         progressBar: 'left',
@@ -63,11 +61,13 @@ const ReaderScreen = ({ route }) => {
         let isMounted = true;
 
         const loadReaderData = async () => {
-            // Only show full loading screen on initial mount or comic switch, 
-            // maybe keep it less intrusive for chapter changes if desired, 
-            // but for now simple loading state is fine.
             setIsLoading(true);
             try {
+                // Here we fetch pages. 
+                // Note: In a real app with offline support, you would check 
+                // ComicContext.getDownloadedPages(comicId, currentChapterId) first.
+                // If it returns URIs, use them. If not, fetch from API.
+                
                 const [comicDetails, chapterPages] = await Promise.all([
                     ComicService.getComicDetails(comicId),
                     ComicService.getChapterPages(comicId, currentChapterId)
@@ -85,18 +85,18 @@ const ReaderScreen = ({ route }) => {
         };
 
         loadReaderData();
-
         return () => { isMounted = false; };
     }, [comicId, currentChapterId]);
 
+    // ... (rest of logic remains same as provided code) ...
+
     // --- EFFECTS ---
-    // Reset page to 0 when chapter changes (scrolling to top)
     useEffect(() => {
         setCurrentPage(0);
         if(flatListRef.current && pages.length > 0) {
             flatListRef.current.scrollToOffset({ offset: 0, animated: false });
         }
-    }, [pages]); // Trigger when pages update (fetched new chapter)
+    }, [pages]); 
 
     // --- SCROLL HANDLERS ---
     const handleScroll = (event) => {
@@ -114,19 +114,17 @@ const ReaderScreen = ({ route }) => {
         setCurrentPage(index);
     };
 
-    // --- HELPER: FLATLIST PROPS BASED ON SETTINGS ---
     const getPerformanceProps = () => {
         switch(settings.preload) {
             case 'all': return { initialNumToRender: 20, windowSize: 21, maxToRenderPerBatch: 20 };
             case 'none': return { initialNumToRender: 1, windowSize: 3, maxToRenderPerBatch: 1 };
-            default: return { initialNumToRender: 3, windowSize: 5, maxToRenderPerBatch: 3 }; // 'some'
+            default: return { initialNumToRender: 3, windowSize: 5, maxToRenderPerBatch: 3 }; 
         }
     };
 
     const handleChapterChange = (direction) => {
         if(direction === 'next') setCurrentChapterId(prev => (parseInt(prev) + 1).toString());
         if(direction === 'prev' && parseInt(currentChapterId) > 1) setCurrentChapterId(prev => (parseInt(prev) - 1).toString());
-        // Note: Logic assumes numeric IDs for navigation, adjust if IDs are UUIDs
     };
 
     if (isLoading) {
@@ -142,7 +140,6 @@ const ReaderScreen = ({ route }) => {
         <View style={[styles.container, { backgroundColor: settings.bg }]}>
             <StatusBar hidden />
 
-            {/* --- TOP HEADER --- */}
             <View style={[styles.topOverlay, { top: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <Ionicons name="chevron-back" size={24} color={Theme.text} />
@@ -168,7 +165,6 @@ const ReaderScreen = ({ route }) => {
                 </View>
             </View>
 
-            {/* --- MAIN READER LIST --- */}
             <FlatList
                 ref={flatListRef}
                 data={pages}
@@ -180,18 +176,17 @@ const ReaderScreen = ({ route }) => {
                 showsHorizontalScrollIndicator={false}
                 onScroll={settings.mode === 'single' ? handleHorizontalScroll : handleScroll}
                 scrollEventThrottle={16}
-                {...getPerformanceProps()} // Apply preload settings
+                {...getPerformanceProps()} 
                 
                 contentContainerStyle={{ 
                     paddingVertical: settings.mode === 'webtoon' ? settings.margin : 0,
-                    alignItems: 'center' // centers limited width images
+                    alignItems: 'center' 
                 }}
                 ItemSeparatorComponent={() => 
                     settings.mode === 'webtoon' && settings.margin > 0 ? <View style={{height: 10}} /> : null
                 }
                 
                 renderItem={({ item }) => {
-                    // Logic for image sizing
                     const isSingle = settings.mode === 'single';
                     const imgHeight = isSingle ? height : (settings.fitHeight ? height : width * 1.4);
                     const resizeMode = isSingle ? 'contain' : (settings.fitWidth ? 'cover' : 'contain');
@@ -216,7 +211,6 @@ const ReaderScreen = ({ route }) => {
                 }}
             />
 
-            {/* --- BOTTOM FLOATING CONTROLS --- */}
             <View style={[styles.bottomControls, { bottom: insets.bottom + 20 }]}>
                 <View style={styles.floatBubble}>
                     <View style={styles.progressCircle}>
@@ -235,8 +229,6 @@ const ReaderScreen = ({ route }) => {
                     <Ionicons name="settings-sharp" size={24} color={Theme.accent} />
                 </TouchableOpacity>
             </View>
-
-            {/* --- MODALS --- */}
             
             <ReaderSettingsModal 
                 visible={isSettingsVisible} 

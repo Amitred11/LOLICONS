@@ -1,51 +1,30 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, 
   StatusBar, Image, Platform, ActivityIndicator 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native'; // Ensure this is installed
+import { useFocusEffect } from '@react-navigation/native';
 import PostCard from '../components/PostCard';
-import { CommunityAPI } from '@api/MockCommunityService'; // Import the Service
+import { useCommunity } from '@context/CommunityContext'; // Import Hook
 
 const DiscussionScreen = ({ route, navigation }) => {
-  // Assuming guildId is passed from GuildDetail, if not we default to null (shows all or nothing)
   const { guildName, guildId } = route.params;
   
-  const [posts, setPosts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // 1. Use Context
+  const { 
+    posts, 
+    fetchPosts, 
+    togglePostLike, 
+    isLoadingPosts 
+  } = useCommunity();
 
-  // Fetch posts when screen comes into focus (e.g., returning from CreatePost)
+  // 2. Load posts when screen focuses or guildId changes
   useFocusEffect(
     useCallback(() => {
-      loadPosts();
-    }, [guildId])
+      fetchPosts(guildId);
+    }, [guildId, fetchPosts])
   );
-
-  const loadPosts = async () => {
-    try {
-      const data = await CommunityAPI.getPosts(guildId);
-      setPosts(data);
-    } catch (error) {
-      console.error("Failed to load posts", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleToggleLike = async (postId) => {
-    // 1. Optimistic Update (Make UI feel instant)
-    setPosts(currentPosts => 
-      currentPosts.map(p => 
-        p.id === postId 
-          ? { ...p, liked: !p.liked, likes: p.liked ? p.likes - 1 : p.likes + 1 } 
-          : p
-      )
-    );
-
-    // 2. Call API
-    await CommunityAPI.toggleLikePost(postId);
-  };
 
   const navigateToCreate = () => {
     navigation.navigate('CreatePost', { guildName, guildId });
@@ -70,7 +49,6 @@ const DiscussionScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Create Post Input Trigger */}
       <View style={styles.inputContainer}>
         <Image 
           source={{ uri: 'https://ui-avatars.com/api/?name=Current+User&background=random' }} 
@@ -92,7 +70,7 @@ const DiscussionScreen = ({ route, navigation }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
       
-      {isLoading ? (
+      {isLoadingPosts ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#6366F1" />
         </View>
@@ -103,7 +81,7 @@ const DiscussionScreen = ({ route, navigation }) => {
           renderItem={({ item }) => (
             <PostCard 
               item={item} 
-              onLike={() => handleToggleLike(item.id)}
+              onLike={() => togglePostLike(item.id)} // Use Context Action
               onPress={() => {}} 
             />
           )}
@@ -118,7 +96,6 @@ const DiscussionScreen = ({ route, navigation }) => {
         />
       )}
 
-      {/* FAB */}
       <TouchableOpacity style={styles.fab} onPress={navigateToCreate}>
         <Ionicons name="add" size={30} color="#FFF" />
       </TouchableOpacity>

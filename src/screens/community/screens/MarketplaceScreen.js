@@ -9,54 +9,35 @@ import {
   TextInput, 
   StatusBar, 
   Platform,
-  Alert,
   ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient'; 
 import MarketCard from '../components/MarketCard'; 
-import { CommunityAPI } from '@api/MockCommunityService'; // Import the Service
+import { useCommunity } from '@context/CommunityContext'; // Import Hook
 import { Colors } from '@config/Colors'; 
 import { useAlert } from '@context/AlertContext';
 
 const CATEGORIES = ['All', 'Hardware', 'Digital', 'Services', 'Merch'];
 
 const MarketplaceScreen = ({ navigation }) => {
-  // 1. State Management
+  const { showAlert } = useAlert();
+  
+  // 1. Context Hooks
+  const { marketItems, fetchMarketItems, isLoadingMarket } = useCommunity();
+
+  // 2. Local UI State
   const [searchText, setSearchText] = useState('');
   const [activeCat, setActiveCat] = useState('All');
-  const [items, setItems] = useState([]); // Empty initially
-  const [isLoading, setIsLoading] = useState(true);
-  const { showAlert } = useAlert();
-  // 2. Fetch Data with Search & Filter
+
+  // 3. Fetch Data with Search & Filter (Debounced)
   useEffect(() => {
-    let isMounted = true;
     const timeoutId = setTimeout(() => {
-      fetchMarketItems();
+      fetchMarketItems(searchText, activeCat);
     }, 500); // Debounce typing by 500ms
 
-    const fetchMarketItems = async () => {
-      setIsLoading(true);
-      try {
-        // Use the API's search functionality
-        const data = await CommunityAPI.searchMarket(searchText, activeCat);
-        if (isMounted) {
-          setItems(data);
-        }
-      } catch (error) {
-        console.error("Market fetch error:", error);
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    return () => {
-      isMounted = false;
-      clearTimeout(timeoutId);
-    };
-  }, [searchText, activeCat]);
+    return () => clearTimeout(timeoutId);
+  }, [searchText, activeCat, fetchMarketItems]);
 
   // --- Functions ---
   const handleFilterPress = () => {
@@ -66,8 +47,6 @@ const MarketplaceScreen = ({ navigation }) => {
   const handleItemPress = (item) => {
     navigation.navigate('MarketDetail', { item });
   };
-
-  // ----------------
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
@@ -143,7 +122,7 @@ const MarketplaceScreen = ({ navigation }) => {
   );
 
   const renderEmptyState = () => {
-    if (isLoading) return null; // Don't show empty state while loading
+    if (isLoadingMarket) return null;
 
     return (
       <View style={styles.emptyContainer}>
@@ -168,7 +147,7 @@ const MarketplaceScreen = ({ navigation }) => {
       
       {/* List */}
       <FlatList
-        data={items}
+        data={marketItems}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <MarketCard 
@@ -180,9 +159,9 @@ const MarketplaceScreen = ({ navigation }) => {
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmptyState}
         ListFooterComponent={
-           isLoading ? <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} /> : null
+           isLoadingMarket ? <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} /> : null
         }
-        columnWrapperStyle={items.length > 0 ? styles.columnWrapper : null} // Prevent error if empty
+        columnWrapperStyle={marketItems.length > 0 ? styles.columnWrapper : null}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />

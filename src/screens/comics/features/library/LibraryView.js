@@ -5,12 +5,11 @@ import { View, Text, StyleSheet, SectionList, Dimensions, Pressable, ImageBackgr
 import { useNavigation } from '@react-navigation/native';
 import { Colors } from '@config/Colors';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } from 'react-native-reanimated';
-import { ComicService } from '@api/MockComicService'; 
-import { useLibrary } from '@context/LibraryContext';
-import { useDownloads } from '@context/DownloadContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
+// CHANGE: Context
+import { useComic } from '@context/ComicContext';
 
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
 const { width, height } = Dimensions.get('window');
@@ -20,6 +19,7 @@ const GAP = 15;
 const CARD_WIDTH = (width - (PADDING * 2) - (GAP * (NUM_COLUMNS - 1))) / NUM_COLUMNS;
 
 const ProgressRing = ({ progress, size = 32 }) => {
+    // ... (same implementation)
     const strokeWidth = 3;
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
@@ -41,11 +41,12 @@ const LibraryCard = ({ item, index }) => {
   if (item.empty) { return <View style={{ width: CARD_WIDTH }} />; }
 
   const navigation = useNavigation();
-  const { getDownloadInfo, getDownloadedCoverUri } = useDownloads();
-  const { downloadedCount, progress } = getDownloadInfo(item.id, item.chapters.length);
+  // CHANGE: Get download actions/info from unified context
+  const { getDownloadInfo, getDownloadedCoverUri } = useComic();
   
+  const { downloadedCount, progress } = getDownloadInfo(item.id, item.chapters ? item.chapters.length : 0);
   const coverImageUri = getDownloadedCoverUri(item.id);
-  // FIX: Fallback to item.image or item.cover (since mock data doesn't use localSource)
+  
   const imageSource = coverImageUri 
     ? { uri: coverImageUri } 
     : (item.cover || item.image); 
@@ -87,61 +88,47 @@ const LibraryCard = ({ item, index }) => {
 };
 
 const LibraryView = ({ scrollHandler, headerHeight, searchQuery, filters }) => {
-  const { library } = useLibrary(); 
+  // CHANGE: Context usage
+  const { libraryComics, isLoadingUserData } = useComic(); 
   const [librarySections, setLibrarySections] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
   const navigation = useNavigation();
 
   useEffect(() => {
-    let isMounted = true;
-    
-    const loadLibrary = async () => {
-        setIsLoading(true);
-        try {
-            // FIX: Call the new getLibrary method
-            const response = await ComicService.getLibrary({
-                searchQuery,
-                filters
-            });
+    // Filter locally based on context data
+    let filtered = [...libraryComics];
 
-            if (!isMounted) return;
+    if (searchQuery) {
+        const lowerQ = searchQuery.toLowerCase();
+        filtered = filtered.filter(c => c.title.toLowerCase().includes(lowerQ));
+    }
+    if (filters && filters.status && filters.status !== 'All') {
+        filtered = filtered.filter(c => c.status === filters.status);
+    }
 
-            // FIX: Access response.data since Service returns standard API object
-            const data = response.data || [];
-
-            // Chunking for Grid
-            const addPlaceholdersAndChunk = (data) => {
-                const dataWithPlaceholders = [...data];
-                const itemsToAdd = NUM_COLUMNS - (dataWithPlaceholders.length % NUM_COLUMNS);
-                if (itemsToAdd > 0 && itemsToAdd < NUM_COLUMNS) { 
-                    for (let i = 0; i < itemsToAdd; i++) { 
-                        dataWithPlaceholders.push({ id: `placeholder-${i}`, empty: true }); 
-                    } 
-                }
-                const rows = [];
-                for (let i = 0; i < dataWithPlaceholders.length; i += NUM_COLUMNS) { 
-                    rows.push(dataWithPlaceholders.slice(i, i + NUM_COLUMNS)); 
-                }
-                return rows;
-            };
-            
-            if (data.length > 0) {
-                setLibrarySections([{ title: 'My Library', data: addPlaceholdersAndChunk(data) }]);
-            } else {
-                setLibrarySections([]);
-            }
-        } catch (error) {
-            console.error(error);
-        } finally {
-            if (isMounted) setIsLoading(false);
+    // Chunking for Grid
+    const addPlaceholdersAndChunk = (data) => {
+        const dataWithPlaceholders = [...data];
+        const itemsToAdd = NUM_COLUMNS - (dataWithPlaceholders.length % NUM_COLUMNS);
+        if (itemsToAdd > 0 && itemsToAdd < NUM_COLUMNS) { 
+            for (let i = 0; i < itemsToAdd; i++) { 
+                dataWithPlaceholders.push({ id: `placeholder-${i}`, empty: true }); 
+            } 
         }
+        const rows = [];
+        for (let i = 0; i < dataWithPlaceholders.length; i += NUM_COLUMNS) { 
+            rows.push(dataWithPlaceholders.slice(i, i + NUM_COLUMNS)); 
+        }
+        return rows;
     };
+    
+    if (filtered.length > 0) {
+        setLibrarySections([{ title: 'My Library', data: addPlaceholdersAndChunk(filtered) }]);
+    } else {
+        setLibrarySections([]);
+    }
+  }, [searchQuery, filters, libraryComics]); 
 
-    loadLibrary();
-    return () => { isMounted = false; };
-  }, [searchQuery, filters, library]); 
-
-  if (isLoading && librarySections.length === 0) {
+  if (isLoadingUserData && librarySections.length === 0) {
       return (
           <View style={[styles.emptyContainer, { paddingTop: headerHeight }]}>
               <ActivityIndicator size="large" color={Colors.secondary} />
