@@ -1,39 +1,25 @@
 // screens/comics/components/HistoryView.js
 
-// Import essential modules from React, React Native, and third-party libraries.
 import React, { useState, useEffect, useRef } from 'react';
-// --- FIX: Import the original `Animated` API from react-native for compatibility with `Swipeable`. ---
-import { View, Text, StyleSheet, SectionList, Dimensions, Pressable, Image, TouchableOpacity, Animated as RNAnimated } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, StyleSheet, SectionList, Dimensions, Pressable, Image, TouchableOpacity, ActivityIndicator, Animated as RNAnimated } from 'react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native'; // Added useFocusEffect
 import { Colors } from '@config/Colors';
-// Import the NEW Reanimated API for modern animations.
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } from 'react-native-reanimated';
-import { historyData as originalHistoryData } from '@config/mockData';
+// REMOVE: import { historyData as originalHistoryData } from '@config/mockData';
+import { ComicService } from '@api/MockComicService'; // Import Service
 import { Ionicons } from '@expo/vector-icons';
-// Import `Swipeable` from react-native-gesture-handler.
 import { Swipeable } from 'react-native-gesture-handler';
 
-// Create an animated version of SectionList using the NEW Reanimated API.
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
 const { height } = Dimensions.get('window');
 const PADDING = 15;
 
-/**
- * A component for rendering a single item in the reading history list.
- * It features a swipe-to-delete action and a staggered entry animation.
- * @param {object} props - The component's properties.
- * @param {object} props.item - The history item data object.
- * @param {number} props.index - The index of the item for animation staggering.
- * @param {function} props.onRemove - A callback function to remove the item from the list.
- */
 const HistoryItem = ({ item, index, onRemove }) => {
   const navigation = useNavigation();
-  const swipeableRef = useRef(null); // Ref to programmatically control the Swipeable component.
-  // Shared values for the entry animation (NEW Reanimated API).
+  const swipeableRef = useRef(null); 
   const entryOpacity = useSharedValue(0);
   const entryTranslateY = useSharedValue(20);
 
-  // Trigger the entry animation when the component mounts.
   useEffect(() => {
     entryOpacity.value = withDelay(index * 50, withSpring(1));
     entryTranslateY.value = withDelay(index * 50, withSpring(0));
@@ -44,24 +30,16 @@ const HistoryItem = ({ item, index, onRemove }) => {
     transform: [{ translateY: entryTranslateY.value }],
   }));
 
-  // Closes the swipeable view programmatically.
   const closeSwipeable = () => {
     swipeableRef.current?.close();
   };
 
-  // Handles the remove action, first closing the swipeable view then calling the parent's remove function.
   const handleRemove = () => {
     closeSwipeable();
     onRemove(item.id);
   };
   
-  /**
-   * Renders the "Delete" button that is revealed on swipe.
-   * NOTE: This function uses the OLD `Animated` API because `react-native-gesture-handler`'s `Swipeable`
-   * component provides progress and dragX values as legacy Animated values.
-   */
   const renderRightActions = (progress, dragX) => {
-    // Interpolate the drag distance to create a smooth "slide in" effect for the button content.
     const trans = dragX.interpolate({
       inputRange: [-80, 0],
       outputRange: [0, 80],
@@ -69,7 +47,6 @@ const HistoryItem = ({ item, index, onRemove }) => {
     });
     return (
       <TouchableOpacity onPress={handleRemove} style={styles.deleteButton}>
-        {/* --- FIX: Use the original `RNAnimated.View` for compatibility with the interpolated value. --- */}
         <RNAnimated.View style={{ transform: [{ translateX: trans }] }}>
           <Ionicons name="trash-outline" size={24} color={Colors.text} />
         </RNAnimated.View>
@@ -78,7 +55,6 @@ const HistoryItem = ({ item, index, onRemove }) => {
   };
 
   return (
-    // This view uses the NEW Reanimated API for the initial entry animation.
     <Animated.View style={animatedEntryStyle}>
       <Swipeable ref={swipeableRef} renderRightActions={renderRightActions} overshootRight={false}>
         <Pressable 
@@ -99,23 +75,19 @@ const HistoryItem = ({ item, index, onRemove }) => {
   );
 };
 
-/**
- * The main component for the "History" view, displaying comics grouped by the date they were last read.
- * @param {object} props - The component's properties passed from the parent tab screen.
- * @param {function} props.scrollHandler - The animated scroll handler for the collapsible header.
- * @param {number} props.headerHeight - The height of the header for initial padding.
- * @param {string} props.searchQuery - The current search query from the parent.
- */
 const HistoryView = ({ scrollHandler, headerHeight, searchQuery }) => {
   const [historySections, setHistorySections] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Groups an array of history items into sections like "Today", "Yesterday", etc.
+  // Groups an array of history items into sections
   const groupHistoryByDate = (data) => {
     const sections = { Today: [], Yesterday: [], 'Last 7 Days': [], Older: [] };
     const now = new Date();
     
     data.forEach(item => {
-      const diffTime = now.getTime() - item.lastRead.getTime();
+      // Ensure lastRead is a Date object (if mocked JSON stored string)
+      const dateObj = new Date(item.lastRead);
+      const diffTime = now.getTime() - dateObj.getTime();
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       
       if (diffDays === 0) sections.Today.push(item);
@@ -124,32 +96,61 @@ const HistoryView = ({ scrollHandler, headerHeight, searchQuery }) => {
       else sections.Older.push(item);
     });
 
-    // Converts the sections object into an array format suitable for SectionList, filtering out empty sections.
     return Object.keys(sections)
       .map(title => ({ title, data: sections[title] }))
       .filter(section => section.data.length > 0);
   };
 
-  // This effect filters and groups the history data whenever the search query changes.
-  useEffect(() => {
-    let data = [...originalHistoryData];
-    if (searchQuery) {
-      data = data.filter(item => 
-        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.lastChapterRead.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+  // Fetch History Function
+  const loadHistory = async () => {
+    // Only show loading indicator on initial load if list is empty
+    if (historySections.length === 0) setIsLoading(true);
+    try {
+        const data = await ComicService.getHistory(searchQuery);
+        setHistorySections(groupHistoryByDate(data));
+    } catch (error) {
+        console.error("Failed to load history", error);
+    } finally {
+        setIsLoading(false);
     }
-    setHistorySections(groupHistoryByDate(data));
+  };
+
+  // Fetch on mount and when query changes
+  useEffect(() => {
+    loadHistory();
   }, [searchQuery]);
+
+  // Also fetch when tab comes into focus (in case history changed elsewhere)
+  useFocusEffect(
+      React.useCallback(() => {
+          loadHistory();
+      }, [])
+  );
   
-  // Handles removing an item from the local state to instantly update the UI.
-  const handleRemoveItem = (itemId) => {
+  const handleRemoveItem = async (itemId) => {
+    // Optimistic Update
     const newSections = historySections.map(section => ({
         ...section,
         data: section.data.filter(item => item.id !== itemId)
-    })).filter(section => section.data.length > 0); // Also remove the section if it becomes empty.
+    })).filter(section => section.data.length > 0);
     setHistorySections(newSections);
+
+    // Call API
+    try {
+        await ComicService.removeFromHistory(itemId);
+    } catch (error) {
+        console.error("Failed to remove history item", error);
+        // Revert optimization if needed (omitted for brevity)
+    }
   };
+
+  if (isLoading && historySections.length === 0) {
+      return (
+          <View style={[styles.emptyContainer, { paddingTop: headerHeight }]}>
+              <ActivityIndicator size="large" color={Colors.secondary} />
+          </View>
+      );
+  }
 
   return (
     <AnimatedSectionList
@@ -177,7 +178,6 @@ const HistoryView = ({ scrollHandler, headerHeight, searchQuery }) => {
   );
 };
 
-// --- Stylesheet ---
 const styles = StyleSheet.create({
   listContainer: { paddingHorizontal: PADDING, paddingBottom: 120 },
   sectionHeader: { fontFamily: 'Poppins_700Bold', color: Colors.text, fontSize: 22, marginBottom: 10, marginTop: 15 },

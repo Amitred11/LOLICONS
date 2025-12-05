@@ -1,36 +1,45 @@
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { 
   View, Text, TextInput, StyleSheet, SafeAreaView, TouchableOpacity, 
-  Image, Keyboard, StatusBar, Platform, Alert 
+  Image, Keyboard, StatusBar, Platform, Alert, ActivityIndicator 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { CommunityContext } from '@context/CommunityContext';
+import { CommunityAPI } from '@api/MockCommunityService'; 
+import { useAlert } from '@context/AlertContext';
 
 const CreatePostScreen = ({ navigation, route }) => {
-  const { guildName } = route.params || { guildName: 'Community' };
-  const { addPost } = useContext(CommunityContext);
+  const { showAlert } = useAlert();
+  const { guildName, guildId } = route.params || { guildName: 'Community', guildId: null };
+  
   const [content, setContent] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handlePost = () => {
+  const handlePost = async () => {
     if (!content.trim()) {
-      Alert.alert("Empty Post", "Please write something to start a discussion.");
+      showAlert({title: "Empty Post", message: "Please write something to start a discussion.",  type: 'error'});
       return;
     }
 
-    const newPost = {
-      id: Date.now().toString(),
-      user: 'CurrentUser', // In a real app, this comes from Auth
-      avatar: 'https://ui-avatars.com/api/?name=Current+User&background=random',
-      content: content,
-      likes: 0,
-      time: 'Just now',
-      guild: guildName,
-      liked: false,
-    };
+    setIsSubmitting(true);
 
-    addPost(newPost);
-    Keyboard.dismiss();
-    navigation.goBack();
+    try {
+      const newPost = {
+        user: 'CurrentUser', 
+        avatar: 'https://ui-avatars.com/api/?name=Current+User&background=random',
+        content: content,
+        time: 'Just now',
+        guild: guildName,
+        guildId: guildId, // Important for filtering in DiscussionScreen
+      };
+
+      await CommunityAPI.createPost(newPost);
+      
+      Keyboard.dismiss();
+      navigation.goBack();
+    } catch (error) {
+      showAlert({title: "Error", message: "Could not create post. Please try again.", type: 'error'});
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -39,15 +48,19 @@ const CreatePostScreen = ({ navigation, route }) => {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.goBack()} disabled={isSubmitting}>
           <Text style={styles.cancelText}>Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.postBtn, !content.trim() && styles.postBtnDisabled]} 
+          style={[styles.postBtn, (!content.trim() || isSubmitting) && styles.postBtnDisabled]} 
           onPress={handlePost}
-          disabled={!content.trim()}
+          disabled={!content.trim() || isSubmitting}
         >
-          <Text style={styles.postBtnText}>Post</Text>
+          {isSubmitting ? (
+             <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+             <Text style={styles.postBtnText}>Post</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -75,6 +88,7 @@ const CreatePostScreen = ({ navigation, route }) => {
           value={content}
           onChangeText={setContent}
           textAlignVertical="top"
+          editable={!isSubmitting}
         />
       </View>
 
@@ -103,7 +117,8 @@ const styles = StyleSheet.create({
   },
   cancelText: { color: '#FFF', fontSize: 16 },
   postBtn: {
-    backgroundColor: '#6366F1', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20
+    backgroundColor: '#6366F1', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20,
+    minWidth: 70, alignItems: 'center', justifyContent: 'center'
   },
   postBtnDisabled: { backgroundColor: '#334155' },
   postBtnText: { color: '#FFF', fontWeight: 'bold' },

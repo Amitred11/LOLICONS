@@ -1,18 +1,17 @@
 // screens/comics/ComicDetailScreen.js
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Image, Share } from 'react-native'; // Removed native Alert
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Image, Share, ActivityIndicator } from 'react-native'; 
 import { Colors } from '@config/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { comicPagesData, comicsData } from '@config/mockData';
+import { ComicService } from '@api/MockComicService'; 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// Import Contexts
 import { useLibrary } from '@context/LibraryContext';
 import { useDownloads } from '@context/DownloadContext';
 import { useModal } from '@context/ModalContext';
-import { useAlert } from '@context/AlertContext'; // <--- 1. Import Custom Alert Hook
+import { useAlert } from '@context/AlertContext'; 
 
 import { formatChapterDate } from '@utils/formatDate';
 import Animated, { useSharedValue, useAnimatedStyle, interpolate, Extrapolate, useAnimatedScrollHandler, withTiming } from 'react-native-reanimated';
@@ -42,39 +41,58 @@ const ProgressRing = ({ progress, size = 28 }) => {
 
 const ComicDetailScreen = ({ route, navigation }) => {
   const { comicId } = route.params;
-  const comic = comicsData.find(c => c.id === comicId);
-
-  // 2. Initialize Custom Alert
-  const { showAlert } = useAlert(); 
-
-  if (!comic) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={styles.errorText}>Comic not found!</Text>
-      </View>
-    );
-  }
-
-  const insets = useSafeAreaInsets();
-  const scrollY = useSharedValue(0); 
-  const { isInLibrary, addToLibrary, removeFromLibrary } = useLibrary();
-  const modal = useModal();
-  const { getChapterStatus, downloadChapters, deleteChapter, getDownloadInfo, getDownloadedCoverUri } = useDownloads();
+  
+  // 1. Declare ALL Hooks at the top level unconditionally
+  // ---------------------------------------------------
+  
+  // State
+  const [comic, setComic] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
   const [chapterSortOrder, setChapterSortOrder] = useState('desc');
 
-  const { downloadedCount, progress } = getDownloadInfo(comic.id, comic.chapters.length);
-  const isComicInLibrary = isInLibrary(comic.id);
-  const coverImageUri = getDownloadedCoverUri(comic.id);
-  const imageSource = coverImageUri ? { uri: coverImageUri } : comic.localSource;
+  // Contexts
+  const { showAlert } = useAlert(); 
+  const insets = useSafeAreaInsets();
+  const { isInLibrary, addToLibrary, removeFromLibrary } = useLibrary();
+  const modal = useModal();
+  const { getChapterStatus, downloadChapters, deleteChapter, getDownloadInfo, getDownloadedCoverUri } = useDownloads();
 
+  // Animation Values
+  const scrollY = useSharedValue(0); 
   const downloadProgress = useSharedValue(0);
 
+  // 2. Compute safe defaults for hook dependencies
+  // ---------------------------------------------------
+  // We need these values for the hooks below (useMemo/useEffect/styles), 
+  // but 'comic' might be null. We provide default values to prevent crashes.
+  const { downloadedCount, progress } = comic 
+    ? getDownloadInfo(comic.id, comic.chapters.length) 
+    : { downloadedCount: 0, progress: 0 };
+
+  // 3. Effects & Memos
+  // ---------------------------------------------------
+
+  // Fetch Comic Data
+  useEffect(() => {
+    const loadComic = async () => {
+        try {
+            const data = await ComicService.getComicDetails(comicId);
+            setComic(data);
+        } catch (error) {
+            console.error("Error loading comic details", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+    loadComic();
+  }, [comicId]);
+
+  // Update Download Progress Animation
   useEffect(() => {
     downloadProgress.value = withTiming(progress, { duration: 500 });
   }, [progress]);
-  
-  // --- DEFINITION FOR ANIMATED STYLE ---
+
   const animatedProgressStyle = useAnimatedStyle(() => ({
     width: `${downloadProgress.value * 100}%`,
   }));
@@ -86,29 +104,88 @@ const ComicDetailScreen = ({ route, navigation }) => {
   }, [comic?.chapters, chapterSortOrder]);
 
   const scrollHandler = useAnimatedScrollHandler((event) => { scrollY.value = event.contentOffset.y; });
+  
   const animatedHeroStyle = useAnimatedStyle(() => ({ transform: [{ scale: interpolate(scrollY.value, [-HEADER_HEIGHT, 0], [2, 1], Extrapolate.CLAMP) }] }));
   const animatedHeaderStyle = useAnimatedStyle(() => ({ opacity: interpolate(scrollY.value, [HEADER_HEIGHT / 1.5, HEADER_HEIGHT - insets.top], [0, 1], Extrapolate.CLAMP) }));
   const animatedTitleStyle = useAnimatedStyle(() => ({ opacity: interpolate(scrollY.value, [HEADER_HEIGHT - insets.top, HEADER_HEIGHT - insets.top + 20], [0, 1], Extrapolate.CLAMP) }));
   
-  const handleLibraryToggle = () => { 
+  // 4. Conditional Rendering (Loading / Error)
+  // ---------------------------------------------------
+  // Now it is safe to return early because all hooks have been called.
+
+  if (loading) {
+      return (
+          <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+              <ActivityIndicator size="large" color={Colors.secondary} />
+          </View>
+      );
+  }
+
+  if (!comic) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={styles.errorText}>Comic not found!</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{marginTop: 20}}>
+            <Text style={{color: Colors.secondary}}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // 5. Variables & Handlers that require 'comic' to exist
+  // ---------------------------------------------------
+  const isComicInLibrary = isInLibrary(comic.id);
+  const coverImageUri = getDownloadedCoverUri(comic.id);
+  const imageSource = coverImageUri ? { uri: coverImageUri } : comic.localSource || comic.image;
+
+  const handleLibraryToggle = async () => { 
       if (isComicInLibrary) {
           removeFromLibrary(comic.id);
-          // Optional: Show alert when removing
-          // showAlert({ title: "Removed", message: "Removed from library", type: "info" });
+          await ComicService.removeFromLibrary(comic.id);
       } else {
           addToLibrary(comic.id);
+          await ComicService.addToLibrary(comic.id);
           showAlert({ title: "Added!", message: "Comic added to your library.", type: "success" });
       }
   };
 
-  const handleReadPress = () => { if (sortedChapters.length > 0) { navigation.navigate('Reader', { comicId: comic.id, chapterId: sortedChapters[0].id }); } };
-  const toggleSortOrder = () => { setChapterSortOrder(prev => (prev === 'desc' ? 'asc' : 'desc')); }; 
-  const showDownloadModal = () => { modal.show('download', { comic, comicPages: comicPagesData }); };
+  const handleReadPress = () => { 
+      if (sortedChapters.length > 0) { 
+          ComicService.updateHistory(comic.id, sortedChapters[0].title);
+          navigation.navigate('Reader', { comicId: comic.id, chapterId: sortedChapters[0].id }); 
+      } 
+  };
   
-  const handleSingleChapterDownloadToggle = (chapterId) => {
+  const toggleSortOrder = () => { setChapterSortOrder(prev => (prev === 'desc' ? 'asc' : 'desc')); }; 
+  
+  const showDownloadModal = async () => { 
+      try {
+          const pages = await ComicService.getChapterPages(comic.id, '1');
+          const comicPagesMap = { [comic.id]: pages };
+          modal.show('download', { comic, comicPages: comicPagesMap }); 
+      } catch (e) {
+          console.error("Failed to fetch pages for download modal", e);
+          showAlert({ title: "Error", message: "Could not load download options.", type: "error" });
+      }
+  };
+  
+  const handleSingleChapterDownloadToggle = async (chapterId) => {
     const { status } = getChapterStatus(comic.id, chapterId);
-    if (status === 'downloaded') deleteChapter(comic.id, chapterId);
-    else if (status === 'none') downloadChapters(comic.id, [chapterId], { cover: comic.localSource, pages: comicPagesData });
+    if (status === 'downloaded') {
+        deleteChapter(comic.id, chapterId);
+    } else if (status === 'none') {
+        try {
+            const pages = await ComicService.getChapterPages(comic.id, chapterId);
+            const comicPagesMap = { [comic.id]: pages };
+            downloadChapters(comic.id, [chapterId], { 
+                cover: comic.localSource || comic.image, 
+                pages: comicPagesMap 
+            });
+        } catch (e) {
+            console.error("Failed to fetch pages for download", e);
+            showAlert({ title: "Error", message: "Could not start download.", type: "error" });
+        }
+    }
   };
 
   const showMoreOptions = () => {
@@ -141,7 +218,11 @@ const ComicDetailScreen = ({ route, navigation }) => {
   };
 
   const showChapterListModal = () => {
-    const handleSelectChapter = (selectedChapterId) => navigation.navigate('Reader', { comicId: comic.id, chapterId: selectedChapterId });
+    const handleSelectChapter = (selectedChapterId) => {
+        const ch = comic.chapters.find(c => c.id === selectedChapterId);
+        if(ch) ComicService.updateHistory(comic.id, ch.title);
+        navigation.navigate('Reader', { comicId: comic.id, chapterId: selectedChapterId });
+    };
     modal.show('chapterList', { chapters: comic.chapters, currentChapterId: sortedChapters[0]?.id, onSelectChapter: handleSelectChapter });
   };
   
@@ -199,7 +280,6 @@ const ComicDetailScreen = ({ route, navigation }) => {
 
           {downloadedCount > 0 && (
             <View style={styles.downloadProgressContainer}>
-                {/* animatedProgressStyle is used here */}
                 <View style={styles.progressBarTrack}><Animated.View style={[styles.progressBarFill, animatedProgressStyle]} /></View>
                 <Text style={styles.downloadCountText}>{`${downloadedCount} / ${comic.chapters.length}`} Downloaded</Text>
             </View>
@@ -210,7 +290,13 @@ const ComicDetailScreen = ({ route, navigation }) => {
             const isProcessing = status === 'queued' || status === 'downloading';
             return (
               <View key={chapter.id} style={styles.chapterRow}>
-                <TouchableOpacity style={styles.chapterItem} onPress={() => navigation.navigate('Reader', { comicId: comic.id, chapterId: chapter.id })}>
+                <TouchableOpacity 
+                    style={styles.chapterItem} 
+                    onPress={() => {
+                        ComicService.updateHistory(comic.id, chapter.title);
+                        navigation.navigate('Reader', { comicId: comic.id, chapterId: chapter.id });
+                    }}
+                >
                   <View>
                     <Text style={[styles.chapterTitle, { opacity: status === 'downloaded' ? 1 : 0.7 }]}>{chapter.title}</Text>
                     <Text style={styles.chapterDate}>{formatChapterDate(chapter.releaseDate)}</Text>

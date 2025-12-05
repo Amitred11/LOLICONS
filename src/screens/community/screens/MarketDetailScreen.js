@@ -33,7 +33,7 @@ const MarketDetailScreen = ({ route, navigation }) => {
   };
 
   const handleSellerProfile = () => {
-    Alert.alert("Seller Profile", `Viewing profile of @${item.seller}`);
+    showAlert({ title: "Seller Profile", message: `Viewing profile of @${item.seller}`, type: 'info'});
   };
 
   // ----------------

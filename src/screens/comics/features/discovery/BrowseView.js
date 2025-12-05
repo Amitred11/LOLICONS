@@ -1,44 +1,31 @@
 // screens/comics/components/BrowseView.js
 
-// Import essential modules from React, React Native, and third-party libraries.
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, ImageBackground, Dimensions, Pressable, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ImageBackground, Dimensions, Pressable, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Colors } from '@config/Colors';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { comicsData as originalComicsData } from '@config/mockData';
+// REMOVE: import { comicsData as originalComicsData } from '@config/mockData';
+import { ComicService } from '@api/MockComicService'; // Import Service
 import { useLibrary } from '@context/LibraryContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 
-// Create an animated version of FlatList for scroll-based animations.
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
-// Get screen dimensions for layout calculations.
 const { width, height } = Dimensions.get('window');
 
-// --- Layout Constants ---
-const PADDING = 15; // Global padding for the screen.
-const GAP = 15; // Gap between grid items.
-// Constants for Grid View
+const PADDING = 15;
+const GAP = 15;
 const GRID_NUM_COLUMNS = 3;
 const GRID_CARD_WIDTH = (width - (PADDING * 2) - (GAP * (GRID_NUM_COLUMNS - 1))) / GRID_NUM_COLUMNS;
-// Constants for Featured Carousel
 const FEATURED_CARD_WIDTH = width * 0.7;
 const FEATURED_CARD_ASPECT_RATIO = 16 / 9;
 
-/**
- * A shared, reusable button for adding or removing a comic from the user's library.
- * It uses the LibraryContext to determine its state (add vs. checkmark icon).
- * @param {object} props - The component's properties.
- * @param {string} props.comicId - The ID of the comic associated with this button.
- * @param {object} [props.style] - Optional custom styles for the button.
- */
 const AddToLibraryButton = ({ comicId, style }) => {
     const { isInLibrary, addToLibrary, removeFromLibrary } = useLibrary();
     const isComicInLibrary = isInLibrary(comicId);
 
-    // Toggles the comic's presence in the library.
     const handleLibraryToggle = () => {
         isComicInLibrary ? removeFromLibrary(comicId) : addToLibrary(comicId);
     };
@@ -54,19 +41,11 @@ const AddToLibraryButton = ({ comicId, style }) => {
     );
 };
 
-/**
- * A component to render a single comic item in the "list" view mode.
- * @param {object} props - The component's properties.
- * @param {object} props.item - The comic data object.
- * @param {number} props.index - The index of the item, used for staggered entry animations.
- */
 const BrowseListItem = ({ item, index }) => {
     const navigation = useNavigation();
-    // Shared values for the staggered entry animation.
     const entryOpacity = useSharedValue(0);
     const entryTranslateY = useSharedValue(20);
 
-    // Trigger the animation when the component mounts.
     useEffect(() => {
         entryOpacity.value = withDelay(index * 50, withSpring(1));
         entryTranslateY.value = withDelay(index * 50, withSpring(0));
@@ -102,16 +81,7 @@ const BrowseListItem = ({ item, index }) => {
     );
 };
 
-/**
- * A component to render a single comic item in the "grid" view mode. Also used for the featured carousel.
- * @param {object} props - The component's properties.
- * @param {object} props.item - The comic data object.
- * @param {number} props.index - The index for staggered entry animations.
- * @param {object} props.cardStyle - Custom styles for the main container.
- * @param {object} props.imageStyle - Custom styles for the image itself.
- */
 const BrowseGridItem = ({ item, index, cardStyle, imageStyle }) => {
-  // If the item is an empty placeholder for grid alignment, render an empty view.
   if (item.empty) { return <View style={[{ width: GRID_CARD_WIDTH, marginBottom: 20 }, cardStyle]} />; }
   
   const navigation = useNavigation();
@@ -143,20 +113,24 @@ const BrowseGridItem = ({ item, index, cardStyle, imageStyle }) => {
   );
 };
 
-/**
- * A component that serves as the header for the main list, containing the featured carousel
- * and the "All Comics" title with view mode toggles.
- * @param {object} props - The component's properties.
- * @param {function} props.setViewMode - A state setter function from the parent to change the view mode.
- * @param {string} props.viewMode - The current view mode ('grid' or 'list').
- */
 const BrowseHeader = ({ setViewMode, viewMode }) => {
-    const popularComics = originalComicsData.filter(c => c.isPopular);
+    const [popularComics, setPopularComics] = useState([]);
     const navigation = useNavigation();
 
-    // Navigates to the "SeeAll" screen with the popular comics data.
+    // Fetch popular comics
+    useEffect(() => {
+        const loadFeatured = async () => {
+            try {
+                const data = await ComicService.getFeaturedComics();
+                setPopularComics(data);
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        loadFeatured();
+    }, []);
+
     const handleSeeAll = () => {
-        // A simple serialization step to ensure no non-serializable data (like Date objects) is passed in navigation params.
         const serializableData = popularComics.map(comic => {
             const newComic = { ...comic };
             if (newComic.lastRead instanceof Date) {
@@ -173,7 +147,6 @@ const BrowseHeader = ({ setViewMode, viewMode }) => {
 
     return (
         <>
-            {/* Featured Carousel Section */}
             <View style={styles.featuredContainer}>
                 <View style={styles.sectionHeaderContainer}>
                     <Text style={styles.sectionHeader}>Popular This Week</Text>
@@ -187,7 +160,6 @@ const BrowseHeader = ({ setViewMode, viewMode }) => {
                     showsHorizontalScrollIndicator={false}
                     keyExtractor={item => item.id}
                     renderItem={({ item, index }) => 
-                        // Reuses the GridItem component with custom styling for the carousel.
                         <BrowseGridItem 
                             item={item} 
                             index={index} 
@@ -199,7 +171,6 @@ const BrowseHeader = ({ setViewMode, viewMode }) => {
                 />
             </View>
 
-            {/* "All Comics" Header and View Mode Toggles */}
             <View style={styles.listHeaderContainer}>
                 <Text style={styles.sectionHeader}>All Comics</Text>
                 <View style={styles.viewModeContainer}>
@@ -215,49 +186,56 @@ const BrowseHeader = ({ setViewMode, viewMode }) => {
     );
 }
 
-/**
- * The main component for the "Browse" view, which is part of the Comics tab.
- * It manages filtering, sorting, and switching between grid and list layouts.
- * @param {object} props - The component's properties, passed from the parent tab screen.
- * @param {function} props.scrollHandler - The animated scroll handler for the collapsible header.
- * @param {number} props.headerHeight - The height of the header for initial padding.
- * @param {string} props.searchQuery - The current search query from the parent.
- * @param {object} props.filters - The current filter object from the parent.
- */
 const BrowseView = ({ scrollHandler, headerHeight, searchQuery, filters }) => {
   const [filteredData, setFilteredData] = useState([]);
   const [viewMode, setViewMode] = useState('grid');
+  const [isLoading, setIsLoading] = useState(true);
 
-  // This effect re-calculates the displayed data whenever the search query, filters, or view mode change.
   useEffect(() => {
-    let data = [...originalComicsData];
+    let isMounted = true;
     
-    // Apply filtering and sorting based on props.
-    if (searchQuery) { data = data.filter(item => item.title.toLowerCase().includes(searchQuery.toLowerCase())); }
-    if (filters.status !== 'All') { data = data.filter(item => item.status === filters.status); }
-    if (filters.type !== 'All') { data = data.filter(item => item.type === filters.type); }
-    if (filters.genres && filters.genres.length > 0) {
-      data = data.filter(item => filters.genres.every(genre => item.genres.includes(genre)));
-    }
-    switch (filters.sort) {
-      case 'az': data.sort((a, b) => a.title.localeCompare(a.title)); break;
-      case 'za': data.sort((a, b) => b.title.localeCompare(a.title)); break;
-      default: break;
-    }
-    
-    // If in grid view, add empty placeholder items to ensure the last row aligns correctly.
-    if (viewMode === 'grid') {
-        const itemsToAdd = GRID_NUM_COLUMNS - (data.length % GRID_NUM_COLUMNS);
-        if (itemsToAdd > 0 && itemsToAdd < GRID_NUM_COLUMNS) {
-            for (let i = 0; i < itemsToAdd; i++) { data.push({ id: `placeholder-${i}`, empty: true }); }
+    const loadComics = async () => {
+        setIsLoading(true);
+        try {
+            // Use Service to fetch and filter
+            const data = await ComicService.getComics({
+                searchQuery,
+                filters
+            });
+
+            if (!isMounted) return;
+
+            // Handle Grid alignment
+            if (viewMode === 'grid') {
+                const itemsToAdd = GRID_NUM_COLUMNS - (data.length % GRID_NUM_COLUMNS);
+                if (itemsToAdd > 0 && itemsToAdd < GRID_NUM_COLUMNS) {
+                    for (let i = 0; i < itemsToAdd; i++) { data.push({ id: `placeholder-${i}`, empty: true }); }
+                }
+            }
+            setFilteredData(data);
+        } catch (error) {
+            console.error("Failed to load comics", error);
+        } finally {
+            if (isMounted) setIsLoading(false);
         }
-    }
-    setFilteredData(data);
+    };
+
+    loadComics();
+
+    return () => { isMounted = false; };
   }, [searchQuery, filters, viewMode]);
+
+  if (isLoading && filteredData.length === 0) {
+      return (
+          <View style={[styles.emptyContainer, { paddingTop: headerHeight }]}>
+              <ActivityIndicator size="large" color={Colors.secondary} />
+          </View>
+      );
+  }
 
   return (
     <AnimatedFlatList
-      key={viewMode} // Using `key` forces a re-render of the FlatList when the view mode changes, which is necessary when switching `numColumns`.
+      key={viewMode}
       data={filteredData}
       numColumns={viewMode === 'grid' ? GRID_NUM_COLUMNS : 1}
       renderItem={({ item, index }) => 
@@ -282,7 +260,7 @@ const BrowseView = ({ scrollHandler, headerHeight, searchQuery, filters }) => {
   );
 };
 
-// --- Stylesheet ---
+// ... keep existing styles
 const styles = StyleSheet.create({
   listContainer: { paddingBottom: 120 },
   sectionHeaderContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: PADDING, marginBottom: 10 },

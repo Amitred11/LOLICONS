@@ -9,60 +9,58 @@ import {
   TextInput, 
   StatusBar, 
   Platform,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient'; 
-import MarketCard from '../components/MarketCard'; // Assumed component
+import MarketCard from '../components/MarketCard'; 
+import { CommunityAPI } from '@api/MockCommunityService'; // Import the Service
 import { Colors } from '@config/Colors'; 
+import { useAlert } from '@context/AlertContext';
 
 const CATEGORIES = ['All', 'Hardware', 'Digital', 'Services', 'Merch'];
 
-// 1. Single Mock Data Item
-const INITIAL_ITEMS = [
-  {
-    id: 'm1',
-    title: 'Legendary Sword',
-    price: '1,500 Gold',
-    image: 'https://images.unsplash.com/photo-1589252084795-356c8db2778e?auto=format&fit=crop&w=800&q=80', // Placeholder image
-    category: 'Hardware',
-    seller: 'KnightWalker',
-    sellerAvatar: 'https://ui-avatars.com/api/?name=KnightWalker&background=0D8ABC&color=fff',
-    condition: 'Mint',
-    rating: 5.0,
-    sales: 42,
-    description: 'A handcrafted replica sword. Perfect for cosplay or display. Forged from high-quality steel.',
-  }
-];
-
 const MarketplaceScreen = ({ navigation }) => {
+  // 1. State Management
   const [searchText, setSearchText] = useState('');
   const [activeCat, setActiveCat] = useState('All');
-  const [filteredItems, setFilteredItems] = useState(INITIAL_ITEMS);
-
-  // 2. Filter Logic (Search + Category)
+  const [items, setItems] = useState([]); // Empty initially
+  const [isLoading, setIsLoading] = useState(true);
+  const { showAlert } = useAlert();
+  // 2. Fetch Data with Search & Filter
   useEffect(() => {
-    let result = INITIAL_ITEMS;
+    let isMounted = true;
+    const timeoutId = setTimeout(() => {
+      fetchMarketItems();
+    }, 500); // Debounce typing by 500ms
 
-    // Filter by Category
-    if (activeCat !== 'All') {
-      result = result.filter(item => item.category === activeCat);
-    }
+    const fetchMarketItems = async () => {
+      setIsLoading(true);
+      try {
+        // Use the API's search functionality
+        const data = await CommunityAPI.searchMarket(searchText, activeCat);
+        if (isMounted) {
+          setItems(data);
+        }
+      } catch (error) {
+        console.error("Market fetch error:", error);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
 
-    // Filter by Search Text
-    if (searchText) {
-      result = result.filter(item => 
-        item.title.toLowerCase().includes(searchText.toLowerCase()) ||
-        item.seller.toLowerCase().includes(searchText.toLowerCase())
-      );
-    }
-
-    setFilteredItems(result);
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
   }, [searchText, activeCat]);
 
   // --- Functions ---
   const handleFilterPress = () => {
-    Alert.alert("Filters", "Opening advanced filter options...");
+    showAlert({title: "Filters", message: "Opening advanced filter options...", type: 'info'});
   };
 
   const handleItemPress = (item) => {
@@ -144,27 +142,33 @@ const MarketplaceScreen = ({ navigation }) => {
     </View>
   );
 
-  const renderEmptyState = () => (
-    <View style={styles.emptyContainer}>
-      <View style={styles.emptyIconCircle}>
-        <Ionicons name="cart-outline" size={50} color={Colors.textSecondary} />
+  const renderEmptyState = () => {
+    if (isLoading) return null; // Don't show empty state while loading
+
+    return (
+      <View style={styles.emptyContainer}>
+        <View style={styles.emptyIconCircle}>
+          <Ionicons name="cart-outline" size={50} color={Colors.textSecondary} />
+        </View>
+        <Text style={styles.emptyTitle}>
+          {searchText ? "No matches found" : "Market is Quiet"}
+        </Text>
+        <Text style={styles.emptySubtitle}>
+          {searchText 
+            ? `We couldn't find anything for "${searchText}".` 
+            : "Be the first to list something in this category!"}
+        </Text>
       </View>
-      <Text style={styles.emptyTitle}>
-        {searchText ? "No matches found" : "Market is Quiet"}
-      </Text>
-      <Text style={styles.emptySubtitle}>
-        {searchText 
-          ? `We couldn't find anything for "${searchText}".` 
-          : "Be the first to list something in this category!"}
-      </Text>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
+      
+      {/* List */}
       <FlatList
-        data={filteredItems}
+        data={items}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <MarketCard 
@@ -175,7 +179,10 @@ const MarketplaceScreen = ({ navigation }) => {
         numColumns={2}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmptyState}
-        columnWrapperStyle={styles.columnWrapper}
+        ListFooterComponent={
+           isLoading ? <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} /> : null
+        }
+        columnWrapperStyle={items.length > 0 ? styles.columnWrapper : null} // Prevent error if empty
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />

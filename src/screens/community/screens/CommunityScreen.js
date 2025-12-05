@@ -1,26 +1,35 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, TouchableOpacity, 
-  SafeAreaView, StatusBar, Platform 
+  SafeAreaView, StatusBar, Platform, ActivityIndicator 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import GuildCard from '../components/GuildCard';
-import { GUILDS } from '../data/communityData';
+import { CommunityAPI } from '@api/MockCommunityService'; // Import the Service
 import { Colors } from '@config/Colors'; 
-import { useAlert } from '@context/AlertContext';
 
 const CommunityScreen = ({ navigation }) => {
-  const { showAlert } = useAlert();
+  // 1. State for data and loading status
+  const [guilds, setGuilds] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const showConstructionAlert = (featureName) => {
-    showAlert({
-        title: "Under Construction 🚧",
-        message: `The ${featureName} feature is currently being built by our engineering team.\n\nCheck back soon!`,
-        type: 'construction',
-        btnText: "Got it"
-    });
-  };
+  // 2. Fetch data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const data = await CommunityAPI.getGuilds();
+        setGuilds(data);
+      } catch (error) {
+        console.error("Failed to load guilds", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
   const renderHeader = () => (
     <View style={styles.headerContainer}>
       
@@ -42,10 +51,9 @@ const CommunityScreen = ({ navigation }) => {
       {/* Modern Marketplace Banner */}
       <TouchableOpacity 
         activeOpacity={0.9}
-        onPress={() =>  navigation.navigate('Marketplace')}
+        onPress={() => navigation.navigate('Marketplace')}
       >
         <LinearGradient
-          // Using your Primary Blue -> fading to a slightly darker shade
           colors={[Colors.primary, '#007BB8']} 
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -71,11 +79,21 @@ const CommunityScreen = ({ navigation }) => {
     </View>
   );
 
+  // 3. Render Loading State
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
       <FlatList
-        data={GUILDS}
+        data={guilds} // 4. Use dynamic state data
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <GuildCard 
@@ -95,6 +113,10 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     backgroundColor: Colors.background 
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   listContent: {
     paddingHorizontal: 20,
@@ -127,7 +149,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.surface, // Surface Color
+    backgroundColor: Colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -140,7 +162,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.danger, // Danger Color
+    backgroundColor: Colors.danger,
     borderWidth: 1,
     borderColor: Colors.surface
   },

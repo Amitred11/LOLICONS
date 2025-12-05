@@ -1,21 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, StatusBar, Dimensions 
+  View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, 
+  StatusBar, Dimensions, ActivityIndicator 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GUILDS } from '../data/communityData';
+import { CommunityAPI } from '@api/MockCommunityService'; // Import Service
 import { Colors } from '@config/Colors';
 
 const { width } = Dimensions.get('window');
 
 const GuildDetailScreen = ({ route, navigation }) => {
   const { guildId } = route.params;
-  const guild = GUILDS.find(g => g.id === guildId);
   
+  // 1. State for data & loading
+  const [guild, setGuild] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isJoined, setIsJoined] = useState(false);
 
-  if (!guild) return null;
+  // 2. Fetch Guild Data
+  useEffect(() => {
+    const loadGuild = async () => {
+      try {
+        const data = await CommunityAPI.getGuildById(guildId);
+        setGuild(data);
+      } catch (error) {
+        console.error("Failed to load guild details", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadGuild();
+  }, [guildId]);
+
+  // 3. Loading State
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  // 4. Error/Not Found State
+  if (!guild) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <Text style={{ color: Colors.textSecondary }}>Guild not found</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20 }}>
+          <Text style={{ color: Colors.primary }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const handleJoinAction = () => {
     if (isJoined) {
@@ -34,7 +73,7 @@ const GuildDetailScreen = ({ route, navigation }) => {
         <View style={styles.heroContainer}>
           <Image source={{ uri: guild.cover }} style={styles.heroImage} />
           <LinearGradient
-            colors={['transparent', Colors.background]} // Fades to #0D0D0D
+            colors={['transparent', Colors.background]} 
             style={styles.heroGradient}
           />
           
@@ -67,7 +106,6 @@ const GuildDetailScreen = ({ route, navigation }) => {
             onPress={handleJoinAction}
           >
             <Text style={[styles.btnText, isJoined && { color: '#000' }]}> 
-              {/* If secondary is bright mint, black text might look better, otherwise keep white */}
               {isJoined ? 'Enter Realm' : 'Join Community'}
             </Text>
             <Ionicons 
@@ -112,6 +150,7 @@ const GuildDetailScreen = ({ route, navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  center: { justifyContent: 'center', alignItems: 'center' },
   heroContainer: { height: 320, width: width },
   heroImage: { width: '100%', height: '100%' },
   heroGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 150 },
@@ -131,7 +170,7 @@ const styles = StyleSheet.create({
     width: 64, height: 64, borderRadius: 20,
     justifyContent: 'center', alignItems: 'center',
     marginBottom: 15,
-    borderWidth: 4, borderColor: Colors.background // Matches background for cutout effect
+    borderWidth: 4, borderColor: Colors.background 
   },
   title: { fontSize: 28, fontWeight: '800', color: Colors.text, textAlign: 'center', marginBottom: 8 },
   statBadge: { 
@@ -148,7 +187,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3, shadowRadius: 8, elevation: 5
   },
   btnJoin: { backgroundColor: Colors.primary },
-  btnEnter: { backgroundColor: Colors.secondary }, // Mint Green
+  btnEnter: { backgroundColor: Colors.secondary }, 
   btnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
 
   divider: { height: 1, backgroundColor: Colors.surface, marginVertical: 30 },

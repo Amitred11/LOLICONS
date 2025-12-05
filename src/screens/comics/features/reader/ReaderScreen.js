@@ -1,11 +1,14 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, Dimensions, TouchableOpacity, StatusBar } from 'react-native';
+// screens/comics/ReaderScreen.js
+
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, Image, Dimensions, TouchableOpacity, StatusBar, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
 // --- IMPORTS ---
-import { comicsData, comicPagesData } from '@config/mockData'; 
+// REMOVE: import { comicsData, comicPagesData } from '@config/mockData'; 
+import { ComicService } from '@api/MockComicService'; // Import Service
 import ReaderSettingsModal from './ReaderSettingsModal';
 import ChapterListModal from './ChapterListModal'; 
 
@@ -30,6 +33,11 @@ const ReaderScreen = ({ route }) => {
     const [currentChapterId, setCurrentChapterId] = useState(chapterId);
     const [currentPage, setCurrentPage] = useState(0);
     
+    // Data State
+    const [comic, setComic] = useState(null);
+    const [pages, setPages] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+
     // Modal States
     const [isSettingsVisible, setIsSettingsVisible] = useState(false);
     const [isChapterListVisible, setIsChapterListVisible] = useState(false);
@@ -48,20 +56,47 @@ const ReaderScreen = ({ route }) => {
         limitWidth: false 
     });
 
-    // --- DATA ---
-    const comic = useMemo(() => comicsData.find(c => c.id === comicId), [comicId]);
-    // Fallback to empty array if data missing
-    const pages = useMemo(() => comicPagesData[comicId] || [], [comicId]);
     const totalPages = pages.length;
 
+    // --- DATA FETCHING ---
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadReaderData = async () => {
+            // Only show full loading screen on initial mount or comic switch, 
+            // maybe keep it less intrusive for chapter changes if desired, 
+            // but for now simple loading state is fine.
+            setIsLoading(true);
+            try {
+                const [comicDetails, chapterPages] = await Promise.all([
+                    ComicService.getComicDetails(comicId),
+                    ComicService.getChapterPages(comicId, currentChapterId)
+                ]);
+
+                if (isMounted) {
+                    setComic(comicDetails);
+                    setPages(chapterPages);
+                }
+            } catch (error) {
+                console.error("Failed to load reader content:", error);
+            } finally {
+                if (isMounted) setIsLoading(false);
+            }
+        };
+
+        loadReaderData();
+
+        return () => { isMounted = false; };
+    }, [comicId, currentChapterId]);
+
     // --- EFFECTS ---
-    // Reset page to 0 when chapter changes
+    // Reset page to 0 when chapter changes (scrolling to top)
     useEffect(() => {
         setCurrentPage(0);
-        if(flatListRef.current) {
+        if(flatListRef.current && pages.length > 0) {
             flatListRef.current.scrollToOffset({ offset: 0, animated: false });
         }
-    }, [currentChapterId]);
+    }, [pages]); // Trigger when pages update (fetched new chapter)
 
     // --- SCROLL HANDLERS ---
     const handleScroll = (event) => {
@@ -89,9 +124,19 @@ const ReaderScreen = ({ route }) => {
     };
 
     const handleChapterChange = (direction) => {
-        if(direction === 'next') setCurrentChapterId(prev => parseInt(prev) + 1);
-        if(direction === 'prev' && currentChapterId > 1) setCurrentChapterId(prev => parseInt(prev) - 1);
+        if(direction === 'next') setCurrentChapterId(prev => (parseInt(prev) + 1).toString());
+        if(direction === 'prev' && parseInt(currentChapterId) > 1) setCurrentChapterId(prev => (parseInt(prev) - 1).toString());
+        // Note: Logic assumes numeric IDs for navigation, adjust if IDs are UUIDs
     };
+
+    if (isLoading) {
+        return (
+            <View style={[styles.container, { backgroundColor: settings.bg, justifyContent: 'center', alignItems: 'center' }]}>
+                <StatusBar hidden />
+                <ActivityIndicator size="large" color={Theme.accent} />
+            </View>
+        );
+    }
 
     return (
         <View style={[styles.container, { backgroundColor: settings.bg }]}>
@@ -205,7 +250,7 @@ const ReaderScreen = ({ route }) => {
                 onClose={() => setIsChapterListVisible(false)}
                 comicTitle={comic?.title}
                 currentChapter={currentChapterId}
-                onChapterChange={handleChapterChange} // Passed function
+                onChapterChange={handleChapterChange} 
             />
 
         </View>

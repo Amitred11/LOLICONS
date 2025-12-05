@@ -1,17 +1,54 @@
-import React, { useContext } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
-  View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, StatusBar, Image, Platform 
+  View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, 
+  StatusBar, Image, Platform, ActivityIndicator 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native'; // Ensure this is installed
 import PostCard from '../components/PostCard';
-import { CommunityContext } from '@context/CommunityContext'; // Import Context
+import { CommunityAPI } from '@api/MockCommunityService'; // Import the Service
 
 const DiscussionScreen = ({ route, navigation }) => {
-  const { guildName } = route.params;
-  const { posts, toggleLike } = useContext(CommunityContext); // Use dynamic data
+  // Assuming guildId is passed from GuildDetail, if not we default to null (shows all or nothing)
+  const { guildName, guildId } = route.params;
+  
+  const [posts, setPosts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch posts when screen comes into focus (e.g., returning from CreatePost)
+  useFocusEffect(
+    useCallback(() => {
+      loadPosts();
+    }, [guildId])
+  );
+
+  const loadPosts = async () => {
+    try {
+      const data = await CommunityAPI.getPosts(guildId);
+      setPosts(data);
+    } catch (error) {
+      console.error("Failed to load posts", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleToggleLike = async (postId) => {
+    // 1. Optimistic Update (Make UI feel instant)
+    setPosts(currentPosts => 
+      currentPosts.map(p => 
+        p.id === postId 
+          ? { ...p, liked: !p.liked, likes: p.liked ? p.likes - 1 : p.likes + 1 } 
+          : p
+      )
+    );
+
+    // 2. Call API
+    await CommunityAPI.toggleLikePost(postId);
+  };
 
   const navigateToCreate = () => {
-    navigation.navigate('CreatePost', { guildName });
+    navigation.navigate('CreatePost', { guildName, guildId });
   };
 
   const renderHeader = () => (
@@ -42,7 +79,7 @@ const DiscussionScreen = ({ route, navigation }) => {
         <TouchableOpacity 
           style={styles.inputBox} 
           activeOpacity={0.9}
-          onPress={navigateToCreate} // Navigate on press
+          onPress={navigateToCreate} 
         >
           <Text style={styles.placeholderText}>Start a discussion...</Text>
           <Ionicons name="images-outline" size={20} color="#94A3B8" />
@@ -55,20 +92,31 @@ const DiscussionScreen = ({ route, navigation }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
       
-      <FlatList
-        data={posts}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <PostCard 
-            item={item} 
-            onLike={() => toggleLike(item.id)}
-            onPress={() => {}} 
-          />
-        )}
-        ListHeaderComponent={renderHeader}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#6366F1" />
+        </View>
+      ) : (
+        <FlatList
+          data={posts}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <PostCard 
+              item={item} 
+              onLike={() => handleToggleLike(item.id)}
+              onPress={() => {}} 
+            />
+          )}
+          ListHeaderComponent={renderHeader}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+               <Text style={styles.emptyText}>No posts yet. Be the first!</Text>
+            </View>
+          }
+        />
+      )}
 
       {/* FAB */}
       <TouchableOpacity style={styles.fab} onPress={navigateToCreate}>
@@ -80,6 +128,7 @@ const DiscussionScreen = ({ route, navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0F172A' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 10,
     paddingHorizontal: 20, paddingBottom: 20, backgroundColor: '#0F172A',
@@ -92,8 +141,9 @@ const styles = StyleSheet.create({
     marginBottom: 20 
   },
   headerTitleContainer: {
-    alignItems: 'center' // Center the text within this new wrapper
-  },  backIcon: { padding: 8, marginLeft: -8 },
+    alignItems: 'center' 
+  },  
+  backIcon: { padding: 8, marginLeft: -8 },
   headerTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
   headerSub: { color: '#94A3B8', fontSize: 12, textAlign: 'center' },
   menuIcon: { padding: 8, marginRight: -8 },
@@ -106,6 +156,8 @@ const styles = StyleSheet.create({
   },
   placeholderText: { color: '#64748B', fontSize: 14 },
   listContent: { paddingBottom: 100 },
+  emptyContainer: { padding: 40, alignItems: 'center' },
+  emptyText: { color: '#64748B', fontStyle: 'italic' },
   fab: {
     position: 'absolute', bottom: 30, right: 20, width: 56, height: 56, borderRadius: 28,
     backgroundColor: '#6366F1', justifyContent: 'center', alignItems: 'center',
