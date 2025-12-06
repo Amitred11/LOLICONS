@@ -1,6 +1,4 @@
-// screens/auth/LoginScreen.js
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, ActivityIndicator, TouchableOpacity,
     Platform, StatusBar, Keyboard
@@ -29,8 +27,6 @@ const LoginScreen = ({ navigation }) => {
     const [error, setError] = useState('');
     const [isKeyboardVisible, setKeyboardVisible] = useState(false);
     const [socialsExpanded, setSocialsExpanded] = useState(false);
-    
-    // --- NEW STATE ---
     const [isPasswordVisible, setPasswordVisible] = useState(false);
 
     // Animation values
@@ -55,12 +51,11 @@ const LoginScreen = ({ navigation }) => {
     }, []);
 
     useEffect(() => {
-        const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
-        const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
-        return () => {
-            keyboardDidShowListener.remove();
-            keyboardDidHideListener.remove();
-        };
+        const show = () => setKeyboardVisible(true);
+        const hide = () => setKeyboardVisible(false);
+        const k1 = Keyboard.addListener('keyboardDidShow', show);
+        const k2 = Keyboard.addListener('keyboardDidHide', hide);
+        return () => { k1.remove(); k2.remove(); };
     }, []);
 
     useEffect(() => {
@@ -91,10 +86,6 @@ const LoginScreen = ({ navigation }) => {
             login({ email, password });
         }
     };
-    
-    const handleFocus = () => {
-        setSocialsExpanded(false);
-    };
 
     const headerAnimatedStyle = useAnimatedStyle(() => ({ opacity: headerOpacity.value, transform: [{ translateY: headerTranslateY.value }] }));
     const formAnimatedStyle = useAnimatedStyle(() => ({ opacity: formOpacity.value, transform: [{ translateY: formTranslateY.value }, { translateX: formShake.value }] }));
@@ -112,16 +103,19 @@ const LoginScreen = ({ navigation }) => {
         marginBottom: interpolate(socialVisibility.value, [0, 1], [0, DIVIDER_MARGIN_BOTTOM]),
     }));
 
-    const isFormIncomplete = !email || !password;
+    // Memoize backgrounds so they don't re-render when typing
+    const backgroundShapes = useMemo(() => (
+        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+            <AnimatedShape size={300} color={Colors.primary} initialX={-100} initialY={-100} delay={0} rotation />
+            <AnimatedShape size={250} color={Colors.secondary} initialX={220} initialY={350} delay={300} />
+        </View>
+    ), []);
 
     return (
         <LinearGradient colors={[Colors.background, '#1a1a2e']} style={styles.container}>
             <SafeAreaView style={styles.safeArea}>
                 <StatusBar barStyle="light-content" />
-                <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-                    <AnimatedShape size={300} color={Colors.primary} initialX={-100} initialY={-100} delay={0} rotation />
-                    <AnimatedShape size={250} color={Colors.secondary} initialX={220} initialY={350} delay={300} />
-                </View>
+                {backgroundShapes}
 
                 <Animated.View style={[styles.backButtonContainer, headerAnimatedStyle]}>
                     <TouchableOpacity onPress={() => navigation.navigate('Welcome')} style={styles.backButton}>
@@ -147,10 +141,8 @@ const LoginScreen = ({ navigation }) => {
                             onChangeText={setEmail} 
                             autoCapitalize="none" 
                             error={error && !email ? 'Email is required' : null} 
-                            onFocus={handleFocus} 
+                            onFocus={() => setSocialsExpanded(false)}
                         />
-                        
-                        {/* --- PASSWORD INPUT UPDATED --- */}
                         <StyledInput 
                             label="Password" 
                             icon="lock-closed-outline" 
@@ -161,14 +153,15 @@ const LoginScreen = ({ navigation }) => {
                             rightIcon={isPasswordVisible ? "eye-off-outline" : "eye-outline"}
                             onRightIconPress={() => setPasswordVisible(!isPasswordVisible)}
                             error={error && !password ? 'Password is required' : null} 
-                            onFocus={handleFocus} 
+                            onFocus={() => setSocialsExpanded(false)}
                         />
-                        {/* ----------------------------- */}
 
-                        {isLoading
-                            ? <ActivityIndicator size="large" color={Colors.primary} style={{ height: 58, justifyContent: 'center' }} />
-                            : <StyledButton title="Log In" onPress={handleLogin} disabled={isFormIncomplete || isLoading} style={{ marginTop: 5 }} />
-                        }
+                        <StyledButton 
+                            title="Log In" 
+                            onPress={handleLogin} 
+                            disabled={!email || !password || isLoading} 
+                            style={{ marginTop: 5 }} 
+                        />
                     </Animated.View>
 
                     <Animated.View style={formAnimatedStyle}>
@@ -190,15 +183,9 @@ const LoginScreen = ({ navigation }) => {
                         
                         <Animated.View style={socialButtonsAnimatedStyle}>
                             <View style={styles.socialButtonsContainer}>
-                                <TouchableOpacity style={styles.socialButton}>
-                                    <Ionicons name="logo-google" size={24} color={Colors.text} />
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.socialButton}>
-                                    <Ionicons name="logo-github" size={24} color={Colors.text} />
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.socialButton}>
-                                    <Ionicons name="logo-facebook" size={24} color={Colors.text} />
-                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.socialButton}><Ionicons name="logo-google" size={24} color={Colors.text} /></TouchableOpacity>
+                                <TouchableOpacity style={styles.socialButton}><Ionicons name="logo-github" size={24} color={Colors.text} /></TouchableOpacity>
+                                <TouchableOpacity style={styles.socialButton}><Ionicons name="logo-facebook" size={24} color={Colors.text} /></TouchableOpacity>
                             </View>
                         </Animated.View>
                     </View>
@@ -232,7 +219,7 @@ const styles = StyleSheet.create({
     forgotPasswordContainer: { alignItems: 'flex-end' },
     forgotPasswordText: { color: Colors.textSecondary, fontFamily: 'Poppins_500Medium', fontSize: 14 },
     socialLoginContainer: {},
-    dividerContainer: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    dividerContainer: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
     dividerLine: { flex: 1, height: 1, backgroundColor: Colors.textSecondary, opacity: 0.3 },
     dividerText: { color: Colors.secondary, fontFamily: 'Poppins_500Medium' },
     socialButtonsContainer: { height: '100%', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 20 },

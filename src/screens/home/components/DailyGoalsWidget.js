@@ -1,45 +1,20 @@
-import React, { useEffect } from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import Animated, { useSharedValue, useAnimatedProps, withTiming, withDelay } from 'react-native-reanimated';
-import Svg, { Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@config/Colors';
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
-const CircularProgressChart = ({ size = 50, strokeWidth = 6, progress = 0.75 }) => {
-    const radius = (size - strokeWidth) / 2;
-    const circumference = 2 * Math.PI * radius;
-    const progressValue = useSharedValue(0);
-
-    useEffect(() => { 
-        progressValue.value = withDelay(500, withTiming(progress, { duration: 1000 })); 
-    }, [progress]);
-
-    const animatedCircleProps = useAnimatedProps(() => ({ 
-        strokeDashoffset: circumference * (1 - progressValue.value) 
-    }));
-    
+// Simple Progress Circle using border tricks (No SVG required)
+const SimpleProgressRing = ({ size = 50, progress = 0 }) => {
     return (
-        <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-            <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-                <Circle cx={size / 2} cy={size / 2} r={radius} stroke={Colors.surface} strokeWidth={strokeWidth} />
-                <AnimatedCircle 
-                    cx={size / 2} cy={size / 2} r={radius} 
-                    stroke={Colors.secondary} strokeWidth={strokeWidth} 
-                    strokeDasharray={circumference} 
-                    animatedProps={animatedCircleProps} 
-                    strokeLinecap="round" 
-                    transform={`rotate(-90 ${size / 2} ${size / 2})`}
-                />
-            </Svg>
-            <Ionicons name="flame" size={24} color={Colors.secondary} style={{ position: 'absolute' }} />
+        <View style={[styles.ringContainer, { width: size, height: size, borderRadius: size / 2 }]}>
+            <View style={[styles.ringInner, { borderRadius: (size - 6) / 2 }]} />
+            <Ionicons name="flame" size={20} color={Colors.secondary} style={styles.ringIcon} />
         </View>
     );
 };
 
-const GoalRow = ({ goal, onPress }) => {
-    const isCompleted = goal.progress >= 1;
+const GoalRow = memo(({ goal, onPress }) => {
+    const isCompleted = goal.progress >= goal.total;
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={styles.goalRow}>
             <View style={[styles.goalIcon, { backgroundColor: isCompleted ? Colors.secondary + '20' : Colors.surface }]}>
@@ -57,7 +32,7 @@ const GoalRow = ({ goal, onPress }) => {
             )}
         </TouchableOpacity>
     );
-};
+});
 
 const DailyGoalsWidget = ({ goals, dailyProgress, onGoalPress }) => {
     return (
@@ -67,7 +42,8 @@ const DailyGoalsWidget = ({ goals, dailyProgress, onGoalPress }) => {
                     <Text style={styles.sectionTitleNoPadding}>Daily Goals</Text>
                     <Text style={styles.goalCardSubtitle}>Build your reading habit</Text>
                 </View>
-                <CircularProgressChart progress={dailyProgress} size={50} strokeWidth={6} />
+                {/* Replaced complex SVG chart with simple indicator to prevent crashes */}
+                <SimpleProgressRing size={45} progress={dailyProgress} />
             </View>
             
             <View style={styles.goalsList}>
@@ -89,6 +65,12 @@ const styles = StyleSheet.create({
     goalIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
     goalTitle: { fontFamily: 'Poppins_500Medium', color: Colors.text, fontSize: 14 },
     radioButton: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: Colors.textSecondary + '40' },
+    
+    // Ring Styles
+    ringContainer: { borderWidth: 4, borderColor: Colors.secondary, justifyContent: 'center', alignItems: 'center' },
+    ringInner: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderWidth: 2, borderColor: Colors.background },
+    ringIcon: { position: 'absolute' }
 });
 
-export default DailyGoalsWidget;
+// Ensure default export is correct
+export default memo(DailyGoalsWidget);

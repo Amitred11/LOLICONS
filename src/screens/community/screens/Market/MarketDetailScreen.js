@@ -12,14 +12,12 @@ const MarketDetailScreen = ({ route, navigation }) => {
   const { showAlert } = useAlert();
   const [isWishlisted, setIsWishlisted] = useState(false);
 
-  // --- Functions ---
-  
   const handleStartChat = () => {
+    // Navigate to a Chat Screen (Mocked)
     const sellerUser = {
-      id: item.seller, 
+      id: item.sellerId || 'unknown', // Use ID from item
       name: item.seller,
-      avatar: item.sellerAvatar || `https://ui-avatars.com/api/?name=${item.seller}`,
-      type: 'direct', 
+      avatar: item.sellerAvatar,
       status: 'Online' 
     };
 
@@ -31,13 +29,18 @@ const MarketDetailScreen = ({ route, navigation }) => {
 
   const handleToggleWishlist = () => {
     setIsWishlisted(!isWishlisted);
+    if (!isWishlisted) {
+      showAlert({ title: "Saved", message: "Item added to wishlist", type: 'success' });
+    }
   };
 
   const handleSellerProfile = () => {
-    showAlert({ title: "Seller Profile", message: `Viewing profile of @${item.seller}`, type: 'info'});
+    // Navigation to FriendProfile
+    navigation.navigate('FriendProfile', { 
+      userId: item.sellerId || 'mock_user_id',
+      username: item.seller
+    });
   };
-
-  // ----------------
 
   return (
     <View style={styles.container}>
@@ -78,7 +81,7 @@ const MarketDetailScreen = ({ route, navigation }) => {
                </View>
               <Text style={styles.title}>{item.title}</Text>
             </View>
-            <Text style={styles.price}>{item.price}</Text>
+            <Text style={styles.price}>{item.displayPrice || `₱${item.price}`}</Text>
           </View>
 
           {/* Seller Card */}
@@ -102,7 +105,10 @@ const MarketDetailScreen = ({ route, navigation }) => {
                 </View>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+            <View style={styles.viewProfileBtn}>
+               <Text style={styles.viewProfileText}>View Profile</Text>
+               <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
+            </View>
           </TouchableOpacity>
 
           <View style={styles.divider} />
@@ -156,132 +162,39 @@ const MarketDetailScreen = ({ route, navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  imageHeader: { 
-    height: 400, 
-    width: '100%',
-    backgroundColor: Colors.surface 
-  },
+  imageHeader: { height: 400, width: '100%', backgroundColor: Colors.surface },
   image: { width: '100%', height: '100%' },
-  gradientHeader: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0,
-    height: 120,
-  },
-  backBtn: {
-    position: 'absolute', 
-    top: 50, 
-    left: 20,
-    width: 44, 
-    height: 44, 
-    borderRadius: 22,
-    backgroundColor: 'rgba(0,0,0,0.5)', 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)'
-  },
-  sheet: {
-    flex: 1,
-    marginTop: -40,
-    backgroundColor: Colors.background,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingHorizontal: 24,
-    paddingTop: 12,
-  },
-  dragHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: Colors.surface,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 25
-  },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 25,
-  },
+  gradientHeader: { position: 'absolute', top: 0, left: 0, right: 0, height: 120 },
+  backBtn: { position: 'absolute', top: 50, left: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  sheet: { flex: 1, marginTop: -40, backgroundColor: Colors.background, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 24, paddingTop: 12 },
+  dragHandle: { width: 40, height: 4, backgroundColor: Colors.surface, borderRadius: 2, alignSelf: 'center', marginBottom: 25 },
+  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 25 },
   tagsRow: { flexDirection: 'row', marginBottom: 8, gap: 8 },
-  tag: {
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  conditionTag: { 
-    backgroundColor: `${Colors.primary}20`, 
-    borderWidth: 1,
-    borderColor: `${Colors.primary}40`,
-  },
-  conditionText: {
-    color: Colors.primary, 
-    fontSize: 11, 
-    fontWeight: '700', 
-    textTransform: 'uppercase'
-  },
+  tag: { backgroundColor: Colors.surface, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  conditionTag: { backgroundColor: `${Colors.primary}20`, borderWidth: 1, borderColor: `${Colors.primary}40` },
+  conditionText: { color: Colors.primary, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   tagText: { color: Colors.textSecondary, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   title: { fontSize: 24, fontWeight: '800', color: Colors.text, lineHeight: 32 },
   price: { fontSize: 24, fontWeight: '700', color: Colors.secondary },
-  sellerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.surface,
-    padding: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'transparent'
-  },
+  sellerCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.surface, padding: 16, borderRadius: 20, borderWidth: 1, borderColor: 'transparent' },
   sellerInfo: { flexDirection: 'row', alignItems: 'center' },
   avatar: { width: 48, height: 48, borderRadius: 24, marginRight: 15 },
   sellerName: { color: Colors.text, fontWeight: 'bold', fontSize: 16, marginBottom: 4 },
   ratingRow: { flexDirection: 'row', alignItems: 'center' },
   ratingText: { color: Colors.textSecondary, fontSize: 12, marginLeft: 4 },
+  viewProfileBtn: { flexDirection: 'row', alignItems: 'center' },
+  viewProfileText: { color: Colors.textSecondary, fontSize: 12, marginRight: 4 },
   divider: { height: 1, backgroundColor: Colors.surface, marginVertical: 25 },
   sectionHeader: { color: Colors.text, fontSize: 18, fontWeight: '700', marginBottom: 12 },
   description: { color: Colors.textSecondary, fontSize: 15, lineHeight: 24, fontWeight: '400' },
-  safetyBox: {
-    flexDirection: 'row',
-    backgroundColor: `${Colors.secondary}15`,
-    padding: 16,
-    borderRadius: 20,
-    marginTop: 30,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: `${Colors.secondary}30`
-  },
+  safetyBox: { flexDirection: 'row', backgroundColor: `${Colors.secondary}15`, padding: 16, borderRadius: 20, marginTop: 30, alignItems: 'center', borderWidth: 1, borderColor: `${Colors.secondary}30` },
   safetyContent: { marginLeft: 15, flex: 1 },
   safetyTitle: { color: Colors.secondary, fontWeight: '700', fontSize: 14, marginBottom: 2 },
   safetyDesc: { color: Colors.textSecondary, fontSize: 12 },
-  bottomBarWrapper: {
-    position: 'absolute', bottom: 0, width: '100%',
-    backgroundColor: Colors.background,
-    borderTopWidth: 1, borderTopColor: Colors.surface,
-  },
-  bottomBarInner: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    alignItems: 'center',
-    gap: 15
-  },
-  wishlistBtn: {
-    width: 52, height: 52, borderRadius: 20,
-    backgroundColor: Colors.surface,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  mainBtn: {
-    flex: 1, height: 52, borderRadius: 20,
-    backgroundColor: Colors.primary,
-    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 5
-  },
+  bottomBarWrapper: { position: 'absolute', bottom: 0, width: '100%', backgroundColor: Colors.background, borderTopWidth: 1, borderTopColor: Colors.surface },
+  bottomBarInner: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 15, alignItems: 'center', gap: 15 },
+  wishlistBtn: { width: 52, height: 52, borderRadius: 20, backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center' },
+  mainBtn: { flex: 1, height: 52, borderRadius: 20, backgroundColor: Colors.primary, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10, elevation: 5 },
   mainBtnText: { color: Colors.text, fontSize: 16, fontWeight: 'bold' }
 });
 

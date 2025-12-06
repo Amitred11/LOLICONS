@@ -8,8 +8,6 @@ import HomeScreen from '@features/home/HomeScreen';
 import ComicsScreen from '@features/comics/features/discovery/ComicsScreen';
 import HubScreen from '@features/hub/Hub/HubScreen';
 import ProfileScreen from '@features/profile/screens/ProfileScreen';
-
-// --- IMPORT THE NEW SCREEN ---
 import CommunityScreen from '@features/community/screens/CommunityScreen'; 
 
 const Tab = createBottomTabNavigator();
@@ -19,8 +17,9 @@ const BottomTabNavigator = () => {
 
   return (
     <Tab.Navigator
-      screenOptions={{ headerShown: false }}
+      screenOptions={{ headerShown: false, tabBarHideOnKeyboard: false  }}
       tabBar={(props) => <CustomTabBar {...props} />} 
+      
     >
       <Tab.Screen 
           name="Dashboard" 

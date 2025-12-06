@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ImageBackground } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors';
 
-const GuildCard = ({ item, onPress }) => {
+const GuildCard = ({ item, onPress, onActionPress }) => {
   return (
     <TouchableOpacity 
       activeOpacity={0.95}
@@ -15,17 +15,16 @@ const GuildCard = ({ item, onPress }) => {
         source={{ uri: item.cover }} 
         style={styles.cover}
         imageStyle={{ borderRadius: 24 }}
+        resizeMode="cover"
       >
         <LinearGradient
-          // Gradient fades into the Surface color at the bottom
-          colors={['transparent', 'rgba(26, 26, 26, 0.8)', Colors.surface]}
+          colors={['transparent', 'rgba(26, 26, 26, 0.9)', Colors.surface]}
           locations={[0, 0.6, 1]}
           style={styles.gradientOverlay}
         >
           <View style={styles.cardContent}>
             
             <View style={styles.headerRow}>
-              {/* Dynamic accent color from data, or fallback to Primary */}
               <View style={[styles.iconBubble, { backgroundColor: item.accent || Colors.primary }]}>
                 <Ionicons name={item.icon} size={20} color="#FFF" />
               </View>
@@ -40,7 +39,11 @@ const GuildCard = ({ item, onPress }) => {
                 </View>
               </View>
               
-              <TouchableOpacity style={styles.actionBtn}>
+              <TouchableOpacity 
+                style={styles.actionBtn} 
+                onPress={onActionPress || onPress}
+                activeOpacity={0.8}
+              >
                 <Ionicons name="arrow-forward" size={20} color="#FFF" />
               </TouchableOpacity>
             </View>
@@ -57,7 +60,7 @@ const styles = StyleSheet.create({
     height: 220, 
     marginBottom: 24, 
     borderRadius: 24,
-    backgroundColor: Colors.surface, // Surface Color
+    backgroundColor: Colors.surface, 
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -126,12 +129,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(255,255,255,0.3)',
   }
 });
 
-export default GuildCard;
+// Optimization: Prevent re-renders if props don't change
+export default memo(GuildCard);

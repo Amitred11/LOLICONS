@@ -1,77 +1,85 @@
-// context/AuthContext.js
-import React, { createContext, useState, useContext } from 'react';
-// Import the UI components
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Ensure this is installed
 import Loading from '@components/ui/Loading'; 
-// Import the Mock API
 import { AuthAPI } from '@api/MockAuthService';
-// Import Alert Context to show errors
 import { useAlert } from '@context/other/AlertContext';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  // We store the whole user object now, not just a boolean
   const [user, setUser] = useState(null); 
   const [isLoading, setIsLoading] = useState(false);
+  const [isSplashLoading, setIsSplashLoading] = useState(true); // New: For initial app load
 
-  // Access the alert function
   const { showAlert } = useAlert();
 
-  // Derived state: User is logged in if 'user' object exists
-  const isLoggedIn = !!user;
+  // 1. Check for stored user on App Launch
+  useEffect(() => {
+    const loadStoredUser = async () => {
+      try {
+        const storedUserJson = await AsyncStorage.getItem('user_session');
+        if (storedUserJson) {
+          const storedUser = JSON.parse(storedUserJson);
+          // Optional: Validate token with backend
+          const response = await AuthAPI.validateToken(storedUser);
+          if (response.success) {
+            setUser(response.data);
+          } else {
+             await AsyncStorage.removeItem('user_session');
+          }
+        }
+      } catch (error) {
+        console.log('Failed to load user session', error);
+      } finally {
+        setIsSplashLoading(false); // Done checking
+      }
+    };
 
-  /**
-   * Login Function
-   * Connected to LoginScreen.js
-   */
+    loadStoredUser();
+  }, []);
+
+  // Helper to save session
+  const saveSession = async (userData) => {
+      try {
+          setUser(userData);
+          await AsyncStorage.setItem('user_session', JSON.stringify(userData));
+      } catch (e) {
+          console.error("Session save failed", e);
+      }
+  };
+
   const login = async ({ email, password }) => {
     setIsLoading(true); 
-    
     try {
-      // Call the Mock API
       const response = await AuthAPI.login(email, password);
-      
       if (response.success) {
-        setUser(response.data); 
+        await saveSession(response.data);
       }
     } catch (error) {
-      // Handle Error (Wrong password, etc.)
-      console.error('Login Error:', error);
       showAlert({
         title: 'Login Failed',
-        message: error.message || 'Unable to log in. Please try again.',
+        message: error.message || 'Unable to log in.',
         type: 'error',
         btnText: 'Try Again'
       });
     } finally {
-      setIsLoading(false); // Hide Loading regardless of success/fail
+      setIsLoading(false);
     }
   };
 
-  /**
-   * Register Function
-   * Connected to RegisterScreen.js
-   */
   const register = async ({ name, email, password }) => {
     setIsLoading(true);
-
     try {
-      // Call the Mock API
       const response = await AuthAPI.register({ name, email, password });
-
       if (response.success) {
-        console.log('Registration Successful:', response.data);
-        setUser(response.data); // Auto-login the user after signup
-        
-        // Optional: Show a welcome alert
+        await saveSession(response.data);
         showAlert({
             title: 'Welcome!',
-            message: `Account created successfully. Welcome aboard, ${response.data.name}!`,
+            message: `Account created successfully. Welcome, ${response.data.name}!`,
             type: 'success'
         });
       }
     } catch (error) {
-      // Handle Error (Email taken, etc.)
       showAlert({
         title: 'Registration Failed',
         message: error.message || 'Unable to create account.',
@@ -82,13 +90,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  /**
-   * Logout Function
-   */
   const logout = async () => {
     setIsLoading(true);
     try {
         await AuthAPI.logout();
+        await AsyncStorage.removeItem('user_session');
         setUser(null);
     } catch (error) {
         console.error(error);
@@ -100,16 +106,14 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{ 
         user, 
-        isLoggedIn, 
+        isLoggedIn: !!user, 
         isLoading, 
+        isSplashLoading, // Expose this so RootNav knows if it should show a blank/splash screen
         login, 
-        register, // Now available for RegisterScreen
+        register, 
         logout 
     }}>
-      {/* 1. Render the actual app */}
       {children}
-      
-      {/* 2. Conditionally render the Loading Overlay ON TOP of the app */}
       {isLoading && <Loading />}
     </AuthContext.Provider>
   );
@@ -117,8 +121,6 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
     const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error("useAuth must be used within an AuthProvider");
-    }
+    if (!context) throw new Error("useAuth must be used within an AuthProvider");
     return context;
 };

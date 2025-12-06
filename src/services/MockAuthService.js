@@ -1,34 +1,28 @@
-// api/MockAuthService.js
 import { MOCK_USER_DB } from '@api/MockProfileService';
 
-// We define a default password for the mock user
 const DEFAULT_PASSWORD = 'a';
+const SIMULATED_DELAY = 1200; // Unified delay for consistency
 
 export const AuthAPI = {
   /**
    * Simulates logging in.
-   * Now checks against the rich MOCK_USER_DB from ProfileService.
    */
   login: async (email, password) => {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        // 1. Check if the input matches our main Rich Profile User
+        // 1. Main Rich User Check
         if (
           email.toLowerCase() === MOCK_USER_DB.email.toLowerCase() && 
           password === DEFAULT_PASSWORD
         ) {
-          // Return the full profile data
           resolve({ 
             success: true, 
-            data: { 
-                ...MOCK_USER_DB,
-                token: 'mock-jwt-token-MAIN-USER' 
-            } 
+            data: { ...MOCK_USER_DB, token: 'mock-jwt-token-MAIN-USER' } 
           });
           return;
         }
 
-        // 2. Fallback: Secondary test user (Optional)
+        // 2. Secondary Test User
         if (email === 'a' && password === 'a') {
              resolve({ 
                 success: true, 
@@ -36,6 +30,7 @@ export const AuthAPI = {
                     id: 'user_test_002',
                     name: 'Test User',
                     email: 'test@test.com',
+                    handle: 'test_user',
                     avatarUrl: 'https://i.pravatar.cc/150?u=test',
                     xp: 0,
                     stats: [],
@@ -48,15 +43,14 @@ export const AuthAPI = {
         // 3. Fail
         reject({ 
           success: false, 
-          message: 'Invalid email or password. (Hint: loli.hunter@example.com / a)' 
+          message: 'Invalid email or password.' 
         });
-      }, 1500);
+      }, SIMULATED_DELAY);
     });
   },
 
   /**
    * Simulates registering.
-   * Returns a user object structured like MOCK_USER_DB so the app doesn't crash.
    */
   register: async ({ name, email, password }) => {
     return new Promise((resolve, reject) => {
@@ -66,7 +60,6 @@ export const AuthAPI = {
           return;
         }
 
-        // Create a new user structure compatible with Profile Screen
         const newUser = {
           id: `usr_${Date.now()}`,
           name: name,
@@ -76,20 +69,31 @@ export const AuthAPI = {
           xp: 0,
           favoriteComicBanner: null,
           stats: [
-            { label: 'Comics Read', value: '0' },
-            { label: 'Chapters', value: '0' },
+            { label: 'Comics', value: '0' },
             { label: 'Rank', value: 'Mortal' },
           ],
           bio: 'New to the community!',
-          badges: [], // Empty badges for new user
+          badges: [],
           token: `mock-jwt-token-${Date.now()}`,
         };
         
-        resolve({ 
-            success: true, 
-            data: newUser 
-        });
-      }, 2000); 
+        resolve({ success: true, data: newUser });
+      }, SIMULATED_DELAY); 
+    });
+  },
+
+  /**
+   * Simulates checking if a stored token is valid (Auto-Login).
+   */
+  validateToken: async (userObject) => {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            if (userObject && userObject.token) {
+                resolve({ success: true, data: userObject });
+            } else {
+                reject({ success: false, message: 'Session expired' });
+            }
+        }, 800); // Faster than login
     });
   },
 
@@ -100,11 +104,8 @@ export const AuthAPI = {
              reject({ success: false, message: 'Invalid email format.' });
              return;
         }
-        resolve({ 
-            success: true, 
-            message: 'Reset link sent.' 
-        });
-      }, 1500);
+        resolve({ success: true, message: 'Reset link sent.' });
+      }, SIMULATED_DELAY);
     });
   },
 

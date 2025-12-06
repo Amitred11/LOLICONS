@@ -19,13 +19,16 @@ export const CommunityProvider = ({ children }) => {
   const [guilds, setGuilds] = useState([]);
   const [posts, setPosts] = useState([]);
   const [marketItems, setMarketItems] = useState([]);
-  const [currentGuild, setCurrentGuild] = useState(null); // Detailed view
+  const [currentGuild, setCurrentGuild] = useState(null);
+  
+  // New State for Replies
+  const [currentReplies, setCurrentReplies] = useState([]);
 
-  // --- State: Loading Indicators ---
-  // We separate these so one part of the app doesn't block another
+  // --- State: Loading ---
   const [isLoadingGuilds, setIsLoadingGuilds] = useState(false);
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
   const [isLoadingMarket, setIsLoadingMarket] = useState(false);
+  const [isLoadingReplies, setIsLoadingReplies] = useState(false); // New
 
   // --- State: Errors ---
   const [error, setError] = useState(null);
@@ -42,6 +45,18 @@ export const CommunityProvider = ({ children }) => {
     } catch (err) {
       console.error("Context: Failed to fetch guilds", err);
       setError("Failed to load guilds.");
+    } finally {
+      setIsLoadingGuilds(false);
+    }
+  }, []);
+
+  const searchGuilds = useCallback(async (query) => {
+    setIsLoadingGuilds(true);
+    try {
+      const data = await CommunityAPI.searchGuilds(query);
+      setGuilds(data);
+    } catch (err) {
+      console.error("Context: Failed to search guilds", err);
     } finally {
       setIsLoadingGuilds(false);
     }
@@ -118,14 +133,40 @@ export const CommunityProvider = ({ children }) => {
     }
   }, []);
 
+  const fetchReplies = useCallback(async (postId) => {
+    setIsLoadingReplies(true);
+    setCurrentReplies([]); // Clear previous thread's replies first
+    try {
+      const data = await CommunityAPI.getReplies(postId);
+      setCurrentReplies(data);
+    } catch (err) {
+      console.error("Context: Failed to fetch replies", err);
+      setError("Failed to load replies.");
+    } finally {
+      setIsLoadingReplies(false);
+    }
+  }, []);
+
+  const submitReply = useCallback(async (replyData) => {
+    try {
+      const newReply = await CommunityAPI.addReply(replyData);
+      // Optimistically update the list
+      setCurrentReplies(prev => [newReply, ...prev]);
+      return true;
+    } catch (err) {
+      console.error("Context: Failed to submit reply", err);
+      return false;
+    }
+  }, []);
+
   // ==============================
   //       MARKETPLACE LOGIC
   // ==============================
 
-  const fetchMarketItems = useCallback(async (query = '', category = 'All') => {
+  const fetchMarketItems = useCallback(async (query = '', category = 'All', filters = {}) => {
     setIsLoadingMarket(true);
     try {
-      const data = await CommunityAPI.searchMarket(query, category);
+      const data = await CommunityAPI.searchMarket(query, category, filters);
       setMarketItems(data);
     } catch (err) {
       console.error("Context: Failed to load market", err);
@@ -134,29 +175,38 @@ export const CommunityProvider = ({ children }) => {
     }
   }, []);
 
+  const getSecurityLevel = (guild) => {
+    return CommunityAPI.getRealmSecurityLevel(guild);
+  };
+
   // ==============================
   //       EXPOSED VALUES
   // ==============================
 
   const value = {
-    // Data
     guilds,
     posts,
     marketItems,
     currentGuild,
+    currentReplies, // Exported
     error,
 
-    // Loading States
     isLoadingGuilds,
     isLoadingPosts,
     isLoadingMarket,
+    isLoadingReplies, // Exported
 
-    // Actions
     fetchGuilds,
+    searchGuilds,
     fetchGuildDetails,
     fetchPosts,
     createPost,
     togglePostLike,
+    
+    fetchReplies, // Exported
+    submitReply,  // Exported
+    
+    getSecurityLevel,
     fetchMarketItems
   };
 

@@ -17,12 +17,12 @@ import ReaderScreen from '@features/comics/features/reader/ReaderScreen';
 import SeeAllScreen from '@features/comics/features/discovery/SeeAllScreen';
 
 // COMMUNITY
-import MarketplaceScreen from '@features/community/screens/MarketplaceScreen';
-import GuildDetailScreen from '@features/community/screens/GuildDetailScreen';
-import MarketDetailScreen from '@features/community/screens/MarketDetailScreen'; 
-import DiscussionScreen from '@features/community/screens/DiscussionScreen';
-import CreatePostScreen from '@features/community/screens/CreatePostScreen';
-
+import MarketplaceScreen from '@features/community/screens/Market/MarketplaceScreen';
+import GuildDetailScreen from '@features/community/screens/Guild/GuildDetailScreen';
+import MarketDetailScreen from '@features/community/screens/Market/MarketDetailScreen'; 
+import DiscussionScreen from '@features/community/screens/Guild/DiscussionScreen';
+import CreatePostScreen from '@features/community/screens/Guild/CreatePostScreen';
+import ThreadScreen from '@features/community/screens/Guild/ThreadScreen';
 // PROFILE SETTINGS
 import EditProfileScreen from '@features/profile/screens/EditProfileScreen';
 import AccountScreen from '@features/profile/screens/settings/AccountScreen';
@@ -103,6 +103,11 @@ const MainStackNavigator = () => {
       <AppStack.Screen 
         name="CreatePost" 
         component={CreatePostScreen} 
+        options={{ animation: 'slide_from_right' }}
+      />
+      <AppStack.Screen 
+        name="Thread" 
+        component={ThreadScreen} 
         options={{ animation: 'slide_from_right' }}
       />
       {/* CHATS */}

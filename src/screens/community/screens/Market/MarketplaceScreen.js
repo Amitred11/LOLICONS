@@ -1,0 +1,224 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, 
+  TextInput, StatusBar, Platform, ActivityIndicator
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient'; 
+import MarketCard from '../../components/MarketCard'; // Check path
+import MarketFilterModal from '../../components/MarketFilterModal'; // Import Modal
+import { useCommunity } from '@context/main/CommunityContext';
+import { Colors } from '@config/Colors'; 
+import { useAlert } from '@context/other/AlertContext';
+
+const CATEGORIES = ['All', 'Hardware', 'Digital', 'Services', 'Merch'];
+
+const MarketplaceScreen = ({ navigation }) => {
+  const { showAlert } = useAlert();
+  // Ensure your Context fetch function accepts the 3rd argument 'filters'
+  const { marketItems, fetchMarketItems, isLoadingMarket } = useCommunity();
+  
+  const [searchText, setSearchText] = useState('');
+  const [activeCat, setActiveCat] = useState('All');
+  
+  // New State for Filters
+  const [isFilterModalVisible, setFilterModalVisible] = useState(false);
+  const [filters, setFilters] = useState({
+    minPrice: '',
+    maxPrice: '',
+    condition: 'Any'
+  });
+
+  // Fetch logic including filters
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      // Pass filters object to the context function
+      fetchMarketItems(searchText, activeCat, filters);
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [searchText, activeCat, filters, fetchMarketItems]);
+
+  const handleItemPress = (item) => navigation.navigate('MarketDetail', { item });
+
+  const applyFilters = (newFilters) => {
+    setFilters(newFilters);
+    // Alert just for UX feedback
+    if (newFilters.minPrice || newFilters.maxPrice || newFilters.condition !== 'Any') {
+      // Optional: showAlert({ title: "Filters Applied", type: 'success' });
+    }
+  };
+
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (filters.minPrice) count++;
+    if (filters.maxPrice) count++;
+    if (filters.condition !== 'Any') count++;
+    return count;
+  };
+
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
+      <View style={styles.navBar}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.circleBtn}>
+          <Ionicons name="arrow-back" size={24} color={Colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.screenTitle}>Marketplace</Text>
+        
+        {/* Filter Button */}
+        <TouchableOpacity 
+          style={[
+            styles.circleBtn, 
+            getActiveFilterCount() > 0 && styles.circleBtnActive
+          ]} 
+          onPress={() => setFilterModalVisible(true)}
+        >
+          <Ionicons 
+            name="options" 
+            size={20} 
+            color={getActiveFilterCount() > 0 ? '#FFF' : Colors.text} 
+          />
+          {getActiveFilterCount() > 0 && (
+             <View style={styles.badge} />
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.searchWrapper}>
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color={Colors.textSecondary} />
+          <TextInput 
+            placeholder="Search items, sellers, gear..." 
+            placeholderTextColor={Colors.textSecondary}
+            style={styles.input}
+            selectionColor={Colors.primary}
+            value={searchText}
+            onChangeText={setSearchText}
+          />
+          {searchText.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchText('')}>
+              <Ionicons name="close-circle" size={18} color={Colors.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      <View style={styles.catContainer}>
+        <FlatList 
+          horizontal 
+          data={CATEGORIES}
+          keyExtractor={item => item}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 20 }}
+          renderItem={({ item }) => {
+            const isActive = activeCat === item;
+            return (
+              <TouchableOpacity activeOpacity={0.8} onPress={() => setActiveCat(item)} style={styles.catWrapper}>
+                {isActive ? (
+                  <LinearGradient
+                    colors={[Colors.primary, '#0090D8']}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                    style={styles.catChipActive}
+                  >
+                    <Text style={styles.catTextActive}>{item}</Text>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.catChip}>
+                    <Text style={styles.catText}>{item}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          }}
+        />
+      </View>
+    </View>
+  );
+
+  const renderEmptyState = () => {
+    if (isLoadingMarket) return null;
+    return (
+      <View style={styles.emptyContainer}>
+        <View style={styles.emptyIconCircle}>
+          <Ionicons name="cart-outline" size={50} color={Colors.textSecondary} />
+        </View>
+        <Text style={styles.emptyTitle}>
+          {searchText ? "No matches found" : "Market is Quiet"}
+        </Text>
+        <Text style={styles.emptySubtitle}>
+          {searchText 
+            ? `We couldn't find anything for "${searchText}" with these filters.` 
+            : "Be the first to list something in this category!"}
+        </Text>
+        <TouchableOpacity style={styles.clearBtn} onPress={() => {
+            setSearchText('');
+            setFilters({minPrice:'', maxPrice:'', condition:'Any'});
+            setActiveCat('All');
+        }}>
+           <Text style={styles.clearBtnText}>Clear All Filters</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
+      
+      <FlatList
+        data={marketItems}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => <MarketCard item={item} onPress={() => handleItemPress(item)} />}
+        numColumns={2}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmptyState}
+        ListFooterComponent={isLoadingMarket ? <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} /> : null}
+        columnWrapperStyle={marketItems.length > 0 ? styles.columnWrapper : null}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={6}
+      />
+
+      {/* FILTER MODAL */}
+      <MarketFilterModal 
+        visible={isFilterModalVisible}
+        onClose={() => setFilterModalVisible(false)}
+        onApply={applyFilters}
+        initialFilters={filters}
+      />
+
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.background },
+  headerContainer: { paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 10, paddingBottom: 10 },
+  navBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 20 },
+  screenTitle: { color: Colors.text, fontSize: 20, fontWeight: '700' },
+  circleBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center' },
+  circleBtnActive: { backgroundColor: Colors.primary },
+  badge: { position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFF' },
+  
+  searchWrapper: { paddingHorizontal: 20, marginBottom: 20 },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 16, paddingHorizontal: 16, height: 52 },
+  input: { flex: 1, marginLeft: 12, color: Colors.text, fontSize: 16 },
+  
+  catContainer: { marginBottom: 10 },
+  catWrapper: { marginRight: 10 },
+  catChip: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 24, backgroundColor: Colors.surface },
+  catChipActive: { paddingHorizontal: 22, paddingVertical: 11, borderRadius: 24, justifyContent: 'center', alignItems: 'center' },
+  catText: { color: Colors.textSecondary, fontWeight: '600' },
+  catTextActive: { color: Colors.text, fontWeight: '700' },
+  
+  listContent: { flexGrow: 1, paddingBottom: 100 },
+  columnWrapper: { justifyContent: 'space-between', paddingHorizontal: 20 },
+  
+  emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 60, paddingHorizontal: 40 },
+  emptyIconCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  emptyTitle: { fontSize: 20, fontWeight: '700', color: Colors.text, marginBottom: 8 },
+  emptySubtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+  clearBtn: { marginTop: 20, paddingVertical: 10 },
+  clearBtnText: { color: Colors.primary, fontWeight: 'bold' }
+});
+
+export default MarketplaceScreen;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@config/Colors';
@@ -16,19 +16,11 @@ const ActionButton = ({ item, onPress }) => (
     </TouchableOpacity>
 );
 
-const QuickActions = ({ actions, onActionPress }) => {
-    return (
-        <View style={styles.actionGrid}>
-            {actions.map((item) => (
-                <ActionButton 
-                    key={item.title} 
-                    item={item} 
-                    onPress={() => onActionPress(item)} 
-                />
-            ))}
-        </View>
-    );
-};
+const QuickActions = memo(({ actions, onActionPress }) => (
+    <View style={styles.actionGrid}>
+        {actions.map((item) => <ActionButton key={item.title} item={item} onPress={() => onActionPress(item)} />)}
+    </View>
+));
 
 const styles = StyleSheet.create({
     actionGrid: { flexDirection: 'column', paddingHorizontal: 20, gap: 10, marginTop: 10 },
