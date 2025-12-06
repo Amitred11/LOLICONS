@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, 
-  StatusBar, Dimensions, ActivityIndicator, TextInput, KeyboardAvoidingView, 
-  Platform, Keyboard, Modal, TouchableWithoutFeedback 
+  StatusBar, Dimensions, ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,62 +13,86 @@ const { width } = Dimensions.get('window');
 
 const GuildDetailScreen = ({ route, navigation }) => {
   const { guildId } = route.params;
-  const { currentGuild, fetchGuildDetails, isLoadingGuilds, getSecurityLevel } = useCommunity();
+  const { 
+    currentGuild, 
+    fetchGuildDetails, 
+    isLoadingGuilds, 
+    getSecurityLevel,
+    joinGuildPublic,
+    requestGuildAccess
+  } = useCommunity();
+  
   const { showAlert } = useAlert();
-
-  // State
-  const [isJoined, setIsJoined] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [showInput, setShowInput] = useState(false); 
-  const [accessCode, setAccessCode] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     fetchGuildDetails(guildId);
   }, [guildId, fetchGuildDetails]);
 
-  // Derived Security Level
+  // Derived Security & Status
   const security = currentGuild ? getSecurityLevel(currentGuild) : {};
+  const status = currentGuild?.membershipStatus || 'guest'; // 'guest', 'pending', 'member', 'owner'
 
   // --- Handlers ---
 
-  const handleActionPress = () => {
-    if (isJoined) {
+  const handleMainAction = async () => {
+    if (isProcessing) return;
+
+    // 1. If Member or Owner -> ENTER
+    if (status === 'member' || status === 'owner') {
       navigation.navigate('Discussion', { guildId: currentGuild.id, guildName: currentGuild.name });
       return;
     }
 
-    if (security.type === 'OWNED') {
-      enterRealm("Welcome back, Administrator.");
-    } else if (security.type === 'PRIVATE') {
-      setAccessCode(''); 
-      setShowInput(true);
+    // 2. If Pending -> Do Nothing (Button should be disabled, but safety check)
+    if (status === 'pending') {
+      showAlert({ title: "Request Pending", message: "The admins are reviewing your request.", type: 'info' });
+      return;
+    }
+
+    // 3. Logic for joining based on Type
+    setIsProcessing(true);
+
+    if (security.type === 'PUBLIC') {
+      // --- PUBLIC: Join Immediately ---
+      const success = await joinGuildPublic(currentGuild.id);
+      if (success) {
+        showAlert({ title: "Welcome!", message: `You have joined ${currentGuild.name}.`, type: 'success' });
+      } else {
+        showAlert({ title: "Error", message: "Could not join guild.", type: 'error' });
+      }
     } else {
-      performSecurityCheck();
+      // --- PRIVATE / ADMIN: Request Access ---
+      const success = await requestGuildAccess(currentGuild.id);
+      if (success) {
+        showAlert({ 
+          title: "Request Sent", 
+          message: "Your request has been sent to the Realm Admins for approval.", 
+          type: 'success' 
+        });
+      } else {
+        showAlert({ title: "Error", message: "Could not send request.", type: 'error' });
+      }
+    }
+
+    setIsProcessing(false);
+  };
+
+  // Helper to determine Button Style & Text
+  const getButtonConfig = () => {
+    if (status === 'owner') return { text: "Manage Realm", icon: "settings-outline", style: styles.btnEnter, disabled: false };
+    if (status === 'member') return { text: "Enter Realm", icon: "arrow-forward", style: styles.btnEnter, disabled: false };
+    if (status === 'pending') return { text: "Request Pending", icon: "time-outline", style: styles.btnPending, disabled: true };
+    
+    // Not joined yet
+    if (security.type === 'PUBLIC') {
+      return { text: "Join Community", icon: "add-circle-outline", style: styles.btnJoin, disabled: false };
+    } else {
+      return { text: "Request Access", icon: "lock-closed", style: styles.btnPrivate, disabled: false };
     }
   };
 
-  const performSecurityCheck = () => {
-    setIsVerifying(true);
-    Keyboard.dismiss();
-    setTimeout(() => {
-      setIsVerifying(false);
-      enterRealm("Identity verified. Access granted.");
-    }, 1500);
-  };
-
-  const handlePrivateCodeSubmit = () => {
-    if (accessCode.length > 0) { 
-      setShowInput(false);
-      performSecurityCheck();
-    } else {
-      showAlert({ title: "Access Denied", message: "Invalid Access Key provided.", type: 'error' });
-    }
-  };
-
-  const enterRealm = (message) => {
-    setIsJoined(true);
-    showAlert({ title: "Access Granted", message: message, type: 'success' });
-  };
+  const btnConfig = getButtonConfig();
 
   // --- Renders ---
 
@@ -86,8 +109,8 @@ const GuildDetailScreen = ({ route, navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       
-      {/* Main Content */}
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+        {/* Hero Section */}
         <View style={styles.heroContainer}>
           <Image source={{ uri: currentGuild.cover }} style={styles.heroImage} resizeMode="cover" />
           <LinearGradient colors={['transparent', Colors.background]} style={styles.heroGradient} />
@@ -102,9 +125,10 @@ const GuildDetailScreen = ({ route, navigation }) => {
           </View>
         </View>
 
+        {/* Body Section */}
         <View style={styles.body}>
           <View style={styles.headerContent}>
-             <View style={[styles.iconBox, { borderColor: security.type === 'OWNED' ? '#FBBF24' : Colors.background }]}>
+             <View style={[styles.iconBox, { borderColor: security.color }]}>
                 <View style={[styles.iconInner, { backgroundColor: currentGuild.accent || Colors.primary }]}>
                   <Ionicons name={currentGuild.icon} size={32} color="#FFF" />
                 </View>
@@ -117,41 +141,45 @@ const GuildDetailScreen = ({ route, navigation }) => {
                   <Ionicons name="people" size={14} color={Colors.textSecondary} />
                   <Text style={styles.statText}>{currentGuild.members} Members</Text>
                 </View>
-                <View style={[styles.statBadge, { marginLeft: 8 }]}>
-                  <Ionicons name="shield-checkmark" size={14} color={Colors.textSecondary} />
-                  <Text style={styles.statText}>Secure</Text>
+                {/* Status Badge */}
+                <View style={[styles.statBadge, { marginLeft: 8, borderColor: status === 'guest' ? Colors.border : security.color }]}>
+                  <Text style={[styles.statText, { marginLeft: 0, color: status === 'guest' ? Colors.textSecondary : security.color }]}>
+                    {status === 'owner' ? 'Owner' : status === 'member' ? 'Member' : status === 'pending' ? 'Pending' : 'Guest'}
+                  </Text>
                 </View>
              </View>
           </View>
 
+          {/* Action Button */}
           <TouchableOpacity 
             activeOpacity={0.9}
-            style={[
-              styles.mainBtn, 
-              isJoined ? styles.btnEnter : (security.type === 'PRIVATE' ? styles.btnPrivate : styles.btnJoin)
-            ]}
-            onPress={handleActionPress}
-            disabled={isVerifying}
+            style={[styles.mainBtn, btnConfig.style, isProcessing && { opacity: 0.7 }]}
+            onPress={handleMainAction}
+            disabled={btnConfig.disabled || isProcessing}
           >
-            {isVerifying ? (
-              <>
-                <ActivityIndicator size="small" color="#FFF" style={{ marginRight: 10 }} />
-                <Text style={styles.btnText}>Verifying Credentials...</Text>
-              </>
+            {isProcessing ? (
+              <ActivityIndicator size="small" color="#FFF" />
             ) : (
               <>
-                <Text style={[styles.btnText, isJoined && { color: '#000' }]}> 
-                  {isJoined ? 'Enter Realm' : (security.type === 'PRIVATE' ? 'Request Access' : 'Join Community')}
+                <Text style={[styles.btnText, (status === 'member' || status === 'owner') && { color: '#000' }]}> 
+                  {btnConfig.text}
                 </Text>
                 <Ionicons 
-                  name={isJoined ? "arrow-forward" : (security.type === 'PRIVATE' ? "lock-closed" : "add-circle-outline")} 
+                  name={btnConfig.icon} 
                   size={20} 
-                  color={isJoined ? '#000' : '#FFF'} 
+                  color={(status === 'member' || status === 'owner') ? '#000' : '#FFF'} 
                   style={{ marginLeft: 8 }} 
                 />
               </>
             )}
           </TouchableOpacity>
+          
+          {/* Explanation Text for Private Realms */}
+          {status === 'guest' && security.type !== 'PUBLIC' && (
+            <Text style={styles.accessNote}>
+              This is a restricted realm. Your request must be approved by an administrator before you can view content.
+            </Text>
+          )}
 
           <View style={styles.divider} />
           <Text style={styles.sectionTitle}>Manifesto</Text>
@@ -164,63 +192,6 @@ const GuildDetailScreen = ({ route, navigation }) => {
           </View>
         </View>
       </ScrollView>
-
-      {/* --- FIX: RESTRUCTURED MODAL HIERARCHY --- */}
-      <Modal
-        visible={showInput}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowInput(false)}
-      >
-        {/* 
-          1. KeyboardAvoidingView is the ROOT. 
-          2. It has the background color. 
-          3. Behavior is disabled on Android to prevent black void (Android handles it natively).
-        */}
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
-          style={styles.modalOverlay}
-        >
-          {/* This handles tapping outside to dismiss keyboard */}
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={styles.modalInnerContainer}>
-              
-              {/* This prevents tapping the CARD from dismissing keyboard */}
-              <TouchableWithoutFeedback onPress={() => {}}>
-                <View style={styles.modalCard}>
-                  <View style={styles.modalHeader}>
-                    <Ionicons name="shield-half" size={32} color={Colors.text} />
-                    <TouchableOpacity onPress={() => setShowInput(false)}>
-                      <Ionicons name="close" size={24} color={Colors.textSecondary} />
-                    </TouchableOpacity>
-                  </View>
-                  
-                  <Text style={styles.modalTitle}>Restricted Access</Text>
-                  <Text style={styles.modalSub}>This realm is private. Please enter your unique access key to proceed.</Text>
-                  
-                  <TextInput 
-                    style={styles.input}
-                    placeholder="Enter Access Key"
-                    placeholderTextColor={Colors.textSecondary}
-                    secureTextEntry
-                    autoFocus={true}
-                    value={accessCode}
-                    onChangeText={setAccessCode}
-                    onSubmitEditing={handlePrivateCodeSubmit}
-                    returnKeyType="go"
-                  />
-                  
-                  <TouchableOpacity style={styles.modalBtn} onPress={handlePrivateCodeSubmit}>
-                    <Text style={styles.modalBtnText}>Unlock Realm</Text>
-                  </TouchableOpacity>
-                </View>
-              </TouchableWithoutFeedback>
-
-            </View>
-          </TouchableWithoutFeedback>
-        </KeyboardAvoidingView>
-      </Modal>
-
     </View>
   );
 };
@@ -237,7 +208,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   center: { justifyContent: 'center', alignItems: 'center' },
   
-  // Hero & Header
   heroContainer: { height: 320, width: width },
   heroImage: { width: '100%', height: '100%' },
   heroGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 160 },
@@ -246,7 +216,6 @@ const styles = StyleSheet.create({
   securityBadge: { position: 'absolute', top: 50, right: 20, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', gap: 6 },
   securityText: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
   
-  // Body
   body: { paddingHorizontal: 24, marginTop: -60 },
   headerContent: { alignItems: 'center', marginBottom: 25 },
   iconBox: { width: 72, height: 72, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 15, backgroundColor: Colors.background, borderWidth: 4 },
@@ -257,61 +226,25 @@ const styles = StyleSheet.create({
   statBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: Colors.border },
   statText: { color: Colors.textSecondary, fontSize: 12, marginLeft: 6, fontWeight: '600' },
 
-  // Buttons
+  // Updated Button Styles
   mainBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 18, borderRadius: 18, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
-  btnJoin: { backgroundColor: Colors.primary },
-  btnPrivate: { backgroundColor: Colors.danger },
-  btnEnter: { backgroundColor: Colors.secondary }, 
+  
+  btnJoin: { backgroundColor: Colors.primary },      // Public Join
+  btnPrivate: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.textSecondary }, // Request Access (Neutral)
+  btnEnter: { backgroundColor: Colors.secondary },   // Enter (Success)
+  btnPending: { backgroundColor: '#334155' },        // Pending (Disabled)
+
   btnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold', letterSpacing: 0.5 },
+  accessNote: { color: Colors.textSecondary, fontSize: 13, textAlign: 'center', marginTop: 15, marginHorizontal: 20, fontStyle: 'italic' },
 
   divider: { height: 1, backgroundColor: Colors.surface, marginVertical: 30 },
   sectionTitle: { color: Colors.text, fontSize: 20, fontWeight: '700', marginBottom: 12 },
   description: { color: Colors.textSecondary, fontSize: 15, lineHeight: 24, textAlign: 'left' },
 
-  // Info Grid
   infoGrid: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 30 },
   infoCard: { width: '31%', backgroundColor: Colors.surface, padding: 15, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
   infoTitle: { color: Colors.text, fontWeight: 'bold', marginTop: 8, fontSize: 13 },
   infoSub: { color: Colors.textSecondary, fontSize: 11, marginTop: 2 },
-
-  // --- MODAL STYLES (Fixed) ---
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)', // Background color IS HERE now
-  },
-  modalInnerContainer: {
-    flex: 1,
-    justifyContent: 'flex-end', // Pushes content to bottom
-  },
-  modalCard: { 
-    backgroundColor: '#1E293B', 
-    borderTopLeftRadius: 30, 
-    borderTopRightRadius: 30, 
-    padding: 24, 
-    paddingBottom: Platform.OS === 'ios' ? 40 : 30, // Safe padding
-    borderTopWidth: 1, 
-    borderTopColor: '#334155',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 20
-  },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { color: '#FFF', fontSize: 20, fontWeight: 'bold', marginBottom: 8 },
-  modalSub: { color: '#94A3B8', fontSize: 14, marginBottom: 20, lineHeight: 20 },
-  input: { 
-    backgroundColor: '#0F172A', 
-    color: '#FFF', 
-    padding: 16, 
-    borderRadius: 12, 
-    fontSize: 16, 
-    borderWidth: 1, 
-    borderColor: '#334155', 
-    marginBottom: 20 
-  },
-  modalBtn: { backgroundColor: Colors.primary, padding: 16, borderRadius: 14, alignItems: 'center' },
-  modalBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 }
 });
 
 export default GuildDetailScreen;

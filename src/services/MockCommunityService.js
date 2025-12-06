@@ -88,6 +88,12 @@ const GUILDS_DATA = [
   }
 ];
 
+let MOCK_USER_MEMBERSHIPS = {
+  'artist': 'owner',
+  'gamer': 'member',
+  'dev': 'pending',
+};
+
 let POSTS_DATA = [
   { 
     id: '1', 
@@ -244,10 +250,37 @@ export const CommunityAPI = {
     return new Promise((resolve) => {
       setTimeout(() => {
         const guild = GUILDS_DATA.find(g => g.id === guildId);
-        resolve(guild || null);
+        if (guild) {
+          // Attach the dynamic membership status for the current user
+          const status = MOCK_USER_MEMBERSHIPS[guildId] || 'guest';
+          resolve({ ...guild, membershipStatus: status });
+        } else {
+          resolve(null);
+        }
       }, 300);
     });
   },
+
+  // NEW: Request to join a Private/Admin guild
+  requestJoinGuild: async (guildId) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        MOCK_USER_MEMBERSHIPS[guildId] = 'pending';
+        resolve('pending');
+      }, 500);
+    });
+  },
+
+  // NEW: Join a Public guild immediately
+  joinPublicGuild: async (guildId) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        MOCK_USER_MEMBERSHIPS[guildId] = 'member';
+        resolve('member');
+      }, 500);
+    });
+  },
+
 
   getPosts: async (guildId = null) => {
     return new Promise((resolve) => {
@@ -366,28 +399,35 @@ export const CommunityAPI = {
       }, 400);
     });
   },
+  
   getRealmSecurityLevel: (guild) => {
     if (!guild) return {};
     
+    // Status Logic for UI Labels
+    const status = guild.membershipStatus || 'guest';
+
     switch (guild.type) {
       case 'private':
         return { 
           type: 'PRIVATE', 
-          label: 'Private Realm', 
+          label: 'Request Only', 
+          status: status,
           icon: 'lock-closed', 
           color: Colors.danger || '#EF4444' 
         };
       case 'owned':
         return { 
           type: 'OWNED', 
-          label: 'Admin Access', 
-          icon: 'key', 
+          label: 'Admin Realm', 
+          status: status,
+          icon: 'shield-checkmark', 
           color: '#FBBF24' 
         };
       default: // public
         return { 
           type: 'PUBLIC', 
           label: 'Public Realm', 
+          status: status,
           icon: 'globe', 
           color: Colors.secondary || '#10B981' 
         };

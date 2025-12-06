@@ -76,6 +76,30 @@ export const CommunityProvider = ({ children }) => {
     }
   }, []);
 
+  const joinGuildPublic = useCallback(async (guildId) => {
+    try {
+      await CommunityAPI.joinPublicGuild(guildId);
+      // Update the currentGuild state locally to reflect the change immediately
+      setCurrentGuild(prev => ({ ...prev, membershipStatus: 'member' }));
+      return true;
+    } catch (err) {
+      console.error("Context: Join failed", err);
+      return false;
+    }
+  }, []);
+
+  const requestGuildAccess = useCallback(async (guildId) => {
+    try {
+      await CommunityAPI.requestJoinGuild(guildId);
+      // Update state to 'pending'
+      setCurrentGuild(prev => ({ ...prev, membershipStatus: 'pending' }));
+      return true;
+    } catch (err) {
+      console.error("Context: Request failed", err);
+      return false;
+    }
+  }, []);
+
   // ==============================
   //         POST LOGIC
   // ==============================
@@ -202,6 +226,8 @@ export const CommunityProvider = ({ children }) => {
     fetchPosts,
     createPost,
     togglePostLike,
+    joinGuildPublic,     
+    requestGuildAccess, 
     
     fetchReplies, // Exported
     submitReply,  // Exported
