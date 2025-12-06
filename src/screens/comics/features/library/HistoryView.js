@@ -8,7 +8,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } fro
 import { Ionicons } from '@expo/vector-icons';
 import { Swipeable } from 'react-native-gesture-handler';
 // CHANGE: Context
-import { useComic } from '@context/ComicContext';
+import { useComic } from '@context/main/ComicContext';
 
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
 const { height } = Dimensions.get('window');

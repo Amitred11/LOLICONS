@@ -9,7 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
 
-import { useAlert } from '@context/AlertContext';
+import { useAlert } from '@context/other/AlertContext';
 import { useMedia } from '@context/hub/MediaContext'; // IMPT: Import Context
 
 const { width, height } = Dimensions.get('window');

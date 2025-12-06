@@ -7,7 +7,7 @@ import { Colors } from '@config/Colors';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 // CHANGE: Context
-import { useComic } from '@context/ComicContext';
+import { useComic } from '@context/main/ComicContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

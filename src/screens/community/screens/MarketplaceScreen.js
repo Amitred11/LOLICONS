@@ -14,9 +14,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient'; 
 import MarketCard from '../components/MarketCard'; 
-import { useCommunity } from '@context/CommunityContext'; // Import Hook
+import { useCommunity } from '@context/main/CommunityContext'; // Import Hook
 import { Colors } from '@config/Colors'; 
-import { useAlert } from '@context/AlertContext';
+import { useAlert } from '@context/other/AlertContext';
 
 const CATEGORIES = ['All', 'Hardware', 'Digital', 'Services', 'Merch'];
 

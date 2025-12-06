@@ -22,7 +22,7 @@ import * as Haptics from 'expo-haptics';
 
 // --- Imports ---
 import { Colors } from '@config/Colors'; 
-import { useProfile } from '@context/ProfileContext'; // IMPORT CONTEXT
+import { useProfile } from '@context/main/ProfileContext'; // IMPORT CONTEXT
 
 const { width } = Dimensions.get('window');
 const COLUMN_COUNT = 3;

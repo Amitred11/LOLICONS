@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
 // CHANGE: Context
-import { useComic } from '@context/ComicContext';
+import { useComic } from '@context/main/ComicContext';
 
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
 const { width, height } = Dimensions.get('window');

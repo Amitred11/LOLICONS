@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Colors } from '../constants/Colors';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '@context/main/AuthContext';
 
 // Import Separated Navigators
 import AuthNavigator from './AuthNavigator';

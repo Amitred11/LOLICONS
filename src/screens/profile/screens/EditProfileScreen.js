@@ -9,8 +9,8 @@ import { Colors } from '@config/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
-import { useAlert } from '@context/AlertContext'; 
-import { useProfile } from '@context/ProfileContext'; 
+import { useAlert } from '@context/other/AlertContext'; 
+import { useProfile } from '@context/main/ProfileContext'; 
 
 const AnimatedSection = ({ children, index }) => {
     const opacity = useSharedValue(0);

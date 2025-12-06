@@ -10,14 +10,14 @@ import { MenuProvider } from 'react-native-popup-menu';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 
 // Import Contexts
-import { AuthProvider } from '@context/AuthContext';
-import { ModalProvider } from '@context/ModalContext';
-import { AlertProvider } from '@context/AlertContext';
-import { CommunityProvider } from '@context/CommunityContext';
-import { ComicProvider } from '@context/ComicContext'; 
-import { HomeProvider } from '@context/HomeContext';
-import { ProfileProvider } from '@context/ProfileContext';
-import { NotificationProvider } from '@context/NotificationContext';
+import { AuthProvider } from '@context/main/AuthContext';
+import { ModalProvider } from '@context/other/ModalContext';
+import { AlertProvider } from '@context/other/AlertContext';
+import { CommunityProvider } from '@context/main/CommunityContext';
+import { ComicProvider } from '@context/main/ComicContext'; 
+import { HomeProvider } from '@context/main/HomeContext';
+import { ProfileProvider } from '@context/main/ProfileContext';
+import { NotificationProvider } from '@context/main/NotificationContext';
 
 // Hub Contexts
 import { ChatProvider } from '@context/hub/ChatContext';

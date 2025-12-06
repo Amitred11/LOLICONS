@@ -7,8 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@config/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAlert } from '@context/AlertContext'; 
-import { useProfile } from '@context/ProfileContext';
+import { useAlert } from '@context/other/AlertContext'; 
+import { useProfile } from '@context/main/ProfileContext';
 
 // ... Row Components (same as before) ...
 const AccountRow = ({ icon, label, value, subtitle, onPress, isLast, color = Colors.text }) => (

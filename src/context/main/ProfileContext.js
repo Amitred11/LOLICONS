@@ -2,7 +2,7 @@
 import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
 import { ProfileAPI } from '@api/MockProfileService';
 import { ComicService } from '@api/MockComicService';
-import { useAuth } from '@context/AuthContext';
+import { useAuth } from '@context/main/AuthContext';
 
 const ProfileContext = createContext();
 

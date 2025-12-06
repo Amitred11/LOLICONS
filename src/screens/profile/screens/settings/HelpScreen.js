@@ -7,7 +7,7 @@ import { Colors } from '@config/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { useModal } from '@context/ModalContext';
+import { useModal } from '@context/other/ModalContext';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, measure, runOnUI, interpolate, Extrapolate, useAnimatedScrollHandler, useAnimatedRef } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 

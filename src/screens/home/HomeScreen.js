@@ -1,10 +1,10 @@
 // screens/home/HomeScreen.js
 import React, { useMemo } from 'react'; // Removed useState, useEffect
 import { View, Text, StyleSheet, Image, Dimensions, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl } from 'react-native';
-import { useAuth } from '@context/AuthContext';
-import { useAlert } from '@context/AlertContext'; 
+import { useAuth } from '@context/main/AuthContext';
+import { useAlert } from '@context/other/AlertContext'; 
 // Import the new Context
-import { useHome } from '@context/HomeContext';
+import { useHome } from '@context/main/HomeContext';
 import { Colors } from '@config/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, useAnimatedScrollHandler, interpolate } from 'react-native-reanimated';

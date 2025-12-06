@@ -13,7 +13,7 @@ import { Colors } from '@config/Colors';
 // Components & Context
 import FriendItem from './components/FriendItem'; 
 import { useFriend } from '@context/hub/FriendContext'; // IMPT: Import Context
-import { useAlert } from '@context/AlertContext'; // Assuming you have this from previous steps
+import { useAlert } from '@context/other/AlertContext'; // Assuming you have this from previous steps
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);

@@ -5,7 +5,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors'; 
-import { useAlert } from '@context/AlertContext';
+import { useAlert } from '@context/other/AlertContext';
 
 const MarketDetailScreen = ({ route, navigation }) => {
   const { item } = route.params;

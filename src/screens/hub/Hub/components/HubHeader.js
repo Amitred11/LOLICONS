@@ -12,7 +12,7 @@ import { Colors } from '@config/Colors';
 import { HEADER_EXPANDED_HEIGHT, HEADER_COLLAPSED_HEIGHT } from './constants';
 
 // Use Context
-import { useProfile } from '@context/ProfileContext';
+import { useProfile } from '@context/main/ProfileContext';
 
 const SCROLL_DISTANCE = HEADER_EXPANDED_HEIGHT - HEADER_COLLAPSED_HEIGHT;
 

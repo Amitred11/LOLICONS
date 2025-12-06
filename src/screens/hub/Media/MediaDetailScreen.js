@@ -10,7 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import WatchSelectionModal from './components/WatchSelectionModal'; 
-import { useAlert } from '@context/AlertContext';
+import { useAlert } from '@context/other/AlertContext';
 import { useMedia } from '@context/hub/MediaContext'; // IMPT: Import Context
 
 const { width, height } = Dimensions.get('window');

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@config/Colors'; 
-import { useNotifications } from '@context/NotificationContext'; // Import Hook
+import { useNotifications } from '@context/main/NotificationContext'; // Import Hook
 
 const NotificationScreen = ({ navigation }) => {
   // 1. Use Context

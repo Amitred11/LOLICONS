@@ -5,7 +5,7 @@ import Loading from '@components/ui/Loading';
 // Import the Mock API
 import { AuthAPI } from '@api/MockAuthService';
 // Import Alert Context to show errors
-import { useAlert } from '@context/AlertContext';
+import { useAlert } from '@context/other/AlertContext';
 
 const AuthContext = createContext();
 

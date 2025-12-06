@@ -6,7 +6,7 @@ import * as FileSystem from 'expo-file-system';
 import { Asset } from 'expo-asset';
 
 import { ComicService } from '@api/MockComicService';
-import { useAlert } from './AlertContext';
+import { useAlert } from '@context/other/AlertContext';
 
 const DOWNLOADS_STORAGE_KEY = 'user_downloads_v3';
 const COMICS_DIR = FileSystem.documentDirectory + 'comics/';

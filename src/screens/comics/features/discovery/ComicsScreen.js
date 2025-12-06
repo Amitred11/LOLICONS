@@ -9,7 +9,7 @@ import Animated, { useSharedValue, useAnimatedStyle, interpolate, Extrapolate, u
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 // Import custom hooks and child components (the tab screens).
-import { useModal } from '@context/ModalContext';
+import { useModal } from '@context/other/ModalContext';
 import LibraryView from '../library/LibraryView';
 import HistoryView from '../library/HistoryView';
 import BrowseView from './BrowseView';

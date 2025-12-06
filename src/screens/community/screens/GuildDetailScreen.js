@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useCommunity } from '@context/CommunityContext'; // Import Hook
+import { useCommunity } from '@context/main/CommunityContext'; // Import Hook
 import { Colors } from '@config/Colors';
 
 const { width } = Dimensions.get('window');

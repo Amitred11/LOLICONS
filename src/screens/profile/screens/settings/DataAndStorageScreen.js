@@ -5,7 +5,7 @@ import { Colors } from '@config/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { useProfile } from '@context/ProfileContext';
+import { useProfile } from '@context/main/ProfileContext';
 
 const SettingsRow = ({ icon, label, details, onPress, isLast, color = Colors.text }) => (
     <TouchableOpacity onPress={onPress} style={[styles.row, !isLast && styles.rowBorder]}>

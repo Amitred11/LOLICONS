@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Colors } from '@config/Colors'; 
-import { useAlert } from '@context/AlertContext';
+import { useAlert } from '@context/other/AlertContext';
 import { useChat } from '@context/hub/ChatContext';
 
 const ChatSettingsScreen = () => {

@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors'; 
-import { useAlert } from '@context/AlertContext';
+import { useAlert } from '@context/other/AlertContext';
 import { useChat } from '@context/hub/ChatContext'; // IMPT: Import Context
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {

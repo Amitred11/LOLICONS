@@ -9,9 +9,9 @@ import { ComicService } from '@api/MockComicService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // CHANGE: Unified Context
-import { useComic } from '@context/ComicContext';
-import { useModal } from '@context/ModalContext';
-import { useAlert } from '@context/AlertContext'; 
+import { useComic } from '@context/main/ComicContext';
+import { useModal } from '@context/other/ModalContext';
+import { useAlert } from '@context/other/AlertContext'; 
 
 import { formatChapterDate } from '@utils/formatDate';
 import Animated, { useSharedValue, useAnimatedStyle, interpolate, Extrapolate, useAnimatedScrollHandler, withTiming } from 'react-native-reanimated';

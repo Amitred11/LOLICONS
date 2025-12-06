@@ -8,7 +8,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-na
 import { useNavigation } from '@react-navigation/native';
 
 // API
-import { useHome } from '@context/HomeContext';
+import { useHome } from '@context/main/HomeContext';
 
 // --- Static UI Recommendations ---
 const popularSearches = ["Action", "Solo Leveling", "Fantasy", "Isekai", "Villainess"];

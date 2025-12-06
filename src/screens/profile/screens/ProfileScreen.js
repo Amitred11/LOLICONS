@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, StatusBar, TouchableOpacity, FlatList, Dimensions, ImageBackground, ActivityIndicator } from 'react-native';
 import { Colors } from '@config/Colors';
-import { useAuth } from '@context/AuthContext';
-import { useProfile } from '@context/ProfileContext'; // IMPORT CONTEXT
+import { useAuth } from '@context/main/AuthContext';
+import { useProfile } from '@context/main/ProfileContext'; // IMPORT CONTEXT
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { 
     useSharedValue, useAnimatedStyle, withDelay, withSpring, withTiming, 

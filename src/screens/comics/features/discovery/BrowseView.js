@@ -7,7 +7,7 @@ import { Colors } from '@config/Colors';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 // CHANGE: Import unified Context
-import { useComic } from '@context/ComicContext';
+import { useComic } from '@context/main/ComicContext';
 // CHANGE: We still import Service for lists that aren't global user data (like "Browse" or "Search")
 import { ComicService } from '@api/MockComicService'; 
 import { LinearGradient } from 'expo-linear-gradient';

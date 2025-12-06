@@ -7,8 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@config/Colors'; 
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAlert } from '@context/AlertContext'; 
-import { useProfile } from '@context/ProfileContext';
+import { useAlert } from '@context/other/AlertContext'; 
+import { useProfile } from '@context/main/ProfileContext';
 
 // ... PasswordInput Component (same as before) ...
 const PasswordInput = ({ label, value, onChangeText, placeholder, isSecure, onToggleSecurity }) => (

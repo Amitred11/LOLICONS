@@ -4,8 +4,8 @@ import {
   Image, Keyboard, StatusBar, Platform, ActivityIndicator 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useCommunity } from '@context/CommunityContext'; // Import Hook
-import { useAlert } from '@context/AlertContext';
+import { useCommunity } from '@context/main/CommunityContext'; // Import Hook
+import { useAlert } from '@context/other/AlertContext';
 
 const CreatePostScreen = ({ navigation, route }) => {
   const { showAlert } = useAlert();

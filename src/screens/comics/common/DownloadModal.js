@@ -8,9 +8,9 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-na
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 // CHANGE: Use unified ComicContext instead of DownloadContext
-import { useComic } from '@context/ComicContext'; 
+import { useComic } from '@context/main/ComicContext'; 
 import Svg, { Circle } from 'react-native-svg';
-import { useAlert } from '@context/AlertContext';
+import { useAlert } from '@context/other/AlertContext';
 
 /**
  * A circular progress ring component built with SVG.

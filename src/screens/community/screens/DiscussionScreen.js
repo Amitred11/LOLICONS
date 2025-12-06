@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import PostCard from '../components/PostCard';
-import { useCommunity } from '@context/CommunityContext'; // Import Hook
+import { useCommunity } from '@context/main/CommunityContext'; // Import Hook
 
 const DiscussionScreen = ({ route, navigation }) => {
   const { guildName, guildId } = route.params;

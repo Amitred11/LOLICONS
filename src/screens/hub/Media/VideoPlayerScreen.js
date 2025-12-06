@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { useAlert } from '@context/AlertContext';
+import { useAlert } from '@context/other/AlertContext';
 
 const Theme = { primary: '#E50914' };
 

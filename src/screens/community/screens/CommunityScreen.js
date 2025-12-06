@@ -6,9 +6,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import GuildCard from '../components/GuildCard';
-import { useCommunity } from '@context/CommunityContext'; // Import Hook
+import { useCommunity } from '@context/main/CommunityContext'; // Import Hook
 import { Colors } from '@config/Colors'; 
-import { useNotifications } from '@context/NotificationContext';
+import { useNotifications } from '@context/main/NotificationContext';
 
 
 const CommunityScreen = ({ navigation }) => {
