@@ -48,7 +48,7 @@ export const AuthAPI = {
         // 3. Fail
         reject({ 
           success: false, 
-          message: 'Invalid email or password. (Hint: loli.hunter@example.com / password123)' 
+          message: 'Invalid email or password. (Hint: loli.hunter@example.com / a)' 
         });
       }, 1500);
     });
