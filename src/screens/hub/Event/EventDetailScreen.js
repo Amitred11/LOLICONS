@@ -1,164 +1,196 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ImageBackground, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { 
+    View, Text, StyleSheet, ImageBackground, TouchableOpacity, ScrollView, 
+    Dimensions, ActivityIndicator, Alert, Share, Linking, Modal, Platform 
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors';
-
-// IMPT: Import Context
 import { useEvents } from '@context/hub/EventsContext';
 
 const { width } = Dimensions.get('window');
 
-// --- TICKET COMPONENT (Unchanged) ---
-const TicketView = ({ event }) => (
-    <View style={styles.ticketContainer}>
-        <View style={styles.ticketCard}>
-            <LinearGradient colors={[Colors.primary, '#FF6B6B']} style={styles.ticketHeader}>
-                <Text style={styles.ticketEventTitle}>{event?.title || "Event Name"}</Text>
-                <Text style={styles.ticketType}>VIP ACCESS</Text>
-            </LinearGradient>
-            
-            <View style={styles.ticketBody}>
-                <View style={styles.qrContainer}>
-                    <Ionicons name="qr-code-outline" size={120} color="#000" />
-                </View>
-                <Text style={styles.ticketName}>User 01</Text>
-                <Text style={styles.ticketId}>ID: #8392-AB2</Text>
-                
-                <View style={styles.divider}>
-                    <View style={[styles.circle, styles.circleLeft]} />
-                    <View style={[styles.dashedLine]} />
-                    <View style={[styles.circle, styles.circleRight]} />
-                </View>
+// --- PAYMENT MODAL COMPONENT ---
+const PaymentModal = ({ visible, onClose, event, onConfirm }) => {
+    const [step, setStep] = useState(1); // 1: Method, 2: Gateway, 3: Processing
+    const [method, setMethod] = useState('gcash');
 
-                <View style={styles.ticketInfoRow}>
-                    <View><Text style={styles.label}>DATE</Text><Text style={styles.value}>{event?.date || "TBD"}</Text></View>
-                    <View><Text style={styles.label}>TIME</Text><Text style={styles.value}>{event?.time || "18:00"}</Text></View>
-                    <View><Text style={styles.label}>SEAT</Text><Text style={styles.value}>A-24</Text></View>
+    const handlePay = () => {
+        setStep(3);
+        // Pass payment details back
+        onConfirm({ method, amount: event.price });
+    };
+
+    const reset = () => { setStep(1); onClose(); };
+
+    return (
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={reset}>
+            <View style={styles.modalOverlay}>
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>Secure Checkout</Text>
+                        <TouchableOpacity onPress={reset}><Ionicons name="close" size={24} color="#000" /></TouchableOpacity>
+                    </View>
+                    
+                    <View style={styles.summaryBox}>
+                        <Text style={styles.summaryTitle}>{event?.title}</Text>
+                        <Text style={styles.summaryPrice}>Total: ₱{event?.price?.toLocaleString()}</Text>
+                    </View>
+
+                    {step === 1 && (
+                        <View style={{ width: '100%' }}>
+                            <Text style={styles.sectionLabel}>Select Payment Method</Text>
+                            <TouchableOpacity style={[styles.payMethod, method === 'gcash' && styles.payMethodActive]} onPress={() => setMethod('gcash')}>
+                                <View style={{flexDirection:'row', alignItems:'center'}}>
+                                    <View style={[styles.iconBox, {backgroundColor:'#007AFF'}]}><Ionicons name="phone-portrait-outline" size={20} color="#fff" /></View>
+                                    <Text style={styles.payText}>GCash / E-Wallet</Text>
+                                </View>
+                                {method === 'gcash' && <Ionicons name="checkmark-circle" size={22} color="#007AFF" />}
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.payMethod, method === 'card' && styles.payMethodActive]} onPress={() => setMethod('card')}>
+                                <View style={{flexDirection:'row', alignItems:'center'}}>
+                                    <View style={[styles.iconBox, {backgroundColor:'#FF9500'}]}><Ionicons name="card-outline" size={20} color="#fff" /></View>
+                                    <Text style={styles.payText}>Credit/Debit Card</Text>
+                                </View>
+                                {method === 'card' && <Ionicons name="checkmark-circle" size={22} color="#FF9500" />}
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.payBtnMain} onPress={() => setStep(2)}>
+                                <Text style={styles.payBtnText}>Next</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+                    {step === 2 && (
+                        <View style={{ alignItems: 'center', width: '100%' }}>
+                            {method === 'gcash' ? (
+                                <>
+                                    <Text style={styles.gatewayTitle}>Scan to Pay</Text>
+                                    <View style={styles.qrContainer}>
+                                        <Ionicons name="qr-code" size={140} color="#000" />
+                                    </View>
+                                    <Text style={styles.qrNumber}>0917-123-4567</Text>
+                                    <Text style={styles.qrNote}>Please attach reference no. automatically.</Text>
+                                </>
+                            ) : (
+                                <View style={styles.cardForm}>
+                                    <Ionicons name="card" size={40} color="#666" style={{marginBottom:10}}/>
+                                    <Text>Card Payment Simulator</Text>
+                                    <Text style={{color:'#999', fontSize:12}}>Ending in **** 4242</Text>
+                                </View>
+                            )}
+                            <TouchableOpacity style={styles.payBtnMain} onPress={handlePay}>
+                                <Text style={styles.payBtnText}>Confirm Payment ₱{event?.price}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => setStep(1)} style={{marginTop: 15}}>
+                                <Text style={{color:'#666'}}>Back</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+                    {step === 3 && (
+                        <View style={{ alignItems: 'center', padding: 40 }}>
+                            <ActivityIndicator size="large" color={Colors.primary} />
+                            <Text style={{ marginTop: 20, fontWeight: '600' }}>Processing Transaction...</Text>
+                            <Text style={{ color:'#999', fontSize:12 }}>Please do not close this window.</Text>
+                        </View>
+                    )}
                 </View>
             </View>
-        </View>
-        <TouchableOpacity style={styles.walletButton}>
-            <Ionicons name="wallet-outline" size={20} color="#fff" />
-            <Text style={styles.walletText}>Add to Apple Wallet</Text>
-        </TouchableOpacity>
-    </View>
-);
-
-// --- SCHEDULE COMPONENT (Unchanged) ---
-const ScheduleList = () => {
-    const schedule = [
-        { time: '18:00', title: 'Opening', location: 'Main Stage', status: 'done' },
-        { time: '18:30', title: 'Keynote', location: 'Auditorium A', status: 'live' },
-        { time: '20:00', title: 'Finals', location: 'Arena', status: 'upcoming' },
-    ];
-    return (
-        <View style={styles.listContainer}>
-            {schedule.map((item, index) => (
-                <View key={index} style={styles.scheduleItem}>
-                    <Text style={[styles.timeText, item.status === 'live' && { color: Colors.primary }]}>{item.time}</Text>
-                    <View style={[styles.scheduleCard, item.status === 'live' && styles.activeScheduleCard]}>
-                        <View>
-                            <Text style={styles.scheduleTitle}>{item.title}</Text>
-                            <Text style={styles.scheduleLoc}>{item.location}</Text>
-                        </View>
-                        {item.status === 'live' && <View style={styles.liveBadge}><Text style={styles.liveText}>LIVE</Text></View>}
-                    </View>
-                </View>
-            ))}
-        </View>
+        </Modal>
     );
 };
-
-// --- OVERVIEW COMPONENT (Updated Props) ---
-const OverviewTab = ({ event, isRegistered, isRegistering, onRegister }) => (
-    <View style={styles.overviewContainer}>
-        <Text style={styles.sectionHeader}>About Event</Text>
-        <Text style={styles.description}>
-            {event?.description || `Join us for ${event?.title}. Experience exclusive premieres and live tournaments.`}
-        </Text>
-        
-        <View style={styles.statRow}>
-            <View style={styles.statBox}><Ionicons name="people" size={24} color={Colors.primary} /><Text style={styles.statValue}>2.4k</Text><Text style={styles.statLabel}>Going</Text></View>
-            <View style={styles.statBox}><Ionicons name="time" size={24} color="#4FACFE" /><Text style={styles.statValue}>4h</Text><Text style={styles.statLabel}>Duration</Text></View>
-        </View>
-
-        {!isRegistered ? (
-            <TouchableOpacity 
-                style={styles.registerButton} 
-                onPress={onRegister}
-                disabled={isRegistering}
-            >
-                <LinearGradient colors={[Colors.primary, '#8A2387']} style={styles.gradientBtn}>
-                    {isRegistering ? (
-                        <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                        <Text style={styles.registerText}>Get Ticket • Free</Text>
-                    )}
-                </LinearGradient>
-            </TouchableOpacity>
-        ) : (
-            <View style={styles.registeredBox}>
-                <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-                <Text style={styles.registeredText}>You are registered!</Text>
-            </View>
-        )}
-    </View>
-);
 
 // --- MAIN SCREEN ---
 const EventDetailScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
     const insets = useSafeAreaInsets();
-    
-    // Data from navigation
     const { eventData } = route.params || {}; 
-    
-    // Context
     const { joinEvent, hasTicket } = useEvents();
     
-    // State
     const [activeTab, setActiveTab] = useState('Overview');
-    const [isRegistering, setIsRegistering] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
 
-    // Derived State from Context
     const userHasTicket = hasTicket(eventData?.id);
+    const isPaidEvent = eventData?.price && eventData?.price > 0;
 
-    const handleRegister = async () => {
-        setIsRegistering(true);
-        
-        // Use Context action
-        const success = await joinEvent(eventData?.id);
-        
-        setIsRegistering(false);
-        
-        if (success) {
-            // Auto switch to ticket view after animation
-            setTimeout(() => setActiveTab('Ticket'), 800);
+    // --- ACTIONS ---
+
+    const handleShare = async () => {
+        try {
+            await Share.share({
+                message: `Join me at ${eventData.title}! It's happening on ${eventData.date} at ${eventData.location}.`,
+                title: eventData.title
+            });
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const handleOpenMap = () => {
+        // Use coordinates if available, otherwise query
+        const query = eventData.coordinates 
+            ? `${eventData.coordinates.lat},${eventData.coordinates.lng}` 
+            : eventData.location;
+        const scheme = Platform.select({ ios: 'maps:0,0?q=', android: 'geo:0,0?q=' });
+        const latLng = Platform.select({ ios: `${eventData.title}@${query}`, android: query });
+        const url = Platform.select({
+            ios: `maps:0,0?q=${eventData.title}@${eventData.coordinates.lat},${eventData.coordinates.lng}`,
+            android: `geo:${eventData.coordinates.lat},${eventData.coordinates.lng}?q=${eventData.coordinates.lat},${eventData.coordinates.lng}(${eventData.title})`
+        });
+
+        Linking.openURL(url).catch(err => Alert.alert("Error", "Could not open maps."));
+    };
+
+    const initiateRegister = () => {
+        if (isPaidEvent) {
+            setShowPaymentModal(true);
         } else {
-            Alert.alert("Error", "Could not register for event");
+            finalizeRegistration(null);
+        }
+    };
+
+    const finalizeRegistration = async (paymentDetails) => {
+        if (!isPaidEvent) setIsProcessing(true); // Only show spinner here for free events, modal handles it for paid
+        
+        const success = await joinEvent(eventData?.id, paymentDetails);
+        
+        setIsProcessing(false);
+        setShowPaymentModal(false);
+
+        if (success) {
+            Alert.alert("Success!", "You have secured your ticket.", [
+                { text: "View Ticket", onPress: () => setActiveTab('Ticket') }
+            ]);
         }
     };
 
     return (
         <View style={styles.container}>
-            <ImageBackground source={eventData?.image || { uri: 'https://via.placeholder.com/800x400' }} style={styles.headerImage}>
-                <LinearGradient colors={['rgba(0,0,0,0.1)', Colors.darkBackground]} style={styles.headerGradient} />
+            {/* Header Image */}
+            <ImageBackground source={eventData?.image} style={styles.headerImage}>
+                <LinearGradient colors={['rgba(0,0,0,0.3)', Colors.darkBackground]} style={styles.headerGradient} />
                 <View style={[styles.navbar, { marginTop: insets.top }]}>
-                    <TouchableOpacity style={styles.glassBtn} onPress={() => navigation.goBack()}><Ionicons name="arrow-back" size={24} color="#fff" /></TouchableOpacity>
-                    <TouchableOpacity style={styles.glassBtn}><Ionicons name="share-social-outline" size={24} color="#fff" /></TouchableOpacity>
+                    <TouchableOpacity style={styles.glassBtn} onPress={() => navigation.goBack()}>
+                        <Ionicons name="arrow-back" size={24} color="#fff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.glassBtn} onPress={handleShare}>
+                        <Ionicons name="share-social-outline" size={24} color="#fff" />
+                    </TouchableOpacity>
                 </View>
                 <View style={styles.titleContainer}>
-                    <Text style={styles.mainTitle}>{eventData?.title || "Event Name"}</Text>
-                    <Text style={styles.subtitleText}>{eventData?.location || "Unknown Location"}</Text>
+                    {eventData?.isMainEvent && <View style={styles.mainBadge}><Text style={styles.mainBadgeText}>MAIN EVENT</Text></View>}
+                    <Text style={styles.mainTitle}>{eventData?.title}</Text>
+                    <Text style={styles.subtitleText}><Ionicons name="location" size={14} /> {eventData?.location}</Text>
                 </View>
             </ImageBackground>
 
+            {/* Tab Bar */}
             <View style={styles.tabContainer}>
-                {['Overview', 'Schedule', 'Ticket'].map((tab) => (
+                {['Overview', 'Ticket'].map((tab) => (
                     <TouchableOpacity key={tab} style={[styles.tabItem, activeTab === tab && styles.activeTabItem]} onPress={() => setActiveTab(tab)}>
                         <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab}</Text>
                         {activeTab === tab && <View style={styles.activeIndicator} />}
@@ -168,83 +200,146 @@ const EventDetailScreen = () => {
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                 {activeTab === 'Overview' && (
-                    <OverviewTab 
-                        event={eventData} 
-                        isRegistered={userHasTicket} 
-                        isRegistering={isRegistering}
-                        onRegister={handleRegister} 
-                    />
+                    <View>
+                        <View style={styles.infoRow}>
+                            <View style={styles.infoBox}>
+                                <Ionicons name="calendar" size={24} color={Colors.primary} />
+                                <Text style={styles.infoValue}>{eventData?.date}</Text>
+                                <Text style={styles.infoLabel}>{eventData?.time}</Text>
+                            </View>
+                            <TouchableOpacity style={styles.infoBox} onPress={handleOpenMap}>
+                                <Ionicons name="map" size={24} color="#4FACFE" />
+                                <Text style={styles.infoValue}>Map</Text>
+                                <Text style={styles.infoLabel}>Directions</Text>
+                            </TouchableOpacity>
+                            <View style={styles.infoBox}>
+                                <Ionicons name="pricetag" size={24} color="#FFD700" />
+                                <Text style={styles.infoValue}>{isPaidEvent ? `₱${eventData.price}` : 'Free'}</Text>
+                                <Text style={styles.infoLabel}>Entry</Text>
+                            </View>
+                        </View>
+
+                        <Text style={styles.sectionHeader}>About Event</Text>
+                        <Text style={styles.description}>{eventData?.description}</Text>
+
+                        {!userHasTicket ? (
+                            <TouchableOpacity style={styles.registerButton} onPress={initiateRegister} disabled={isProcessing}>
+                                <LinearGradient colors={[Colors.primary, '#8A2387']} style={styles.gradientBtn}>
+                                    {isProcessing ? <ActivityIndicator color="#fff" /> : (
+                                        <Text style={styles.registerText}>
+                                            {isPaidEvent ? `Get Ticket • ₱${eventData.price}` : 'Get Ticket • Free'}
+                                        </Text>
+                                    )}
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        ) : (
+                            <View style={styles.registeredBox}>
+                                <Ionicons name="ticket" size={24} color="#4CAF50" />
+                                <Text style={styles.registeredText}>You have a ticket!</Text>
+                            </View>
+                        )}
+                    </View>
                 )}
-                {activeTab === 'Schedule' && <ScheduleList />}
+
                 {activeTab === 'Ticket' && (
-                    userHasTicket ? <TicketView event={eventData} /> : <View style={styles.emptyTicketState}><Text style={styles.emptyText}>Register to view ticket</Text></View>
+                    userHasTicket ? (
+                        <View style={styles.ticketContainer}>
+                            <View style={styles.ticketCard}>
+                                <LinearGradient colors={[Colors.primary, '#8A2387']} style={styles.ticketHeader}>
+                                    <Text style={styles.ticketTitle}>{eventData.title}</Text>
+                                    <Text style={styles.ticketType}>{isPaidEvent ? 'VIP ACCESS' : 'GENERAL ADMISSION'}</Text>
+                                </LinearGradient>
+                                <View style={styles.ticketBody}>
+                                    <View style={styles.qrArea}><Ionicons name="qr-code" size={120} color="#000" /></View>
+                                    <Text style={styles.ticketId}>ID: #{Math.random().toString().slice(2,10)}</Text>
+                                    <Text style={styles.ticketNote}>Present this QR code at the entrance.</Text>
+                                </View>
+                            </View>
+                        </View>
+                    ) : (
+                        <View style={styles.emptyState}>
+                            <Ionicons name="lock-closed-outline" size={50} color={Colors.textSecondary} />
+                            <Text style={styles.emptyText}>Register to view your ticket</Text>
+                        </View>
+                    )
                 )}
             </ScrollView>
+
+            <PaymentModal 
+                visible={showPaymentModal} 
+                onClose={() => setShowPaymentModal(false)}
+                event={eventData}
+                onConfirm={finalizeRegistration}
+            />
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.darkBackground },
-    headerImage: { height: 280, justifyContent: 'space-between' },
+    headerImage: { height: 300, justifyContent: 'space-between' },
     headerGradient: { ...StyleSheet.absoluteFillObject },
     navbar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20 },
-    glassBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    glassBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
     titleContainer: { padding: 20 },
-    mainTitle: { fontFamily: 'Poppins_700Bold', fontSize: 24, color: '#fff' },
-    subtitleText: { fontFamily: 'Poppins_400Regular', color: 'rgba(255,255,255,0.8)', fontSize: 14 },
-    tabContainer: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 20 },
+    mainBadge: { backgroundColor: Colors.primary, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, marginBottom: 8 },
+    mainBadgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+    mainTitle: { fontFamily: 'Poppins_700Bold', fontSize: 26, color: '#fff' },
+    subtitleText: { fontFamily: 'Poppins_400Regular', color: 'rgba(255,255,255,0.9)', fontSize: 14 },
+    tabContainer: { flexDirection: 'row', paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
     tabItem: { marginRight: 30, paddingVertical: 15 },
     tabText: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 15 },
     activeTabText: { color: '#fff', fontFamily: 'Poppins_600SemiBold' },
-    activeIndicator: { height: 3, backgroundColor: Colors.primary, marginTop: 4, borderRadius: 2 },
-    scrollContent: { padding: 20, paddingBottom: 50 },
-    
-    // Overview
-    overviewContainer: { },
-    sectionHeader: { fontFamily: 'Poppins_600SemiBold', color: '#fff', fontSize: 18, marginBottom: 10 },
-    description: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, marginBottom: 20, lineHeight: 22 },
-    statRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-    statBox: { backgroundColor: Colors.surface, flex: 1, marginHorizontal: 5, borderRadius: 12, padding: 15, alignItems: 'center' },
-    statValue: { color: '#fff', fontFamily: 'Poppins_700Bold' },
-    statLabel: { color: Colors.textSecondary, fontSize: 12 },
-    registerButton: { borderRadius: 16, overflow: 'hidden' },
-    gradientBtn: { paddingVertical: 16, alignItems: 'center', height: 56, justifyContent: 'center' },
-    registerText: { color: '#fff', fontFamily: 'Poppins_600SemiBold' },
-    registeredBox: { backgroundColor: 'rgba(76, 175, 80, 0.1)', borderColor: '#4CAF50', borderWidth: 1, borderRadius: 12, padding: 20, alignItems: 'center' },
-    registeredText: { color: '#4CAF50', fontFamily: 'Poppins_600SemiBold' },
+    activeIndicator: { height: 3, backgroundColor: Colors.primary, marginTop: 4 },
+    scrollContent: { padding: 20 },
 
-    // Schedule
-    listContainer: { marginTop: 10 },
-    scheduleItem: { flexDirection: 'row', marginBottom: 20, alignItems: 'center' },
-    timeText: { width: 50, fontFamily: 'Poppins_600SemiBold', color: Colors.textSecondary },
-    scheduleCard: { flex: 1, backgroundColor: Colors.surface, borderRadius: 12, padding: 15, flexDirection: 'row', justifyContent: 'space-between' },
-    activeScheduleCard: { backgroundColor: '#2A2A2A', borderColor: Colors.primary, borderWidth: 1 },
-    scheduleTitle: { color: '#fff', fontFamily: 'Poppins_600SemiBold' },
-    scheduleLoc: { color: Colors.textSecondary, fontSize: 12 },
-    liveBadge: { backgroundColor: Colors.primary, paddingHorizontal: 6, borderRadius: 4 },
-    liveText: { fontSize: 10, fontFamily: 'Poppins_700Bold' },
+    // Info Grid
+    infoRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
+    infoBox: { backgroundColor: Colors.surface, flex: 1, marginHorizontal: 4, borderRadius: 12, padding: 12, alignItems: 'center' },
+    infoValue: { color: '#fff', fontWeight: 'bold', fontSize: 14, marginTop: 5 },
+    infoLabel: { color: Colors.textSecondary, fontSize: 10 },
+
+    sectionHeader: { fontFamily: 'Poppins_600SemiBold', color: '#fff', fontSize: 18, marginBottom: 10 },
+    description: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, lineHeight: 22, marginBottom: 20 },
+    registerButton: { borderRadius: 16, overflow: 'hidden', marginTop: 10 },
+    gradientBtn: { paddingVertical: 18, alignItems: 'center', justifyContent: 'center' },
+    registerText: { color: '#fff', fontFamily: 'Poppins_600SemiBold', fontSize: 16 },
+    registeredBox: { backgroundColor: 'rgba(76, 175, 80, 0.15)', borderColor: '#4CAF50', borderWidth: 1, borderRadius: 12, padding: 20, alignItems: 'center', marginTop: 10 },
+    registeredText: { color: '#4CAF50', fontWeight: 'bold', marginTop: 5 },
 
     // Ticket
-    ticketContainer: { alignItems: 'center' },
-    ticketCard: { width: '100%', backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden' },
-    ticketHeader: { padding: 20, alignItems: 'center' },
-    ticketEventTitle: { color: '#fff', fontFamily: 'Poppins_700Bold' },
-    ticketType: { color: 'rgba(255,255,255,0.8)', fontSize: 10, letterSpacing: 2 },
-    ticketBody: { padding: 20, alignItems: 'center' },
-    qrContainer: { padding: 10, borderWidth: 2, borderColor: '#000', borderRadius: 8, marginBottom: 15 },
-    ticketName: { fontSize: 18, fontFamily: 'Poppins_700Bold', color: '#000' },
-    ticketId: { fontSize: 12, color: '#666' },
-    divider: { flexDirection: 'row', alignItems: 'center', width: '120%', marginBottom: 15 },
-    circle: { width: 20, height: 20, borderRadius: 10, backgroundColor: Colors.darkBackground },
-    circleLeft: { marginLeft: 0 }, circleRight: { marginRight: 0 },
-    dashedLine: { flex: 1, height: 1, borderWidth: 1, borderColor: '#ccc', borderStyle: 'dashed' },
-    ticketInfoRow: { flexDirection: 'row', width: '100%', justifyContent: 'space-between' },
-    label: { fontSize: 10, color: '#999' }, value: { fontSize: 14, color: '#000', fontFamily: 'Poppins_600SemiBold' },
-    walletButton: { marginTop: 20, backgroundColor: '#000', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 25, flexDirection: 'row' },
-    walletText: { color: '#fff', marginLeft: 8 },
-    emptyTicketState: { alignItems: 'center', marginTop: 50 },
-    emptyText: { color: Colors.textSecondary },
+    ticketContainer: { alignItems: 'center', marginTop: 10 },
+    ticketCard: { backgroundColor: '#fff', width: '100%', borderRadius: 20, overflow: 'hidden' },
+    ticketHeader: { padding: 15, alignItems: 'center' },
+    ticketTitle: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+    ticketType: { color: 'rgba(255,255,255,0.8)', fontSize: 10, letterSpacing: 1, marginTop: 2 },
+    ticketBody: { padding: 30, alignItems: 'center' },
+    qrArea: { padding: 10, borderWidth: 2, borderColor: '#000', borderRadius: 10, marginBottom: 15 },
+    ticketId: { fontWeight: 'bold', fontSize: 16, color: '#333' },
+    ticketNote: { color: '#666', fontSize: 12, marginTop: 5 },
+    emptyState: { alignItems: 'center', marginTop: 50 },
+    emptyText: { color: Colors.textSecondary, marginTop: 10 },
+
+    // Modal
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+    modalContainer: { backgroundColor: '#fff', borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 25, minHeight: 450 },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    modalTitle: { fontSize: 20, fontWeight: 'bold' },
+    summaryBox: { backgroundColor: '#f5f5f5', padding: 15, borderRadius: 10, marginBottom: 20 },
+    summaryTitle: { fontSize: 14, color: '#666' },
+    summaryPrice: { fontSize: 18, fontWeight: 'bold', color: Colors.primary, marginTop: 5 },
+    sectionLabel: { fontSize: 14, fontWeight: '600', marginBottom: 10, color: '#333' },
+    payMethod: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#eee', marginBottom: 10 },
+    payMethodActive: { borderColor: '#007AFF', backgroundColor: '#eff6ff' },
+    iconBox: { width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+    payText: { fontWeight: '500' },
+    payBtnMain: { backgroundColor: Colors.primary, padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
+    payBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+    qrContainer: { padding: 10, borderWidth: 1, borderColor: '#ddd', borderRadius: 10, marginBottom: 10 },
+    qrNumber: { fontSize: 20, fontWeight: 'bold', letterSpacing: 1 },
+    qrNote: { fontSize: 12, color: '#999', marginTop: 5 },
+    cardForm: { width: '100%', padding: 20, backgroundColor: '#f0f0f0', borderRadius: 10, alignItems: 'center', marginBottom: 10 },
+    gatewayTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 15 }
 });
 
 export default EventDetailScreen;

@@ -1,28 +1,36 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@config/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useProfile } from '@context/main/ProfileContext';
+import { useAlert } from '@context/other/AlertContext'; // Use custom Alert Context
 
 const SettingsRow = ({ icon, label, details, onPress, isLast, color = Colors.text }) => (
-    <TouchableOpacity onPress={onPress} style={[styles.row, !isLast && styles.rowBorder]}>
-        <Ionicons name={icon} size={22} color={color} style={{ marginRight: 15 }} />
+    <TouchableOpacity 
+        onPress={onPress} 
+        style={[styles.row, !isLast && styles.rowBorder]}
+        activeOpacity={0.7}
+    >
+        <View style={[styles.iconBox, { backgroundColor: color === Colors.danger ? 'rgba(231, 76, 60, 0.1)' : 'rgba(255,255,255,0.05)' }]}>
+            <Ionicons name={icon} size={20} color={color} />
+        </View>
         <View style={styles.rowTextContainer}>
             <Text style={[styles.rowLabel, { color }]}>{label}</Text>
         </View>
-        <Text style={styles.rowDetails}>{details}</Text>
-        <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+        {details && <Text style={styles.rowDetails}>{details}</Text>}
+        <Ionicons name="chevron-forward" size={18} color={Colors.surface} />
     </TouchableOpacity>
 );
 
 const DataAndStorageScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
     const { profile, clearCache, clearDownloads } = useProfile();
+    const { showAlert } = useAlert(); // Access custom alert
     
-    // Format helper since ProfileAPI does logic but we read from state now
+    // Format helper
     const format = (b) => {
         if(b === 0) return '0 B';
         const i = Math.floor(Math.log(b) / Math.log(1024));
@@ -40,40 +48,85 @@ const DataAndStorageScreen = ({ navigation }) => {
     const cacheFlex = totalSize > 0 ? storage.cache / totalSize : 0;
 
     const handleClearCache = () => {
+        if (storage.cache === 0) {
+            showAlert({ title: "Already Clean", message: "Cache is already empty.", type: "info" });
+            return;
+        }
+
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        Alert.alert(
-            "Clear Cache",
-            "Are you sure?",
-            [
-                { text: "Cancel", style: "cancel" },
-                { text: "Clear", style: "destructive", onPress: clearCache }
-            ]
-        );
+        
+        showAlert({
+            title: "Clear Cache?",
+            message: `This will free up ${cacheLabel}. Your browsing history won't be affected.`,
+            btnText: "Clear",
+            secondaryBtnText: "Cancel",
+            onClose: async () => {
+                const success = await clearCache();
+                if (success) {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    showAlert({ title: "Cleaned", message: "Cache cleared successfully.", type: "success" });
+                } else {
+                    showAlert({ title: "Error", message: "Failed to clear cache.", type: "error" });
+                }
+            }
+        });
     };
 
     const handleClearDownloads = () => {
+        if (storage.downloads === 0) {
+            showAlert({ title: "No Downloads", message: "You don't have any downloaded content.", type: "info" });
+            return;
+        }
+
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        Alert.alert(
-            "Clear All Downloads",
-            "This will remove all downloaded comics. Continue?",
-            [
-                { text: "Cancel", style: "cancel" },
-                { text: "Delete All", style: "destructive", onPress: clearDownloads }
-            ]
-        );
+        
+        showAlert({
+            title: "Delete All Downloads?",
+            message: `This will remove all downloaded chapters (${downloadsLabel}) from your device.`,
+            btnText: "Delete",
+            secondaryBtnText: "Cancel",
+            type: "error", // Use error styling for destructive actions
+            onClose: async () => {
+                const success = await clearDownloads();
+                if (success) {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    showAlert({ title: "Deleted", message: "All downloads removed.", type: "success" });
+                } else {
+                    showAlert({ title: "Error", message: "Failed to delete downloads.", type: "error" });
+                }
+            }
+        });
+    };
+
+    const handleManageDownloads = () => {
+        // Placeholder for future navigation to a detailed list
+        if (storage.downloads === 0) {
+             showAlert({ title: "Empty", message: "No downloads to manage.", type: "info" });
+        } else {
+            showAlert({ title: "Coming Soon", message: "Detailed download manager is under construction.", type: "info" });
+        }
     };
 
     return (
         <LinearGradient colors={[Colors.background, '#1a1a2e']} style={styles.container}>
             <StatusBar barStyle="light-content" />
             <View style={[styles.header, { paddingTop: insets.top }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}><Ionicons name="arrow-back" size={24} color={Colors.text} /></TouchableOpacity>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
+                    <Ionicons name="arrow-back" size={24} color={Colors.text} />
+                </TouchableOpacity>
                 <Text style={styles.headerTitle}>Data & Storage</Text>
                 <View style={styles.headerButton} />
             </View>
-            <ScrollView contentContainerStyle={styles.scrollContainer}>
+
+            <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+                
+                {/* Visual Storage Bar */}
                 <View style={styles.storageCard}>
-                    <Text style={styles.storageTitle}>Storage Usage</Text>
+                    <View style={styles.storageHeader}>
+                        <Text style={styles.storageTitle}>Device Storage</Text>
+                        <Text style={styles.totalUsed}>{format(totalSize)} used</Text>
+                    </View>
+                    
                     <View style={styles.progressBar}>
                         {totalSize > 0 ? (
                             <>
@@ -82,52 +135,89 @@ const DataAndStorageScreen = ({ navigation }) => {
                                 <View style={[styles.progressSegment, { flex: cacheFlex, backgroundColor: Colors.textSecondary }]} />
                             </>
                         ) : (
-                            <View style={[styles.progressSegment, { flex: 1, backgroundColor: Colors.surface, opacity: 0.5 }]} />
+                            <View style={[styles.progressSegment, { flex: 1, backgroundColor: Colors.surface, opacity: 0.3 }]} />
                         )}
                     </View>
+
                     <View style={styles.legendContainer}>
-                        <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.secondary }]} /><Text style={styles.legendText}>Downloads ({downloadsLabel})</Text></View>
-                        <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.primary }]} /><Text style={styles.legendText}>App Data ({appDataLabel})</Text></View>
-                        <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.textSecondary }]} /><Text style={styles.legendText}>Cache ({cacheLabel})</Text></View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: Colors.secondary }]} />
+                            <Text style={styles.legendText}>Downloads ({downloadsLabel})</Text>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
+                            <Text style={styles.legendText}>App Data ({appDataLabel})</Text>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: Colors.textSecondary }]} />
+                            <Text style={styles.legendText}>Cache ({cacheLabel})</Text>
+                        </View>
                     </View>
                 </View>
 
                 <Text style={styles.sectionTitle}>Manage Data</Text>
                 <View style={styles.card}>
-                    <SettingsRow icon="folder-open-outline" label="Manage Downloads" details="View by comic" onPress={() => {}} />
-                    <SettingsRow icon="trash-bin-outline" label="Clear Cache" details={cacheLabel} onPress={handleClearCache} isLast />
+                    <SettingsRow 
+                        icon="folder-open-outline" 
+                        label="Manage Downloads" 
+                        details="View Items" 
+                        onPress={handleManageDownloads} 
+                    />
+                    <SettingsRow 
+                        icon="trash-bin-outline" 
+                        label="Clear Cache" 
+                        details={cacheLabel} 
+                        onPress={handleClearCache} 
+                        isLast 
+                    />
                 </View>
                 
                 <Text style={styles.sectionTitle}>Danger Zone</Text>
-                <View style={styles.card}>
-                    <SettingsRow icon="warning-outline" label="Clear All Downloads" onPress={handleClearDownloads} isLast color={Colors.danger} />
+                <View style={[styles.card, { borderColor: 'rgba(231, 76, 60, 0.3)' }]}>
+                    <SettingsRow 
+                        icon="warning-outline" 
+                        label="Clear All Downloads" 
+                        onPress={handleClearDownloads} 
+                        isLast 
+                        color={Colors.danger} 
+                    />
                 </View>
             </ScrollView>
         </LinearGradient>
     );
 };
-// ... styles (same as provided)
+
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, paddingBottom: 10, marginTop: 15, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.1)' },
     headerTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 18 },
     headerButton: { padding: 10, minWidth: 40, alignItems: 'center' },
+    
     scrollContainer: { padding: 20, gap: 20 },
-    storageCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20 },
-    storageTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 16, marginBottom: 15 },
-    progressBar: { flexDirection: 'row', height: 12, borderRadius: 6, overflow: 'hidden', backgroundColor: Colors.background },
-    progressSegment: {},
-    legendContainer: { marginTop: 15, gap: 8 },
+    
+    storageCard: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 20, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.1)' },
+    storageHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+    storageTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 16 },
+    totalUsed: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 14 },
+    
+    progressBar: { flexDirection: 'row', height: 12, borderRadius: 6, overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.3)', width: '100%' },
+    progressSegment: { height: '100%' },
+    
+    legendContainer: { marginTop: 15, gap: 10 },
     legendItem: { flexDirection: 'row', alignItems: 'center' },
     legendDot: { width: 10, height: 10, borderRadius: 5, marginRight: 10 },
-    legendText: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 14 },
-    sectionTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.textSecondary, fontSize: 14, textTransform: 'uppercase', marginBottom: -10, marginLeft: 5 },
-    card: { borderRadius: 16, overflow: 'hidden', backgroundColor: 'rgba(28,28,30,0.5)', borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },
-    row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 15 },
-    rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.1)' },
+    legendText: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 13 },
+    
+    sectionTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.textSecondary, fontSize: 12, textTransform: 'uppercase', marginBottom: -10, marginLeft: 8, letterSpacing: 1 },
+    card: { borderRadius: 16, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.1)' },
+    
+    row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16 },
+    rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.05)' },
+    
+    iconBox: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
     rowTextContainer: { flex: 1 },
-    rowLabel: { fontFamily: 'Poppins_500Medium', fontSize: 16 },
-    rowDetails: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 14, marginRight: 8 },
+    rowLabel: { fontFamily: 'Poppins_500Medium', fontSize: 15 },
+    rowDetails: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 13, marginRight: 8, opacity: 0.7 },
 });
 
 export default DataAndStorageScreen;

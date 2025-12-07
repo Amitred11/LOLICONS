@@ -38,8 +38,6 @@ const RankInfoModal = ({ isVisible, onClose, rank }) => {
     opacity: opacity.value,
   }));
 
-  // THIS IS THE LINE THAT WAS REMOVED. The parent component now handles rendering.
-  // if (!isVisible && opacity.value === 0) return null;
   
   if (!rank) return null; // Don't render if no rank data is provided.
 

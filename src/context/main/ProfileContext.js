@@ -1,5 +1,4 @@
-// context/ProfileContext.js
-import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
+import React, { createContext, useState, useContext, useCallback, useEffect, useMemo } from 'react';
 import { ProfileAPI } from '@api/MockProfileService';
 import { ComicService } from '@api/MockComicService';
 import { useAuth } from '@context/main/AuthContext';
@@ -8,21 +7,16 @@ const ProfileContext = createContext();
 
 export const useProfile = () => {
     const context = useContext(ProfileContext);
-    if (!context) {
-        throw new Error('useProfile must be used within a ProfileProvider');
-    }
+    if (!context) throw new Error('useProfile must be used within a ProfileProvider');
     return context;
 };
 
 export const ProfileProvider = ({ children }) => {
     const { user: authUser, logout: authLogout } = useAuth();
     
-    // --- State ---
     const [profile, setProfile] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
-
-    // --- Core Actions ---
 
     const fetchProfile = useCallback(async (isBackground = false) => {
         if (!authUser) return;
@@ -36,7 +30,6 @@ export const ProfileProvider = ({ children }) => {
                 setError("Failed to load profile.");
             }
         } catch (err) {
-            console.error("ProfileContext: Fetch Error", err);
             setError(err.message);
         } finally {
             if (!isBackground) setIsLoading(false);
@@ -44,12 +37,34 @@ export const ProfileProvider = ({ children }) => {
     }, [authUser]);
 
     const updateProfile = useCallback(async (updateData) => {
-        setProfile(prev => ({ ...prev, ...updateData })); // Optimistic
+        // Optimistic update for UI smoothness
+        setProfile(prev => ({ ...prev, ...updateData })); 
         try {
             const response = await ProfileAPI.updateProfile(updateData);
-            if (!response.success) throw new Error(response.message);
-            return true;
+            if (!response.success) {
+                // Revert if failed (simplified revert logic)
+                fetchProfile(true); 
+                throw new Error(response.message);
+            }
+            return { success: true };
         } catch (err) {
+            fetchProfile(true); 
+            return { success: false, message: err.message };
+        }
+    }, [fetchProfile]);
+
+    // NEW: Handle Avatar Upload
+    const uploadAvatar = useCallback(async (uri) => {
+        try {
+            // Optimistic update
+            setProfile(prev => ({ ...prev, avatarUrl: uri }));
+            
+            const response = await ProfileAPI.uploadAvatar(uri);
+            if (response.success) {
+                return true;
+            }
+            throw new Error("Upload failed");
+        } catch (e) {
             fetchProfile(true); // Revert
             return false;
         }
@@ -70,200 +85,87 @@ export const ProfileProvider = ({ children }) => {
         }
     }, [profile]);
 
-    // --- Settings & Privacy Actions ---
-
-    const toggleTwoFactor = useCallback(async (currentStatus) => {
-        try {
-            const newState = await ProfileAPI.toggle2FA(currentStatus);
-            setProfile(prev => ({
-                ...prev,
-                settings: { ...prev.settings, privacy: { ...prev.settings.privacy, twoFactor: newState } }
-            }));
-            return newState;
-        } catch (e) { throw e; }
+    // --- Settings Actions (Simplified for brevity but functionally identical) ---
+    const toggleTwoFactor = useCallback(async (status) => {
+        const newState = await ProfileAPI.toggle2FA(status);
+        setProfile(p => ({ ...p, settings: { ...p.settings, privacy: { ...p.settings.privacy, twoFactor: newState } } }));
+        return newState;
     }, []);
 
     const logoutAllSessions = useCallback(async () => {
-        try {
-            await ProfileAPI.logoutAllSessions();
-            setProfile(prev => ({
-                ...prev,
-                settings: { ...prev.settings, privacy: { ...prev.settings.privacy, activeSessions: 1 } }
-            }));
-            return true;
-        } catch (e) { throw e; }
+        await ProfileAPI.logoutAllSessions();
+        setProfile(p => ({ ...p, settings: { ...p.settings, privacy: { ...p.settings.privacy, activeSessions: 1 } } }));
+        return true;
     }, []);
 
     const blockUser = useCallback(async (username) => {
-        try {
-            const newUser = await ProfileAPI.blockUser(username);
-            setProfile(prev => ({
-                ...prev,
-                settings: { 
-                    ...prev.settings, 
-                    privacy: { 
-                        ...prev.settings.privacy, 
-                        blockedUsers: [...prev.settings.privacy.blockedUsers, newUser] 
-                    } 
-                }
-            }));
-            return newUser;
-        } catch (e) { throw e; }
+        const newUser = await ProfileAPI.blockUser(username);
+        setProfile(p => ({ ...p, settings: { ...p.settings, privacy: { ...p.settings.privacy, blockedUsers: [...p.settings.privacy.blockedUsers, newUser] } } }));
+        return newUser;
     }, []);
 
     const unblockUser = useCallback(async (id) => {
-        try {
-            await ProfileAPI.unblockUser(id);
-            setProfile(prev => ({
-                ...prev,
-                settings: { 
-                    ...prev.settings, 
-                    privacy: { 
-                        ...prev.settings.privacy, 
-                        blockedUsers: prev.settings.privacy.blockedUsers.filter(u => u.id !== id) 
-                    } 
-                }
-            }));
-            return true;
-        } catch (e) { throw e; }
+        await ProfileAPI.unblockUser(id);
+        setProfile(p => ({ ...p, settings: { ...p.settings, privacy: { ...p.settings.privacy, blockedUsers: p.settings.privacy.blockedUsers.filter(u => u.id !== id) } } }));
+        return true;
     }, []);
 
-    // --- Notification Actions ---
-
     const updateNotificationPreference = useCallback(async (key, value) => {
-        // Optimistic
         setProfile(prev => {
-            if(key === 'global') {
-                return { ...prev, settings: { ...prev.settings, notifications: { ...prev.settings.notifications, global: value } }};
-            }
-            return {
-                ...prev,
-                settings: {
-                    ...prev.settings,
-                    notifications: {
-                        ...prev.settings.notifications,
-                        preferences: { ...prev.settings.notifications.preferences, [key]: value }
-                    }
-                }
-            };
+            if(key === 'global') return { ...prev, settings: { ...prev.settings, notifications: { ...prev.settings.notifications, global: value } }};
+            return { ...prev, settings: { ...prev.settings, notifications: { ...prev.settings.notifications, preferences: { ...prev.settings.notifications.preferences, [key]: value } } } };
         });
-        
-        try {
-            await ProfileAPI.updateNotificationSetting(key, value);
-        } catch (e) {
-            fetchProfile(true); // Revert
-        }
+        try { await ProfileAPI.updateNotificationSetting(key, value); } catch (e) { fetchProfile(true); }
     }, [fetchProfile]);
 
     const updateQuietHours = useCallback(async (newSettings) => {
-        setProfile(prev => ({
-            ...prev,
-            settings: { ...prev.settings, notifications: { ...prev.settings.notifications, quietHours: newSettings } }
-        }));
-        try {
-            await ProfileAPI.updateQuietHours(newSettings);
-        } catch (e) { fetchProfile(true); }
+        setProfile(p => ({ ...p, settings: { ...p.settings, notifications: { ...p.settings.notifications, quietHours: newSettings } } }));
+        try { await ProfileAPI.updateQuietHours(newSettings); } catch (e) { fetchProfile(true); }
     }, [fetchProfile]);
 
-    // --- Storage Actions ---
-
     const clearCache = useCallback(async () => {
-        try {
-            await ProfileAPI.clearCache();
-            // Update local state to 0
-            setProfile(prev => ({
-                ...prev,
-                settings: { ...prev.settings, storage: { ...prev.settings.storage, cache: 0 } }
-            }));
-            return true;
-        } catch (e) { return false; }
+        try { await ProfileAPI.clearCache(); setProfile(p => ({ ...p, settings: { ...p.settings, storage: { ...p.settings.storage, cache: 0 } } })); return true; } catch (e) { return false; }
     }, []);
 
     const clearDownloads = useCallback(async () => {
-        try {
-            await ProfileAPI.clearDownloads();
-            setProfile(prev => ({
-                ...prev,
-                settings: { ...prev.settings, storage: { ...prev.settings.storage, downloads: 0 } }
-            }));
-            return true;
-        } catch (e) { return false; }
+        try { await ProfileAPI.clearDownloads(); setProfile(p => ({ ...p, settings: { ...p.settings, storage: { ...p.settings.storage, downloads: 0 } } })); return true; } catch (e) { return false; }
     }, []);
 
-    // --- Account Actions ---
-
-    const changePassword = useCallback(async (current, newPass) => {
-        return await ProfileAPI.changePassword(current, newPass);
-    }, []);
-
+    const changePassword = useCallback((c, n) => ProfileAPI.changePassword(c, n), []);
+    
     const connectSocial = useCallback(async (provider) => {
-        try {
-            await ProfileAPI.connectSocial(provider);
-            setProfile(prev => ({
-                ...prev,
-                settings: {
-                    ...prev.settings,
-                    connectedAccounts: { ...prev.settings.connectedAccounts, [provider]: true }
-                }
-            }));
-            return true;
-        } catch (e) { throw e; }
+        await ProfileAPI.connectSocial(provider);
+        setProfile(p => ({ ...p, settings: { ...p.settings, connectedAccounts: { ...p.settings.connectedAccounts, [provider]: true } } }));
+        return true;
     }, []);
 
     const deleteAccount = useCallback(async () => {
-        try {
-            await ProfileAPI.deleteAccount();
-            authLogout(); // Log user out via AuthContext
-            return true;
-        } catch (e) { throw e; }
+        await ProfileAPI.deleteAccount();
+        authLogout();
+        return true;
     }, [authLogout]);
 
-    const clearProfile = useCallback(() => {
-        setProfile(null);
-    }, []);
+    const clearProfile = useCallback(() => setProfile(null), []);
 
-    // --- Effects ---
     useEffect(() => {
-        if (authUser) {
-            fetchProfile();
-        } else {
-            clearProfile();
-        }
+        if (authUser) fetchProfile();
+        else clearProfile();
     }, [authUser, fetchProfile, clearProfile]);
 
     const getRankProgress = useCallback(() => {
-        if (!profile) return 0;
+        if (!profile?.nextRank) return 1;
         const { xp, currentRank, nextRank } = profile;
-        if (!nextRank) return 1; 
         return Math.max(0, Math.min(1, (xp - currentRank.minXp) / (nextRank.minXp - currentRank.minXp)));
     }, [profile]);
 
-    const value = {
-        profile,
-        isLoading,
-        error,
-        fetchProfile,
-        updateProfile,
-        removeItem,
-        clearProfile,
-        getRankProgress,
-        // New Exposed Methods
-        toggleTwoFactor,
-        logoutAllSessions,
-        blockUser,
-        unblockUser,
-        updateNotificationPreference,
-        updateQuietHours,
-        clearCache,
-        clearDownloads,
-        changePassword,
-        connectSocial,
-        deleteAccount
-    };
+    // MEMOIZE THE VALUE
+    const value = useMemo(() => ({
+        profile, isLoading, error, fetchProfile, updateProfile, removeItem, clearProfile, getRankProgress,
+        toggleTwoFactor, logoutAllSessions, blockUser, unblockUser, updateNotificationPreference,
+        updateQuietHours, clearCache, clearDownloads, changePassword, connectSocial, deleteAccount, uploadAvatar
+    }), [profile, isLoading, error, fetchProfile, updateProfile, removeItem, clearProfile, getRankProgress, 
+         toggleTwoFactor, logoutAllSessions, blockUser, unblockUser, updateNotificationPreference, 
+         updateQuietHours, clearCache, clearDownloads, changePassword, connectSocial, deleteAccount]);
 
-    return (
-        <ProfileContext.Provider value={value}>
-            {children}
-        </ProfileContext.Provider>
-    );
+    return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
 };

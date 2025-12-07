@@ -1,33 +1,26 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { EventsService } from '@api/hub/MockEventsService';
+import { Alert } from 'react-native';
 
 const EventsContext = createContext();
 
 export const useEvents = () => {
     const context = useContext(EventsContext);
-    if (!context) {
-        throw new Error('useEvents must be used within an EventsProvider');
-    }
+    if (!context) throw new Error('useEvents must be used within an EventsProvider');
     return context;
 };
 
 export const EventsProvider = ({ children }) => {
-    // --- State ---
     const [events, setEvents] = useState([]);
-    const [myTickets, setMyTickets] = useState([]); // Stores IDs of joined events
+    const [myTickets, setMyTickets] = useState([]); 
     const [isLoading, setIsLoading] = useState(true);
 
-    // --- Actions ---
-
     const loadEvents = useCallback(async (isRefresh = false) => {
-        if (!isRefresh && events.length > 0) return; // Don't reload if data exists unless refreshing
-        
+        if (!isRefresh && events.length > 0) return;
         setIsLoading(true);
         try {
             const result = await EventsService.getEvents();
-            if (result.success) {
-                setEvents(result.data);
-            }
+            if (result.success) setEvents(result.data);
         } catch (error) {
             console.error("Failed to load events", error);
         } finally {
@@ -35,41 +28,47 @@ export const EventsProvider = ({ children }) => {
         }
     }, [events.length]);
 
-    const joinEvent = useCallback(async (eventId) => {
+    const joinEvent = useCallback(async (eventId, paymentDetails = null) => {
         try {
-            const response = await EventsService.joinEvent(eventId);
-            if (response.success) {
-                // Add to local tickets list
-                setMyTickets(prev => [...prev, eventId]);
+            const event = events.find(e => e.id === eventId);
+            if (!event) return false;
+
+            // Check if user already has ticket
+            if (myTickets.includes(eventId)) {
+                Alert.alert("Notice", "You already have a ticket.");
                 return true;
             }
-            return false;
+
+            // Payment Logic
+            if (event.price > 0) {
+                if (!paymentDetails) {
+                    Alert.alert("Error", "Payment required for this event.");
+                    return false;
+                }
+                const paymentResult = await EventsService.processPayment(event.price, paymentDetails.method);
+                if (!paymentResult.success) {
+                    Alert.alert("Payment Failed", "Transaction could not be completed.");
+                    return false;
+                }
+            } else {
+                // Free event API call
+                await EventsService.joinEvent(eventId);
+            }
+
+            setMyTickets(prev => [...prev, eventId]);
+            return true;
         } catch (error) {
             console.error("Join event failed", error);
             return false;
         }
-    }, []);
+    }, [events, myTickets]);
 
-    // Helper to check if user has a ticket
-    const hasTicket = useCallback((eventId) => {
-        return myTickets.includes(eventId);
-    }, [myTickets]);
+    const hasTicket = useCallback((eventId) => myTickets.includes(eventId), [myTickets]);
 
-    // Initial Load
-    useEffect(() => {
-        loadEvents();
-    }, [loadEvents]);
-
-    const value = {
-        events,
-        isLoading,
-        loadEvents,
-        joinEvent,
-        hasTicket
-    };
+    useEffect(() => { loadEvents(); }, [loadEvents]);
 
     return (
-        <EventsContext.Provider value={value}>
+        <EventsContext.Provider value={{ events, isLoading, loadEvents, joinEvent, hasTicket }}>
             {children}
         </EventsContext.Provider>
     );

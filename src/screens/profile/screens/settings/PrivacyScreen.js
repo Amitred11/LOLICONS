@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
     View, Text, StyleSheet, TouchableOpacity, StatusBar, 
-    ScrollView, Modal, FlatList, TextInput, ActivityIndicator 
+    ScrollView, Modal, FlatList, TextInput, ActivityIndicator, Image 
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@config/Colors';
@@ -9,73 +9,91 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAlert } from '@context/other/AlertContext'; 
 import { useProfile } from '@context/main/ProfileContext';
+import * as Haptics from 'expo-haptics';
+
+// --- Components ---
 
 const SettingsRow = ({ icon, label, details, onPress, isLast, color = Colors.text }) => (
-    <TouchableOpacity onPress={onPress} style={[styles.row, !isLast && styles.rowBorder]}>
-        <Ionicons name={icon} size={22} color={color} style={{ marginRight: 15 }} />
+    <TouchableOpacity onPress={onPress} style={[styles.row, !isLast && styles.rowBorder]} activeOpacity={0.7}>
+        <View style={[styles.iconBox, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
+            <Ionicons name={icon} size={20} color={color} />
+        </View>
         <View style={styles.rowTextContainer}>
             <Text style={[styles.rowLabel, { color }]}>{label}</Text>
         </View>
         <Text style={styles.rowDetails}>{details}</Text>
-        <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+        <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
     </TouchableOpacity>
 );
+
+const UserListItem = ({ user, onPress, buttonText, buttonColor, isDestructive }) => (
+    <View style={styles.userItem}>
+        <Image source={{ uri: user.avatar || 'https://via.placeholder.com/150' }} style={styles.userAvatar} />
+        <View style={styles.userInfo}>
+            <Text style={styles.userName}>{user.name}</Text>
+            <Text style={styles.userHandle}>@{user.handle}</Text>
+            {user.blockedDate && <Text style={styles.blockedDate}>Blocked: {user.blockedDate}</Text>}
+        </View>
+        <TouchableOpacity 
+            style={[styles.actionBtn, { backgroundColor: isDestructive ? 'rgba(255,68,68,0.1)' : Colors.primary }]} 
+            onPress={onPress}
+        >
+            <Text style={[styles.actionBtnText, { color: isDestructive ? '#FF4444' : '#FFF' }]}>{buttonText}</Text>
+        </TouchableOpacity>
+    </View>
+);
+
+// --- Main Screen ---
 
 const PrivacyScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
     const { showAlert } = useAlert();
-    const { profile, toggleTwoFactor, logoutAllSessions, blockUser, unblockUser } = useProfile();
+    const { profile, toggleTwoFactor, logoutAllSessions, blockUser, unblockUser, searchUsers } = useProfile();
 
+    // Block Modal State
     const [isBlockModalVisible, setBlockModalVisible] = useState(false);
-    const [newBlockName, setNewBlockName] = useState('');
-    const [isBlockingLoader, setIsBlockingLoader] = useState(false);
-
-    // Derived State from Context
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+    
+    // Derived State
     const settings = profile?.settings?.privacy || { twoFactor: false, activeSessions: 1, blockedUsers: [] };
     const blockedUsers = settings.blockedUsers || [];
 
-    const handleTwoFactor = () => {
-        showAlert({
-            title: "Two-Factor Authentication",
-            message: settings.twoFactor 
-                ? "Disabling 2FA makes your account less secure. Are you sure?" 
-                : "Secure your account by enabling Two-Factor Authentication.",
-            type: 'info',
-            btnText: settings.twoFactor ? "Yes, Disable" : "Enable",
-            secondaryBtnText: "Cancel",
-            onClose: async () => {
-                try {
-                    const newState = await toggleTwoFactor(settings.twoFactor);
-                    showAlert({ 
-                        title: "Success", 
-                        message: `2FA has been ${newState ? 'enabled' : 'disabled'}.`, 
-                        type: 'success' 
-                    });
-                } catch (err) {
-                    showAlert({ title: "Error", message: "Could not update 2FA status.", type: 'error' });
-                }
+    // --- Search Logic ---
+    useEffect(() => {
+        const delayDebounce = setTimeout(async () => {
+            if (searchQuery.length > 0) {
+                setIsSearching(true);
+                const results = await searchUsers(searchQuery);
+                setSearchResults(results);
+                setIsSearching(false);
+            } else {
+                setSearchResults([]);
             }
-        });
-    };
+        }, 500); // Debounce search 500ms
 
-    const handleManageSessions = () => {
-        if (settings.activeSessions <= 1) {
-            showAlert({ title: "Secure", message: "Only this device is currently active.", type: 'success' });
-            return;
-        }
+        return () => clearTimeout(delayDebounce);
+    }, [searchQuery, searchUsers]);
 
+    // --- Handlers ---
+
+    const handleBlockUser = (user) => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         showAlert({
-            title: "Manage Sessions",
-            message: `You have ${settings.activeSessions} active session(s). Log out others?`,
-            type: 'info',
-            btnText: "Log Out Others",
-            secondaryBtnText: "Cancel", 
+            title: `Block ${user.name}?`,
+            message: "They won't be able to message you or see your profile.",
+            btnText: "Block",
+            secondaryBtnText: "Cancel",
+            type: 'error',
             onClose: async () => {
                 try {
-                    await logoutAllSessions();
-                    showAlert({ title: "Success", message: "All other devices have been logged out.", type: 'success' });
+                    await blockUser(user);
+                    // Remove from search results instantly for UI smoothness
+                    setSearchResults(prev => prev.filter(u => u.id !== user.id));
+                    showAlert({ title: "Blocked", message: `${user.name} has been blocked.`, type: 'success' });
                 } catch (err) {
-                    showAlert({ title: "Error", message: "Failed to log out sessions.", type: 'error' });
+                    showAlert({ title: "Error", message: err.message, type: 'error' });
                 }
             }
         });
@@ -84,7 +102,7 @@ const PrivacyScreen = ({ navigation }) => {
     const handleUnblock = (user) => {
         showAlert({
             title: "Unblock User",
-            message: `Unblock ${user.name}?`,
+            message: `Unblock ${user.name}? They will be able to see your profile again.`,
             btnText: "Unblock",
             secondaryBtnText: "Cancel",
             onClose: async () => {
@@ -97,18 +115,49 @@ const PrivacyScreen = ({ navigation }) => {
         });
     };
 
-    const handleAddBlock = async () => {
-        if (!newBlockName.trim()) return;
-        setIsBlockingLoader(true);
-        try {
-            await blockUser(newBlockName);
-            setNewBlockName('');
-        } catch (err) {
-            showAlert({ title: "Error", message: "Could not block user. Check username.", type: 'error' });
-        } finally {
-            setIsBlockingLoader(false);
-        }
+    const handleTwoFactor = () => {
+        showAlert({
+            title: "Two-Factor Authentication",
+            message: settings.twoFactor 
+                ? "Disabling 2FA makes your account less secure. Are you sure?" 
+                : "Secure your account by enabling Two-Factor Authentication.",
+            type: 'info',
+            btnText: settings.twoFactor ? "Disable" : "Enable",
+            secondaryBtnText: "Cancel",
+            onClose: async () => {
+                try {
+                    const newState = await toggleTwoFactor(settings.twoFactor);
+                    showAlert({ title: "Success", message: `2FA ${newState ? 'enabled' : 'disabled'}.`, type: 'success' });
+                } catch (err) {
+                    showAlert({ title: "Error", message: "Could not update 2FA.", type: 'error' });
+                }
+            }
+        });
     };
+
+    const handleManageSessions = () => {
+        if (settings.activeSessions <= 1) {
+            showAlert({ title: "Secure", message: "Only this device is currently active.", type: 'success' });
+            return;
+        }
+        showAlert({
+            title: "Log Out Other Devices?",
+            message: `You have ${settings.activeSessions} active session(s).`,
+            type: 'info',
+            btnText: "Log Out Others",
+            secondaryBtnText: "Cancel", 
+            onClose: async () => {
+                try {
+                    await logoutAllSessions();
+                    showAlert({ title: "Success", message: "All other devices logged out.", type: 'success' });
+                } catch (err) {
+                    showAlert({ title: "Error", message: "Failed.", type: 'error' });
+                }
+            }
+        });
+    };
+
+    // --- Modal Renderer ---
 
     const renderBlockModal = () => (
         <Modal 
@@ -118,75 +167,133 @@ const PrivacyScreen = ({ navigation }) => {
             onRequestClose={() => setBlockModalVisible(false)}
         >
             <View style={styles.modalOverlay}>
-                <View style={[styles.modalContent, { marginTop: insets.top + 20, marginBottom: insets.bottom + 20 }]}>
+                <View style={[styles.modalContent, { marginTop: insets.top + 40, marginBottom: insets.bottom + 20 }]}>
+                    
+                    {/* Modal Header */}
                     <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Blocked Users</Text>
+                        <Text style={styles.modalTitle}>Manage Blocks</Text>
                         <TouchableOpacity onPress={() => setBlockModalVisible(false)} style={styles.closeBtn}>
                             <Ionicons name="close" size={24} color={Colors.text} />
                         </TouchableOpacity>
                     </View>
-                    <View style={styles.addBlockContainer}>
+
+                    {/* Search Bar */}
+                    <View style={styles.searchContainer}>
+                        <Ionicons name="search" size={20} color={Colors.textSecondary} />
                         <TextInput 
                             style={styles.input}
-                            placeholder="Type username to block..."
+                            placeholder="Find users to block..."
                             placeholderTextColor={Colors.textSecondary}
-                            value={newBlockName}
-                            onChangeText={setNewBlockName}
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            autoCapitalize="none"
                         />
-                        <TouchableOpacity 
-                            style={styles.addBtn} 
-                            onPress={handleAddBlock}
-                            disabled={isBlockingLoader}
-                        >
-                            {isBlockingLoader ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.addBtnText}>Block</Text>}
-                        </TouchableOpacity>
+                        {isSearching && <ActivityIndicator size="small" color={Colors.secondary} />}
                     </View>
-                    <FlatList 
-                        data={blockedUsers}
-                        keyExtractor={item => item.id}
-                        ListEmptyComponent={<View style={styles.emptyState}><Ionicons name="people-outline" size={40} color={Colors.textSecondary} /><Text style={styles.emptyText}>No blocked users.</Text></View>}
-                        renderItem={({ item }) => (
-                            <View style={styles.blockedUserRow}>
-                                <View><Text style={styles.blockedName}>{item.name}</Text><Text style={styles.blockedDate}>Blocked on {item.date}</Text></View>
-                                <TouchableOpacity style={styles.unblockBtn} onPress={() => handleUnblock(item)}><Text style={styles.unblockText}>Unblock</Text></TouchableOpacity>
-                            </View>
-                        )}
-                    />
+
+                    {/* Content Switcher: Search Results vs Blocked List */}
+                    {searchQuery.length > 0 ? (
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.listHeader}>Search Results</Text>
+                            <FlatList 
+                                data={searchResults}
+                                keyExtractor={item => item.id}
+                                ListEmptyComponent={!isSearching && <Text style={styles.emptyText}>No users found.</Text>}
+                                renderItem={({ item }) => (
+                                    <UserListItem 
+                                        user={item} 
+                                        onPress={() => handleBlockUser(item)} 
+                                        buttonText="Block"
+                                        buttonColor={Colors.danger}
+                                        isDestructive={true}
+                                    />
+                                )}
+                            />
+                        </View>
+                    ) : (
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.listHeader}>Blocked List ({blockedUsers.length})</Text>
+                            <FlatList 
+                                data={blockedUsers}
+                                keyExtractor={item => item.id}
+                                ListEmptyComponent={
+                                    <View style={styles.emptyState}>
+                                        <Ionicons name="shield-checkmark-outline" size={48} color={Colors.textSecondary} />
+                                        <Text style={styles.emptyText}>No blocked users.</Text>
+                                    </View>
+                                }
+                                renderItem={({ item }) => (
+                                    <UserListItem 
+                                        user={item} 
+                                        onPress={() => handleUnblock(item)} 
+                                        buttonText="Unblock"
+                                        isDestructive={false}
+                                    />
+                                )}
+                            />
+                        </View>
+                    )}
                 </View>
             </View>
         </Modal>
     );
 
+    // --- Main Render ---
+
     return (
         <LinearGradient colors={[Colors.background, '#1a1a2e']} style={styles.container}>
             <StatusBar barStyle="light-content" />
             <View style={[styles.header, { paddingTop: insets.top }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}><Ionicons name="arrow-back" size={24} color={Colors.text} /></TouchableOpacity>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
+                    <Ionicons name="arrow-back" size={24} color={Colors.text} />
+                </TouchableOpacity>
                 <Text style={styles.headerTitle}>Privacy</Text>
                 <View style={styles.headerButton} />
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContainer}>
                 <View style={styles.introHeader}>
-                    <View style={styles.iconContainer}><Ionicons name="shield-checkmark-outline" size={40} color={Colors.secondary} /></View>
-                    <Text style={styles.introTitle}>Your Privacy Matters</Text>
-                    <Text style={styles.introSubtitle}>Manage how your data is used and control your account's security.</Text>
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="finger-print-outline" size={40} color={Colors.secondary} />
+                    </View>
+                    <Text style={styles.introTitle}>Privacy Center</Text>
+                    <Text style={styles.introSubtitle}>Control who can see your activity and secure your account.</Text>
                 </View>
-                <Text style={styles.sectionTitle}>Security</Text>
+
+                <Text style={styles.sectionTitle}>Account Security</Text>
                 <View style={styles.card}>
-                    <SettingsRow icon="lock-closed-outline" label="Two-Factor Authentication" details={settings.twoFactor ? "On" : "Off"} onPress={handleTwoFactor} />
-                    <SettingsRow icon="keypad-outline" label="Manage Sessions" details={`${settings.activeSessions} Active`} onPress={handleManageSessions} isLast />
+                    <SettingsRow 
+                        icon="shield-outline" 
+                        label="Two-Factor Auth" 
+                        details={settings.twoFactor ? "Enabled" : "Disabled"} 
+                        onPress={handleTwoFactor} 
+                    />
+                    <SettingsRow 
+                        icon="phone-portrait-outline" 
+                        label="Active Sessions" 
+                        details={`${settings.activeSessions} Device(s)`} 
+                        onPress={handleManageSessions} 
+                        isLast 
+                    />
                 </View>
-                <Text style={styles.sectionTitle}>Community</Text>
+
+                <Text style={styles.sectionTitle}>Interactions</Text>
                 <View style={styles.card}>
-                    <SettingsRow icon="people-circle-outline" label="Blocked Users" details={`${blockedUsers.length}`} onPress={() => setBlockModalVisible(true)} isLast />
+                    <SettingsRow 
+                        icon="ban-outline" 
+                        label="Blocked Users" 
+                        details={`${blockedUsers.length}`} 
+                        onPress={() => setBlockModalVisible(true)} 
+                        isLast 
+                    />
                 </View>
             </ScrollView>
+
             {renderBlockModal()}
         </LinearGradient>
     );
 };
-// ... styles (same as provided)
+
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15, paddingHorizontal: 15, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },
@@ -194,42 +301,47 @@ const styles = StyleSheet.create({
     headerButton: { padding: 10, minWidth: 40, alignItems: 'center' },
     
     scrollContainer: { padding: 20, gap: 20 },
-    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     
     introHeader: { alignItems: 'center', marginBottom: 20 },
-    iconContainer: { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+    iconContainer: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center', marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
     introTitle: { fontFamily: 'Poppins_700Bold', color: Colors.text, fontSize: 24, textAlign: 'center' },
-    introSubtitle: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 16, textAlign: 'center', marginTop: 10, maxWidth: '90%' },
+    introSubtitle: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 14, textAlign: 'center', marginTop: 8, maxWidth: '80%' },
     
-    sectionTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.textSecondary, fontSize: 14, textTransform: 'uppercase', marginBottom: -10, marginLeft: 5 },
-    card: { borderRadius: 16, overflow: 'hidden', backgroundColor: 'rgba(28,28,30,0.5)', borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },
+    sectionTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.textSecondary, fontSize: 12, textTransform: 'uppercase', marginBottom: -10, marginLeft: 8, letterSpacing: 1 },
+    card: { borderRadius: 16, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },
     
-    row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 15 },
-    rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.1)' },
+    row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16 },
+    rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.05)' },
+    iconBox: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
     rowTextContainer: { flex: 1 },
-    rowLabel: { fontFamily: 'Poppins_500Medium', fontSize: 16 },
-    rowDetails: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 14, marginRight: 8 },
+    rowLabel: { fontFamily: 'Poppins_500Medium', fontSize: 15 },
+    rowDetails: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 13, marginRight: 8, opacity: 0.7 },
 
     // Modal Styles
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', paddingHorizontal: 20 },
-    modalContent: { backgroundColor: '#1E1E1E', borderRadius: 20, flex: 1, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
+    modalContent: { backgroundColor: '#151515', borderTopLeftRadius: 24, borderTopRightRadius: 24, flex: 1, padding: 20 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     modalTitle: { fontSize: 20, fontFamily: 'Poppins_700Bold', color: Colors.text },
-    closeBtn: { padding: 5, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20 },
+    closeBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20 },
     
-    addBlockContainer: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-    input: { flex: 1, fontSize: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 12, color: Colors.text, fontFamily: 'Poppins_400Regular' },
-    addBtn: { backgroundColor: Colors.primary || '#6200EE', borderRadius: 12, paddingHorizontal: 20, justifyContent: 'center', alignItems: 'center' },
-    addBtnText: { color: '#FFF', fontFamily: 'Poppins_600SemiBold' },
-
-    blockedUserRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-    blockedName: { color: Colors.text, fontSize: 16, fontFamily: 'Poppins_500Medium' },
-    blockedDate: { color: Colors.textSecondary, fontSize: 12 },
-    unblockBtn: { backgroundColor: 'rgba(255,68,68,0.1)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,68,68,0.3)' },
-    unblockText: { color: '#FF4444', fontSize: 12, fontFamily: 'Poppins_600SemiBold' },
+    searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 12, marginBottom: 20 },
+    input: { flex: 1, fontSize: 14, color: Colors.text, fontFamily: 'Poppins_400Regular', marginLeft: 10 },
     
-    emptyState: { alignItems: 'center', marginTop: 50, opacity: 0.5 },
-    emptyText: { color: Colors.textSecondary, marginTop: 10, fontFamily: 'Poppins_400Regular' }
+    listHeader: { fontFamily: 'Poppins_600SemiBold', color: Colors.textSecondary, fontSize: 12, textTransform: 'uppercase', marginBottom: 10 },
+    
+    // User Item Styles
+    userItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+    userAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.surface },
+    userInfo: { flex: 1, marginLeft: 12 },
+    userName: { color: Colors.text, fontSize: 15, fontFamily: 'Poppins_500Medium' },
+    userHandle: { color: Colors.textSecondary, fontSize: 13 },
+    blockedDate: { color: Colors.danger, fontSize: 11, marginTop: 2 },
+    
+    actionBtn: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 8 },
+    actionBtnText: { fontSize: 12, fontFamily: 'Poppins_600SemiBold' },
+    
+    emptyState: { alignItems: 'center', marginTop: 80, opacity: 0.5 },
+    emptyText: { color: Colors.textSecondary, marginTop: 15, fontFamily: 'Poppins_400Regular' }
 });
 
 export default PrivacyScreen;

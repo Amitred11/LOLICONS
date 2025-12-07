@@ -339,10 +339,27 @@ export const ProfileAPI = {
     },
     
     updateProfile: async (updateData) => {
-        await delay(1500);
+        await delay(1000); // Simulate network latency
+        
+        // Validation Simulation
+        if (updateData.handle && updateData.handle.length < 3) {
+            return { success: false, message: "Username must be at least 3 characters." };
+        }
+        
+        // Merge updates into the "DB"
         Object.assign(MOCK_USER_DB, updateData);
         return { success: true, message: "Profile updated successfully" };
     },
+
+    // NEW: Simulate Image Upload
+    uploadAvatar: async (uri) => {
+        await delay(1500);
+        // In a real app, this returns a remote URL. We'll simulate that.
+        const newUrl = uri; 
+        MOCK_USER_DB.avatarUrl = newUrl;
+        return { success: true, url: newUrl };
+    },
+
 
     // --- FRIEND PROFILE ---
     
@@ -370,15 +387,15 @@ export const ProfileAPI = {
     // --- ACCOUNT SCREEN ---
 
     getAccountSettings: async () => {
-        await delay(800);
+        await delay(500);
         return {
             success: true,
             data: {
                 id: MOCK_USER_DB.id,
-                name: MOCK_USER_DB.name,
-                handle: MOCK_USER_DB.handle,
+                name: MOCK_USER_DB.name, // Ensure this pulls latest
+                handle: MOCK_USER_DB.handle, // Ensure this pulls latest
                 email: MOCK_USER_DB.email,
-                joinDate: MOCK_USER_DB.joinDate, 
+                joinDate: '2023-08-15', // Static for now
                 connected: MOCK_USER_DB.settings.connectedAccounts
             }
         };
