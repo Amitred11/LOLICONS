@@ -28,10 +28,11 @@ const SNAP_SIZE = CARD_WIDTH + 12;
 const HomeScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const { showAlert } = useAlert(); 
   const { user } = useAuth();
   
-  const { isLoading, isRefreshing, featuredComics, continueReading, dailyGoals, upcomingEvents, refreshData } = useHome();
-
+  const { isLoading, isRefreshing, featuredComics, continueReading, dailyGoals, upcomingEvents, refreshData, logVisitHistory } = useHome();
+  
   const scrollY = useSharedValue(0);
   const scrollX = useSharedValue(0);
   
@@ -41,6 +42,45 @@ const HomeScreen = () => {
     if (!dailyGoals || dailyGoals.length === 0) return 0;
     return dailyGoals.filter(g => (g.progress || 0) >= (g.total || 1)).length / dailyGoals.length;
   }, [dailyGoals]);
+
+  const handleGoalPress = useCallback((goal) => {
+    if (goal.completed || goal.progress >= goal.total) {
+        return;
+    }
+
+    switch (goal.type) {
+        case 'read':
+        case 'explore_featured': // Also navigates to explore comics
+            navigation.navigate('Comics');
+            break;
+        case 'rate':
+            navigation.navigate('Comics', { screen: 'MyBookshelf' });
+            break;
+        case 'library':
+            navigation.navigate('Search');
+            break;
+        case 'comment':
+            showAlert({ title: goal.title, message: "Find any comic and leave a comment on a chapter to complete this goal!" });
+            navigation.navigate('Comics');
+            break;
+        case 'share':
+            showAlert({ title: goal.title, message: "Navigate to any comic's detail page and use the share button." });
+            break;
+        case 'explore_genre':
+            navigation.navigate('Search', { focus: 'genres' });
+            break;
+        case 'history':
+            // This action can be completed right here
+            logVisitHistory();
+            break;
+        case 'time':
+            showAlert({ title: goal.title, message: "This goal progresses automatically as you spend time reading." });
+            break;
+        default:
+            showAlert({ title: "Goal", message: "No specific action is tied to this goal. It may update automatically." });
+            break;
+    }
+  }, [navigation, showAlert, logVisitHistory]);
 
   const handleScroll = useAnimatedScrollHandler((e) => { scrollY.value = e.contentOffset.y; });
   const handleParallaxScroll = useAnimatedScrollHandler((e) => { scrollX.value = e.contentOffset.x; });
@@ -180,7 +220,11 @@ const HomeScreen = () => {
 
             <AnimatedSection index={2}>
                 {dailyGoals && dailyGoals.length > 0 ? (
-                    <DailyGoalsWidget goals={dailyGoals} dailyProgress={dailyProgress} onGoalPress={() => {}} />
+                    <DailyGoalsWidget 
+                        goals={dailyGoals} 
+                        dailyProgress={dailyProgress} 
+                        onGoalPress={handleGoalPress} 
+                    />
                 ) : (
                     <View style={styles.section}><EmptyState icon="trophy-outline" title="No Active Goals" message="You're all caught up!" /></View>
                 )}

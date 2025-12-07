@@ -135,7 +135,7 @@ export const MOCK_USER_DB = {
   name: 'AMITRED11',
   handle: 'pogiako',
   avatarUrl: 'https://i.pravatar.cc/150?u=a042581f4e29026704d',
-  xp: 12309,
+  xp: 123123,
   
   // Banner will be updated dynamically from ComicService
   favoriteComicBanner: { uri: 'https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?q=80&w=1000&auto=format&fit=crop' },

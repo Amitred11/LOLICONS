@@ -33,45 +33,44 @@ export const NotificationProvider = ({ children }) => {
     }
   }, []);
 
-  // --- FIX: Refactored to call the API then refetch ---
+  // --- MODIFIED: Optimistic update without reloading ---
   const markAsRead = useCallback(async (id) => {
+    const originalNotifications = [...notifications];
     // Optimistically update the UI for a faster perceived response
-    setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, unread: false } : n)
+    setNotifications(prev =>
+      prev.map(n => (n.id === id ? { ...n, unread: false } : n))
     );
     try {
+      // Call the API in the background without triggering a loading state
       await NotificationAPI.markAsRead(id);
-      // Refetch from the "source of truth" to ensure consistency
-      await fetchNotifications(); 
     } catch (error) {
       console.error("Context: Failed to mark as read", error);
-      // Optional: Revert optimistic update on failure
+      // On failure, revert the optimistic update
+      setNotifications(originalNotifications);
     }
-  }, [fetchNotifications]);
+  }, [notifications]); // Dependency changed to 'notifications'
 
-  // --- FIX: Refactored to call the API then refetch ---
   const markAllAsRead = useCallback(async () => {
-    // Optimistically update
+    const originalNotifications = notifications;
     setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
     try {
       await NotificationAPI.markAllAsRead();
-      // Refetch from the "source of truth"
-      await fetchNotifications();
     } catch (error) {
       console.error("Context: Failed to mark all read", error);
+      setNotifications(originalNotifications);
     }
-  }, [fetchNotifications]);
+  }, [notifications]);
 
-   const deleteNotification = useCallback(async (id) => {
-    // Optimistically update the UI for a fast response
-    setNotifications(prev => prev.filter(n => n.id !== id));
+   const deleteMultipleNotifications = useCallback(async (ids) => {
+    const originalNotifications = notifications;
+    setNotifications(prev => prev.filter(n => !ids.includes(n.id)));
     try {
-      await NotificationAPI.deleteNotification(id);
+      await NotificationAPI.deleteMultipleNotifications(ids);
     } catch (error) {
-      console.error("Context: Failed to delete notification", error);
-      // Optional: Could add logic here to revert the state on API failure
+      console.error("Context: Failed to delete notifications", error);
+      setNotifications(originalNotifications);
     }
-  }, []);
+  }, [notifications]);
 
 
   const value = {
@@ -81,7 +80,7 @@ export const NotificationProvider = ({ children }) => {
     fetchNotifications,
     markAsRead,
     markAllAsRead,
-    deleteNotification, // Expose the new function
+    deleteMultipleNotifications,
   };
 
   return (

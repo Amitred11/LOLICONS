@@ -1,13 +1,58 @@
 import { EventsService } from '@api/hub/MockEventsService';
 import { ComicService } from '@api/MockComicService';
+import { MOCK_RANKS } from '@api/MockProfileService';
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-const MOCK_MISSIONS = [
-    { id: 'm1', title: 'Read 1 Chapter', progress: 1, total: 1, completed: true, icon: 'book-outline' },
-    { id: 'm2', title: 'Spend 10 Minutes', progress: 5, total: 10, completed: false, icon: 'time-outline' },
-    { id: 'm3', title: 'Rate a Comic', progress: 0, total: 1, completed: false, icon: 'star-outline' },
-];
+const getGoalsForRank = (rank) => {
+    const rankIndex = MOCK_RANKS.findIndex(r => r.name === rank.name);
+    const difficulty = Math.max(0, rankIndex);
+    let goals = [];
+
+    switch (rank.name) {
+        case '气': // Spirit Apprentice
+            goals = [
+                { id: 'read_chapters', type: 'read', title: `Read ${1 + difficulty} Chapter(s)`, total: 1 + difficulty, icon: 'book-outline', xp: 150 },
+                { id: 'time_spent', type: 'time', title: 'Spend 15 Minutes Reading', total: 15, icon: 'time-outline', xp: 100 },
+                { id: 'rate_comic', type: 'rate', title: 'Rate a Comic', total: 1, icon: 'star-outline', xp: 75 },
+                { id: 'add_to_library', type: 'library', title: 'Add a Comic to Bookshelf', total: 1, icon: 'bookmark-outline', xp: 75 },
+                { id: 'comment', type: 'comment', title: 'Leave a Comment', total: 1, icon: 'chatbubble-ellipses-outline', xp: 100 },
+            ];
+            break;
+
+        case '灵': // Soul Forger
+            goals = [
+                { id: 'read_chapters', type: 'read', title: `Read ${1 + difficulty} Chapters`, total: 1 + difficulty, icon: 'book-outline', xp: 200 },
+                { id: 'time_spent', type: 'time', title: `Spend ${20 + difficulty * 2} Minutes`, total: 20 + difficulty * 2, icon: 'time-outline', xp: 150 },
+                { id: 'rate_comic', type: 'rate', title: 'Rate 2 Different Comics', total: 2, icon: 'star-half-outline', xp: 125 },
+                { id: 'add_to_library', type: 'library', title: 'Add a Comic to Bookshelf', total: 1, icon: 'bookmark-outline', xp: 100 },
+                { id: 'share_comic', type: 'share', title: 'Share a Comic', total: 1, icon: 'share-social-outline', xp: 150 },
+            ];
+            break;
+            
+        case '玄': case '尊': case '仙': case '圣': case '神':
+             goals = [
+                { id: 'read_chapters', type: 'read', title: `Read ${2 + difficulty} Chapters`, total: 2 + difficulty, icon: 'book-outline', xp: 250 + (difficulty * 20) },
+                { id: 'time_spent', type: 'time', title: `Spend ${30 + difficulty * 5} Minutes`, total: 30 + difficulty * 5, icon: 'time-outline', xp: 200 + (difficulty * 15) },
+                { id: 'rate_comic', type: 'rate', title: `Rate ${2 + Math.floor(difficulty/2)} Comics`, total: 2 + Math.floor(difficulty/2), icon: 'star-outline', xp: 175 + (difficulty * 10) },
+                { id: 'add_to_library', type: 'library', title: `Add ${1 + Math.floor(difficulty/3)} Comics`, total: 1 + Math.floor(difficulty/3), icon: 'library-outline', xp: 150 + (difficulty * 10) },
+                { id: 'explore_genre', type: 'explore', title: 'Read a New Genre', total: 1, icon: 'compass-outline', xp: 200 },
+            ];
+            break;
+
+        default: // '凡' (The Mortal Realm)
+            goals = [
+                { id: 'read_chapters', type: 'read', title: 'Read 1 Chapter', total: 1, icon: 'book-outline', xp: 100 },
+                { id: 'time_spent', type: 'time', title: 'Spend 10 Minutes Reading', total: 10, icon: 'time-outline', xp: 75 },
+                { id: 'explore_featured', type: 'explore', title: 'Explore a Featured Comic', total: 1, icon: 'sparkles-outline', xp: 50 },
+                { id: 'check_history', type: 'history', title: 'Visit Your Read History', total: 1, icon: 'time-outline', xp: 50 },
+                { id: 'rate_comic', type: 'rate', title: 'Rate a Comic', total: 1, icon: 'star-outline', xp: 75 },
+            ];
+            break;
+    }
+    // Return fresh objects with progress and completed status reset
+    return goals.map(g => ({ ...g, progress: 0, completed: false }));
+};
 
 const formatViews = (num) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
@@ -55,9 +100,11 @@ export const HomeService = {
         } catch (e) { return { success: false, data: [] }; }
     },
 
-    getDailyGoals: async () => {
-        await delay(500); // Simulate network
-        return { success: true, data: MOCK_MISSIONS };
+    getDailyGoals: async (userRank) => {
+        await delay(300);
+        const rank = userRank || MOCK_RANKS[0];
+        const goals = getGoalsForRank(rank);
+        return { success: true, data: goals };
     },
 
     getUpcomingEvents: async () => {

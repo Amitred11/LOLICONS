@@ -13,6 +13,7 @@ import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold } fr
 import { AuthProvider } from '@context/main/AuthContext';
 import { ModalProvider } from '@context/other/ModalContext';
 import { AlertProvider } from '@context/other/AlertContext';
+import { RewardProvider } from '@context/other/RewardContext';
 import { CommunityProvider } from '@context/main/CommunityContext';
 import { ComicProvider } from '@context/main/ComicContext'; 
 import { HomeProvider } from '@context/main/HomeContext';
@@ -51,6 +52,7 @@ const AppProviders = ({ children }) => (
       <MenuProvider>
         <AlertProvider>
           <AuthProvider>
+            <RewardProvider>
             <ProfileProvider>
               {/* Hub Contexts */}
               <ChatProvider>
@@ -74,6 +76,7 @@ const AppProviders = ({ children }) => (
                 </EventsProvider>
               </ChatProvider>
             </ProfileProvider>
+            </RewardProvider>
           </AuthProvider>
         </AlertProvider> 
       </MenuProvider>

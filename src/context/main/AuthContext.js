@@ -1,26 +1,26 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Ensure this is installed
-import Loading from '@components/ui/Loading'; 
+// @context/main/AuthContext.js
+
+import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Loading from '@components/ui/Loading';
 import { AuthAPI } from '@api/MockAuthService';
 import { useAlert } from '@context/other/AlertContext';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null); 
+  const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSplashLoading, setIsSplashLoading] = useState(true); // New: For initial app load
+  const [isSplashLoading, setIsSplashLoading] = useState(true);
 
   const { showAlert } = useAlert();
 
-  // 1. Check for stored user on App Launch
   useEffect(() => {
     const loadStoredUser = async () => {
       try {
         const storedUserJson = await AsyncStorage.getItem('user_session');
         if (storedUserJson) {
           const storedUser = JSON.parse(storedUserJson);
-          // Optional: Validate token with backend
           const response = await AuthAPI.validateToken(storedUser);
           if (response.success) {
             setUser(response.data);
@@ -31,14 +31,12 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         console.log('Failed to load user session', error);
       } finally {
-        setIsSplashLoading(false); // Done checking
+        setIsSplashLoading(false);
       }
     };
-
     loadStoredUser();
   }, []);
 
-  // Helper to save session
   const saveSession = async (userData) => {
       try {
           setUser(userData);
@@ -47,6 +45,23 @@ export const AuthProvider = ({ children }) => {
           console.error("Session save failed", e);
       }
   };
+
+  const awardXP = useCallback(async (amount) => {
+    if (!amount || amount <= 0) return;
+
+    setUser(currentUser => {
+        if (!currentUser) return null;
+
+        const newXp = (currentUser.xp || 0) + amount;
+        const updatedUser = { ...currentUser, xp: newXp };
+
+        AsyncStorage.setItem('user_session', JSON.stringify(updatedUser))
+            .catch(e => console.error("Failed to save XP update to session", e));
+        
+        console.log(`Awarding ${amount} XP. Old XP: ${currentUser.xp}, New XP: ${newXp}`);
+        return updatedUser;
+    });
+  }, []);
 
   const login = async ({ email, password }) => {
     setIsLoading(true); 
@@ -103,16 +118,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const value = useMemo(() => ({
+    user,
+    isLoggedIn: !!user,
+    isLoading,
+    isSplashLoading,
+    login,
+    register,
+    logout,
+    awardXP, // --- EXPORT: Make the new function available to the app ---
+  }), [user, isLoading, isSplashLoading, awardXP]);
+
+
   return (
-    <AuthContext.Provider value={{ 
-        user, 
-        isLoggedIn: !!user, 
-        isLoading, 
-        isSplashLoading, // Expose this so RootNav knows if it should show a blank/splash screen
-        login, 
-        register, 
-        logout 
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
       {isLoading && <Loading />}
     </AuthContext.Provider>
