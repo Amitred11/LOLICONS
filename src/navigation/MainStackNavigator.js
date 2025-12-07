@@ -48,6 +48,7 @@ import MediaDetailScreen from '@features/hub/Media/MediaDetailScreen';
 import EventDetailScreen from '@features/hub/Event/EventDetailScreen';
 import EventsScreen from '@features/hub/Event/EventsScreen';
 import MediaProfileScreen from '@features/hub/Media/MediaProfileScreen';
+import WatchPartyLobbyScreen from '@features/hub/Media/WatchPartyLobbyScreen';
 
 const AppStack = createNativeStackNavigator();
 
@@ -83,8 +84,9 @@ const MainStackNavigator = () => {
       <AppStack.Screen name="Search" component={SearchScreen} options={{ presentation: 'modal', animation: 'fade_from_bottom' }} />
       <AppStack.Screen name="Media" component={MediaScreen} />
       <AppStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
+      <AppStack.Screen name="WatchPartyLobby" component={WatchPartyLobbyScreen} /> 
       <AppStack.Screen name="MarketDetail" component={MarketDetailScreen} options={{ animation: 'slide_from_right' }}/>
-      <AppStack.Screen name="MediaProfile" component={MediaProfileScreen} />  
+      <AppStack.Screen name="MediaProfile" component={MediaProfileScreen} /> 
       <AppStack.Screen 
         name="Marketplace" 
         component={MarketplaceScreen} 

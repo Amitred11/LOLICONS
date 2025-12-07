@@ -1,10 +1,10 @@
+// @context/main/NotificationContext.js
+
 import React, { createContext, useState, useContext, useCallback, useMemo } from 'react';
 import { NotificationAPI } from '@api/MockNotificationService';
 
-// 1. Create Context
 const NotificationContext = createContext();
 
-// 2. Custom Hook
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
   if (!context) {
@@ -13,17 +13,13 @@ export const useNotifications = () => {
   return context;
 };
 
-// 3. Provider Component
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Derived state: Calculate unread count automatically whenever notifications change
   const unreadCount = useMemo(() => {
     return notifications.filter(n => n.unread).length;
   }, [notifications]);
-
-  // --- Actions ---
 
   const fetchNotifications = useCallback(async () => {
     setIsLoading(true);
@@ -37,40 +33,55 @@ export const NotificationProvider = ({ children }) => {
     }
   }, []);
 
+  // --- FIX: Refactored to call the API then refetch ---
   const markAsRead = useCallback(async (id) => {
-    // 1. Optimistic Update (Instant UI change)
+    // Optimistically update the UI for a faster perceived response
     setNotifications(prev => 
       prev.map(n => n.id === id ? { ...n, unread: false } : n)
     );
-
-    // 2. Background API Call
     try {
       await NotificationAPI.markAsRead(id);
+      // Refetch from the "source of truth" to ensure consistency
+      await fetchNotifications(); 
     } catch (error) {
       console.error("Context: Failed to mark as read", error);
-      // Optional: Revert state here if strictly necessary
+      // Optional: Revert optimistic update on failure
     }
-  }, []);
+  }, [fetchNotifications]);
 
+  // --- FIX: Refactored to call the API then refetch ---
   const markAllAsRead = useCallback(async () => {
-    // 1. Optimistic Update
+    // Optimistically update
     setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
-
-    // 2. Background API Call
     try {
       await NotificationAPI.markAllAsRead();
+      // Refetch from the "source of truth"
+      await fetchNotifications();
     } catch (error) {
       console.error("Context: Failed to mark all read", error);
     }
+  }, [fetchNotifications]);
+
+   const deleteNotification = useCallback(async (id) => {
+    // Optimistically update the UI for a fast response
+    setNotifications(prev => prev.filter(n => n.id !== id));
+    try {
+      await NotificationAPI.deleteNotification(id);
+    } catch (error) {
+      console.error("Context: Failed to delete notification", error);
+      // Optional: Could add logic here to revert the state on API failure
+    }
   }, []);
+
 
   const value = {
     notifications,
     isLoading,
-    unreadCount,     // Exposed for badges on other screens
+    unreadCount,
     fetchNotifications,
     markAsRead,
-    markAllAsRead
+    markAllAsRead,
+    deleteNotification, // Expose the new function
   };
 
   return (

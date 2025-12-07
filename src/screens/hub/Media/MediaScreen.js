@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
     View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, 
-    ScrollView, Image, ImageBackground, Dimensions, StatusBar, Animated, ActivityIndicator, LayoutAnimation, Platform, UIManager
+    ScrollView, Image, ImageBackground, Dimensions, StatusBar, Animated, 
+    ActivityIndicator, LayoutAnimation, Platform, UIManager
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,58 +10,67 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
 
+// --- MOCK CONTEXTS (Replace with your actual imports) ---
 import { useAlert } from '@context/other/AlertContext';
 import { useMedia } from '@context/hub/MediaContext'; 
 
-// Enable LayoutAnimation for Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
 const { width, height } = Dimensions.get('window');
-const ITEM_WIDTH = width * 0.42; // Slightly wider for better text fit
+
+// --- GRID MATH ---
+const SCREEN_PADDING = 16;
+const GAP = 12;
+const COLUMNS = 2;
+const CARD_WIDTH = (width - (SCREEN_PADDING * 2) - (GAP * (COLUMNS - 1))) / COLUMNS;
+const POSTER_RATIO = 1.5;
 
 const Theme = {
-    background: '#09090b',
-    surface: '#18181b',
-    surfaceHighlight: '#27272a',
+    background: '#09090b', // Deep Zinc
+    surface: '#18181b',    // Slightly lighter
+    surfaceLight: '#27272a',
     primary: '#E50914',
+    accent: '#46D369',
     text: '#FFFFFF',
     textSecondary: '#A1A1AA',
-    accent: '#3B82F6',
+    border: '#3f3f46',     // Distinct border color
 };
 
-const CATEGORIES = ['All', 'Movies', 'TV Shows', 'K-Drama', 'Anime'];
+const CATEGORIES = ['All', 'Movies', 'TV Shows', 'K-Drama', 'Anime', 'Documentary'];
 
-// --- COMPONENT: Header with Solid/Blur Background ---
+// --- COMPONENT: Header ---
 const GlassHeader = ({ scrollY, query, onQueryChange, insets }) => {
     const navigation = useNavigation();
     
-    // Interpolate opacity for the background blur, but keep search bar visible
-    const bgOpacity = scrollY.interpolate({ inputRange: [0, 100], outputRange: [0, 1], extrapolate: 'clamp' });
+    // Background opacity
+    const bgOpacity = scrollY.interpolate({ 
+        inputRange: [50, 150], 
+        outputRange: [0, 1], 
+        extrapolate: 'clamp' 
+    });
 
     return (
-        <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
-            {/* Background Blur Layer */}
+        <View style={[styles.headerContainer, { height: 60 + insets.top }]}>
+            {/* Animated Solid/Blur Background */}
             <Animated.View style={[StyleSheet.absoluteFill, { opacity: bgOpacity }]}>
                 <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
-                <View style={{...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(9,9,11,0.8)'}} />
+                <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(9,9,11,0.9)' }} />
+                <View style={styles.headerBorderBottom} />
             </Animated.View>
 
-            <View style={styles.headerContent}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <View style={[styles.headerContent, { paddingTop: insets.top }]}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
                     <Ionicons name="arrow-back" size={24} color={Theme.text} />
                 </TouchableOpacity>
                 
-                {/* Search Input - Now has a solid background */}
-                <View style={[styles.searchPill, query.length > 0 && styles.searchPillActive]}>
-                    <Ionicons name="search" size={18} color={query ? Theme.text : Theme.textSecondary} />
+                {/* Search Bar - Solid & Bordered */}
+                <View style={[styles.searchBar, query.length > 0 && styles.searchBarActive]}>
+                    <Ionicons name="search" size={18} color={Theme.textSecondary} style={{ marginRight: 8 }} />
                     <TextInput
                         style={styles.searchInput}
-                        placeholder="Search movies, shows..."
+                        placeholder="Search titles..."
                         placeholderTextColor={Theme.textSecondary}
                         value={query}
                         onChangeText={onQueryChange}
+                        returnKeyType="search"
                     />
                     {query.length > 0 && (
                         <TouchableOpacity onPress={() => onQueryChange('')}>
@@ -69,9 +79,13 @@ const GlassHeader = ({ scrollY, query, onQueryChange, insets }) => {
                     )}
                 </View>
 
-                {!query && (
-                    <TouchableOpacity style={styles.avatarContainer}>
-                        <Image source={{ uri: 'https://i.pravatar.cc/100?img=8' }} style={styles.avatar} />
+                {/* Avatar -> Navigate to Profile */}
+                {query.length === 0 && (
+                    <TouchableOpacity 
+                        style={styles.avatarContainer}
+                        onPress={() => navigation.navigate('MediaProfile')}
+                    >
+                        <Image source={{ uri: 'https://i.pravatar.cc/100?img=12' }} style={styles.avatar} />
                     </TouchableOpacity>
                 )}
             </View>
@@ -79,37 +93,75 @@ const GlassHeader = ({ scrollY, query, onQueryChange, insets }) => {
     );
 };
 
-// --- COMPONENT: Empty State ---
-const EmptyState = ({ message }) => (
-    <View style={styles.emptyContainer}>
-        <View style={styles.emptyIconCircle}>
-            <Ionicons name="search-outline" size={40} color={Theme.textSecondary} />
-        </View>
-        <Text style={styles.emptyTitle}>No Results Found</Text>
-        <Text style={styles.emptySubtitle}>{message || "Try adjusting your search or filters"}</Text>
-    </View>
-);
+// --- COMPONENT: Control Bar ---
+const ControlBar = ({ activeCategory, setActiveCategory, viewMode, toggleViewMode }) => {
+    return (
+        <View style={styles.controlBarContainer}>
+            <View style={styles.filterWrapper}>
+                <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false} 
+                    contentContainerStyle={styles.filterContent}
+                >
+                    {CATEGORIES.map(cat => {
+                        const isActive = activeCategory === cat;
+                        return (
+                            <TouchableOpacity 
+                                key={cat} 
+                                onPress={() => setActiveCategory(cat)}
+                                style={[styles.chip, isActive && styles.chipActive]}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                                    {cat}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
+            </View>
 
-// --- COMPONENT: Grid Card (Portrait) ---
-const PortraitCard = ({ item, onPress }) => (
-    <TouchableOpacity style={styles.portraitCard} onPress={() => onPress(item)} activeOpacity={0.7}>
-        <View style={styles.imageWrapper}>
-            <Image source={item.poster} style={styles.portraitImage} />
-            {item.tags.includes('New') && (
+            <View style={styles.toggleWrapper}>
+                <TouchableOpacity 
+                    style={styles.viewToggleBtn} 
+                    onPress={toggleViewMode}
+                    activeOpacity={0.6}
+                >
+                    <Ionicons 
+                        name={viewMode === 'grid' ? "list" : "grid"} 
+                        size={20} 
+                        color={Theme.text} 
+                    />
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+};
+
+// --- COMPONENT: Grid Card ---
+const GridCard = ({ item, onPress }) => (
+    <TouchableOpacity style={styles.gridCard} onPress={() => onPress(item)} activeOpacity={0.8}>
+        <ImageBackground 
+            source={item.poster} 
+            style={styles.gridImage} 
+            imageStyle={{ borderRadius: 8 }}
+        >
+            <LinearGradient 
+                colors={['transparent', 'rgba(0,0,0,0.9)']} 
+                style={styles.gridGradient} 
+            />
+            {item.tags?.includes('New') && (
                 <View style={styles.badgeNew}><Text style={styles.badgeText}>NEW</Text></View>
             )}
-            <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.cardGradient} />
-        </View>
-        <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-        <View style={styles.cardMetaRow}>
-            <Text style={styles.cardMeta}>{item.year}</Text>
-            <Text style={styles.cardDot}>•</Text>
-            <Text style={styles.cardMeta}>{item.type}</Text>
-        </View>
+            <View style={styles.gridContent}>
+                <Text style={styles.gridTitle} numberOfLines={1}>{item.title}</Text>
+                <Text style={styles.gridMeta}>{item.year}</Text>
+            </View>
+        </ImageBackground>
     </TouchableOpacity>
 );
 
-// --- COMPONENT: List Card (Landscape) ---
+// --- COMPONENT: List Card ---
 const ListCard = ({ item, onPress }) => (
     <TouchableOpacity style={styles.listCard} onPress={() => onPress(item)} activeOpacity={0.7}>
         <Image source={item.poster} style={styles.listImage} />
@@ -118,47 +170,38 @@ const ListCard = ({ item, onPress }) => (
                 <Text style={styles.listTitle} numberOfLines={1}>{item.title}</Text>
                 {item.isFavorite && <Ionicons name="bookmark" size={16} color={Theme.primary} />}
             </View>
-            <Text style={styles.listMeta}>{item.year} • {item.type} • <Text style={{color: '#46d369'}}>{item.match} Match</Text></Text>
+            <Text style={styles.listMeta}>{item.year} • {item.type} • <Text style={{color: Theme.accent}}>{item.match || '95%'} Match</Text></Text>
             <Text style={styles.listDesc} numberOfLines={2}>{item.description}</Text>
-            <View style={styles.listTags}>
-                {item.tags.slice(0, 2).map((tag, index) => (
-                    <View key={index} style={styles.miniTag}>
-                        <Text style={styles.miniTagText}>{tag}</Text>
-                    </View>
-                ))}
-            </View>
         </View>
-        <View style={styles.listAction}>
-             <Ionicons name="play-circle-outline" size={32} color={Theme.textSecondary} />
-        </View>
+        <Ionicons name="play-circle-outline" size={32} color={Theme.textSecondary} />
     </TouchableOpacity>
 );
 
 // --- COMPONENT: Hero ---
-const CinematicHero = ({ item, onPlay, onList }) => {
+const CinematicHero = ({ item, onPlay, onToggleList }) => {
     if (!item) return null;
     return (
         <View style={styles.heroContainer}>
-            <ImageBackground source={item.backdrop} style={styles.heroImage} resizeMode="cover">
+            <ImageBackground source={item.backdrop} style={styles.heroImage}>
                 <LinearGradient 
-                    colors={['transparent', 'rgba(9,9,11,0.2)', 'rgba(9,9,11,0.9)', Theme.background]} 
-                    locations={[0, 0.4, 0.8, 1]}
+                    colors={['transparent', 'rgba(0,0,0,0.1)', Theme.background]} 
+                    locations={[0, 0.5, 1]}
                     style={styles.heroGradient}
                 >
                     <View style={styles.heroContent}>
-                        <View style={styles.tagRow}>
-                            <View style={styles.hdBadge}><Text style={styles.hdText}>4K</Text></View>
-                            <Text style={styles.heroMetaText}>{item.type} • {item.year} • {item.match} Match</Text>
+                        <View style={styles.heroTags}>
+                            <View style={styles.badgeHD}><Text style={styles.badgeHDText}>4K</Text></View>
+                            <Text style={styles.heroMetaText}>{item.type} • {item.year}</Text>
                         </View>
                         <Text style={styles.heroTitle}>{item.title}</Text>
-                        <Text style={styles.heroSubtitle} numberOfLines={2}>{item.description}</Text>
                         <View style={styles.heroActions}>
-                            <TouchableOpacity style={styles.btnPrimary} onPress={onPlay} activeOpacity={0.85}>
+                            <TouchableOpacity style={styles.btnPrimary} onPress={onPlay}>
                                 <Ionicons name="play" size={20} color="#fff" />
-                                <Text style={styles.btnTextPrimary}>Watch</Text>
+                                <Text style={styles.btnTextPrimary}>Play</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.btnGlass} onPress={onList} activeOpacity={0.85}>
+                            <TouchableOpacity style={styles.btnGlass} onPress={onToggleList}>
                                 <Ionicons name={item.isFavorite ? "checkmark" : "add"} size={22} color="#fff" />
+                                <Text style={styles.btnTextGlass}>List</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -168,37 +211,39 @@ const CinematicHero = ({ item, onPlay, onList }) => {
     );
 };
 
+const EmptyState = ({ message }) => (
+    <View style={styles.emptyContainer}>
+        <Ionicons name="search" size={40} color={Theme.surfaceLight} />
+        <Text style={styles.emptyText}>{message}</Text>
+    </View>
+);
+
+// --- MAIN SCREEN ---
 const MediaScreen = () => {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
     const { showAlert } = useAlert();
     const scrollY = useRef(new Animated.Value(0)).current;
 
-    // Context
     const { mediaData, isLoading, searchResults, searchMedia, toggleFavorite, loadMedia } = useMedia();
 
-    // Local State
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCategory, setActiveCategory] = useState('All');
-    const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+    const [viewMode, setViewMode] = useState('grid');
 
     useEffect(() => {
-        const unsubscribe = navigation.addListener('focus', () => {
-            loadMedia();
-        });
+        const unsubscribe = navigation.addListener('focus', () => loadMedia());
         return unsubscribe;
     }, [navigation, loadMedia]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
-            if (searchQuery.length > 1) {
-                searchMedia(searchQuery);
-            }
-        }, 500);
+            if (searchQuery.length > 0) searchMedia(searchQuery);
+        }, 400);
         return () => clearTimeout(timer);
     }, [searchQuery, searchMedia]);
 
-    const handleHeroListToggle = async (id) => {
+    const handleToggleList = async (id) => {
         const response = await toggleFavorite(id);
         if (response.success) {
             showAlert({ 
@@ -209,28 +254,50 @@ const MediaScreen = () => {
         }
     };
 
-    const handleNavigation = (id) => navigation.navigate('MediaDetail', { mediaId: id });
-
-    const toggleViewMode = () => {
+    const toggleViewModeAnimation = () => {
+        // Safe to call even if no-op
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setViewMode(prev => prev === 'grid' ? 'list' : 'grid');
     };
 
+    // --- DATA PREPARATION ---
     const filteredData = useMemo(() => {
-        let data = mediaData;
-        if (activeCategory !== 'All') {
-            data = mediaData.filter(i => i.type === activeCategory || i.tags.includes(activeCategory));
+        let data = searchQuery.length > 0 ? searchResults : mediaData;
+        if (activeCategory !== 'All' && searchQuery.length === 0) {
+            data = data.filter(i => i.type === activeCategory || i.tags?.includes(activeCategory));
         }
         return data;
-    }, [activeCategory, mediaData]);
+    }, [activeCategory, mediaData, searchResults, searchQuery]);
 
-    const displayData = searchQuery.length > 0 ? searchResults : filteredData;
-    const featuredItem = mediaData.find(i => i.tags.includes('Trending')) || mediaData[0];
-    const trending = mediaData.filter(i => i.tags.includes('Trending'));
+    const featuredItem = mediaData.find(i => i.tags?.includes('Trending')) || mediaData[0];
+    const topRated = useMemo(() => [...mediaData].sort((a,b) => b.rating - a.rating).slice(0, 5), [mediaData]);
+
+    // Renders the list or grid based on current viewMode
+    const renderContentBody = (data) => {
+        if (data.length === 0) return <EmptyState message="No content found" />;
+
+        if (viewMode === 'grid') {
+            return (
+                <View style={styles.gridContainer}>
+                    {data.map(item => (
+                        <GridCard key={item.id} item={item} onPress={() => navigation.navigate('MediaDetail', { mediaId: item.id })} />
+                    ))}
+                </View>
+            );
+        } else {
+            return (
+                <View style={styles.listContainer}>
+                    {data.map(item => (
+                        <ListCard key={item.id} item={item} onPress={() => navigation.navigate('MediaDetail', { mediaId: item.id })} />
+                    ))}
+                </View>
+            );
+        }
+    };
 
     if (isLoading && mediaData.length === 0) {
         return (
-            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+            <View style={[styles.container, styles.center]}>
                 <ActivityIndicator size="large" color={Theme.primary} />
             </View>
         );
@@ -246,104 +313,60 @@ const MediaScreen = () => {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 100 }}
             >
-                {/* --- HEADER SPACER (for hero) --- */}
-                
                 {searchQuery.length > 0 ? (
-                    // --- SEARCH RESULTS STATE ---
-                    <View style={{ marginTop: insets.top + 90, paddingHorizontal: 20 }}>
-                         <Text style={styles.sectionHeader}>Results for "{searchQuery}"</Text>
-                         {displayData.length === 0 ? (
-                            <EmptyState message={`No matches for "${searchQuery}"`} />
-                         ) : (
-                            displayData.map(item => (
-                                <ListCard key={item.id} item={item} onPress={() => handleNavigation(item.id)} />
-                            ))
-                         )}
+                    // Search Mode
+                    <View style={{ marginTop: insets.top + 80, paddingHorizontal: SCREEN_PADDING }}>
+                        <Text style={styles.sectionHeader}>Results</Text>
+                        {filteredData.length === 0 ? <EmptyState message="No results." /> : (
+                            <View style={styles.listContainer}>
+                                {filteredData.map(item => <ListCard key={item.id} item={item} onPress={() => navigation.navigate('MediaDetail', { mediaId: item.id })} />)}
+                            </View>
+                        )}
                     </View>
                 ) : (
-                    // --- NORMAL BROWSING STATE ---
+                    // Browse Mode
                     <>
                         <CinematicHero 
                             item={featuredItem} 
                             onPlay={() => navigation.navigate('VideoPlayer', { media: featuredItem })}
-                            onList={() => handleHeroListToggle(featuredItem.id)}
+                            onToggleList={() => handleToggleList(featuredItem.id)}
                         />
 
-                        {/* --- CONTROLS ROW (Chips + Toggle) --- */}
-                        <View style={styles.controlsRow}>
-                            <ScrollView 
-                                horizontal 
-                                showsHorizontalScrollIndicator={false} 
-                                style={styles.chipScroll}
-                            >
-                                {CATEGORIES.map(cat => (
-                                    <TouchableOpacity 
-                                        key={cat} 
-                                        onPress={() => setActiveCategory(cat)}
-                                        style={[styles.chip, activeCategory === cat && styles.chipActive]}
-                                    >
-                                        <Text style={[styles.chipText, activeCategory === cat && styles.chipTextActive]}>{cat}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
+                        <ControlBar 
+                            activeCategory={activeCategory} 
+                            setActiveCategory={setActiveCategory}
+                            viewMode={viewMode}
+                            toggleViewMode={toggleViewModeAnimation}
+                        />
 
-                            <TouchableOpacity style={styles.viewToggleBtn} onPress={toggleViewMode}>
-                                <Ionicons 
-                                    name={viewMode === 'grid' ? "list" : "grid"} 
-                                    size={20} 
-                                    color={Theme.textSecondary} 
-                                />
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* --- CONTENT GRID/LIST --- */}
-                        {activeCategory !== 'All' ? (
-                            <View style={{ paddingHorizontal: 20, minHeight: 300 }}>
-                                {displayData.length === 0 ? (
-                                    <EmptyState message={`No ${activeCategory} found.`} />
-                                ) : (
-                                    viewMode === 'grid' ? (
-                                        <View style={styles.gridContainer}>
-                                            {displayData.map(item => (
-                                                <PortraitCard key={item.id} item={item} onPress={() => handleNavigation(item.id)} />
-                                            ))}
-                                        </View>
-                                    ) : (
-                                        <View style={styles.listContainer}>
-                                            {displayData.map(item => (
-                                                <ListCard key={item.id} item={item} onPress={() => handleNavigation(item.id)} />
-                                            ))}
-                                        </View>
-                                    )
-                                )}
-                            </View>
-                        ) : (
-                            <>
-                                {/* Default Home View (Trending + Top Rated) */}
-                                <View style={styles.section}>
-                                    <Text style={styles.sectionHeader}>Trending Now</Text>
-                                    <FlatList
-                                        horizontal
-                                        data={trending}
-                                        renderItem={({ item }) => <PortraitCard item={item} onPress={() => handleNavigation(item.id)} />}
-                                        keyExtractor={item => item.id}
-                                        showsHorizontalScrollIndicator={false}
-                                        contentContainerStyle={styles.rowContent}
-                                    />
-                                </View>
-                                <View style={styles.section}>
+                        <View style={styles.contentBody}>
+                            {activeCategory === 'All' ? (
+                                <>
+                                    {/* Horizontal Rail for Top Rated (Always Horizontal) */}
                                     <Text style={styles.sectionHeader}>Top Rated</Text>
                                     <FlatList
                                         horizontal
-                                        data={[...mediaData].sort((a,b) => b.rating - a.rating)}
-                                        renderItem={({ item }) => <PortraitCard item={item} onPress={() => handleNavigation(item.id)} />}
+                                        data={topRated}
+                                        renderItem={({ item }) => (
+                                            <GridCard item={item} onPress={() => navigation.navigate('MediaDetail', { mediaId: item.id })} />
+                                        )}
                                         keyExtractor={item => item.id}
                                         showsHorizontalScrollIndicator={false}
-                                        contentContainerStyle={styles.rowContent}
+                                        contentContainerStyle={styles.horizontalList}
+                                        ItemSeparatorComponent={() => <View style={{ width: GAP }} />}
                                     />
-                                </View>
-                            </>
-                        )}
+
+                                    <Text style={[styles.sectionHeader, { marginTop: 25 }]}>Trending Now</Text>
+                                    {/* Trending List respects the Toggle */}
+                                    {renderContentBody(mediaData)}
+                                </>
+                            ) : (
+                                <>
+                                    <Text style={styles.sectionHeader}>{activeCategory}</Text>
+                                    {renderContentBody(filteredData)}
+                                </>
+                            )}
+                        </View>
                     </>
                 )}
             </Animated.ScrollView>
@@ -355,92 +378,86 @@ const MediaScreen = () => {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Theme.background },
+    center: { justifyContent: 'center', alignItems: 'center' },
+    contentBody: { flex: 1 },
+
+    // --- HEADER ---
+    headerContainer: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100, justifyContent: 'flex-end', overflow: 'hidden' },
+    headerBorderBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' },
+    headerContent: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: SCREEN_PADDING, paddingBottom: 10 },
+    iconButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
     
-    // Header
-    headerContainer: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100, height: 110, justifyContent: 'flex-end', paddingBottom: 15, paddingHorizontal: 20 },
-    headerContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    backBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 16 },
-    
-    // Search Bar (Updated for Visibility)
-    searchPill: { 
-        flex: 1, flexDirection: 'row', alignItems: 'center', 
-        backgroundColor: '#1E1E20', // Solid Dark Background
-        height: 44, borderRadius: 22, paddingHorizontal: 15, 
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-        shadowColor: "#000", shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.2, shadowRadius: 4, elevation: 5
+    // UPDATED SEARCH BAR
+    searchBar: {
+        flex: 1, flexDirection: 'row', alignItems: 'center',
+        height: 40, 
+        backgroundColor: Theme.surface, // Solid background
+        borderRadius: 8, // Standard rounded corners
+        paddingHorizontal: 12,
+        borderWidth: 1, 
+        borderColor: Theme.border, // Distinct border
     },
-    searchPillActive: { borderColor: Theme.primary, backgroundColor: '#000' },
-    searchInput: { flex: 1, marginLeft: 10, color: Theme.text, fontSize: 14, fontWeight: '500' },
-    avatarContainer: { width: 36, height: 36, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: '#fff' },
+    searchBarActive: { borderColor: Theme.primary },
+    searchInput: { flex: 1, color: Theme.text, fontSize: 15, padding: 0 },
+    
+    avatarContainer: { marginLeft: 12, width: 36, height: 36, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: Theme.border },
     avatar: { width: '100%', height: '100%' },
 
-    // Controls Row
-    controlsRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingRight: 20 },
-    chipScroll: { paddingLeft: 20 },
+    // --- HERO ---
+    heroContainer: { width: width, height: height * 0.60, marginBottom: 20 },
+    heroImage: { width: '100%', height: '100%' },
+    heroGradient: { width: '100%', height: '100%', justifyContent: 'flex-end', paddingBottom: 30, paddingHorizontal: SCREEN_PADDING },
+    heroContent: { alignItems: 'center' },
+    heroTags: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    badgeHD: { borderWidth: 1, borderColor: Theme.textSecondary, borderRadius: 4, paddingHorizontal: 6, marginRight: 8 },
+    badgeHDText: { color: Theme.textSecondary, fontSize: 10, fontWeight: 'bold' },
+    heroMetaText: { color: Theme.textSecondary, fontSize: 13, fontWeight: '600' },
+    heroTitle: { color: Theme.text, fontSize: 32, fontWeight: '800', textAlign: 'center', marginBottom: 20 },
+    heroActions: { flexDirection: 'row', width: '100%', justifyContent: 'center', gap: 16 },
+    btnPrimary: { flex: 1, maxWidth: 140, height: 44, backgroundColor: Theme.primary, borderRadius: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+    btnGlass: { flex: 1, maxWidth: 140, height: 44, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+    btnTextPrimary: { color: '#fff', fontSize: 15, fontWeight: '700' },
+    btnTextGlass: { color: '#fff', fontSize: 15, fontWeight: '600' },
+
+    // --- CONTROLS ---
+    controlBarContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingHorizontal: SCREEN_PADDING },
+    filterWrapper: { flex: 1 },
+    filterContent: { paddingRight: 10 },
+    toggleWrapper: { paddingLeft: 10 },
+    chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: Theme.surface, marginRight: 8, borderWidth: 1, borderColor: Theme.border },
+    chipActive: { backgroundColor: Theme.text, borderColor: Theme.text },
+    chipText: { color: Theme.textSecondary, fontSize: 13, fontWeight: '600' },
+    chipTextActive: { color: Theme.background },
     viewToggleBtn: { 
-        width: 40, height: 40, borderRadius: 20, 
+        width: 38, height: 38, borderRadius: 8, 
         backgroundColor: Theme.surface, alignItems: 'center', justifyContent: 'center',
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginLeft: 10
+        borderWidth: 1, borderColor: Theme.border
     },
 
-    // Chips
-    chip: { paddingVertical: 8, paddingHorizontal: 18, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 30, marginRight: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    chipActive: { backgroundColor: '#fff', borderColor: '#fff' },
-    chipText: { color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600' },
-    chipTextActive: { color: '#000' },
+    // --- CARDS ---
+    gridContainer: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: SCREEN_PADDING, gap: GAP },
+    gridCard: { width: CARD_WIDTH, marginBottom: 20 },
+    gridImage: { width: CARD_WIDTH, height: CARD_WIDTH * POSTER_RATIO, justifyContent: 'flex-end', borderRadius: 8, overflow: 'hidden', backgroundColor: Theme.surfaceLight },
+    gridGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%' },
+    gridContent: { padding: 10 },
+    gridTitle: { color: Theme.text, fontSize: 13, fontWeight: '700', marginBottom: 2 },
+    gridMeta: { color: Theme.textSecondary, fontSize: 11 },
+    badgeNew: { position: 'absolute', top: 6, right: 6, backgroundColor: Theme.primary, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 3 },
+    badgeText: { color: '#fff', fontSize: 8, fontWeight: 'bold' },
 
-    // Hero
-    heroContainer: { width: width, height: height * 0.7 },
-    heroImage: { width: '100%', height: '100%' },
-    heroGradient: { width: '100%', height: '100%', justifyContent: 'flex-end', paddingBottom: 60, paddingHorizontal: 24 },
-    tagRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 10 },
-    hdBadge: { borderWidth: 1, borderColor: Theme.textSecondary, paddingHorizontal: 4, borderRadius: 4 },
-    hdText: { color: Theme.textSecondary, fontSize: 10, fontWeight: 'bold' },
-    heroMetaText: { color: Theme.textSecondary, fontSize: 13, fontWeight: '600' },
-    heroTitle: { color: Theme.text, fontSize: 42, fontWeight: '800', textAlign: 'center', marginBottom: 10, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 10 },
-    heroSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 14, textAlign: 'center', marginBottom: 25 },
-    heroActions: { flexDirection: 'row', gap: 15 },
-    btnPrimary: { flexDirection: 'row', backgroundColor: Theme.primary, paddingVertical: 12, paddingHorizontal: 28, borderRadius: 12, alignItems: 'center', gap: 8 },
-    btnGlass: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
-    btnTextPrimary: { color: '#fff', fontSize: 15, fontWeight: '700' },
+    listContainer: { paddingHorizontal: SCREEN_PADDING, gap: 16 },
+    listCard: { flexDirection: 'row', backgroundColor: Theme.surface, borderRadius: 8, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    listImage: { width: 70, height: 100, borderRadius: 6, backgroundColor: Theme.surfaceLight },
+    listContent: { flex: 1, marginLeft: 12, height: 100, justifyContent: 'center' },
+    listHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+    listTitle: { color: Theme.text, fontSize: 15, fontWeight: '700' },
+    listMeta: { color: Theme.textSecondary, fontSize: 12, marginBottom: 6 },
+    listDesc: { color: Theme.textSecondary, fontSize: 11, lineHeight: 15 },
 
-    // Empty State
-    emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 50 },
-    emptyIconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: Theme.surface, alignItems: 'center', justifyContent: 'center', marginBottom: 15 },
-    emptyTitle: { color: Theme.text, fontSize: 18, fontWeight: '700', marginBottom: 5 },
-    emptySubtitle: { color: Theme.textSecondary, fontSize: 14 },
-
-    // Cards (Portrait)
-    gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-    portraitCard: { width: ITEM_WIDTH, marginBottom: 25 },
-    imageWrapper: { width: ITEM_WIDTH, height: ITEM_WIDTH * 1.5, borderRadius: 12, backgroundColor: Theme.surfaceHighlight, overflow: 'hidden', marginBottom: 10 },
-    portraitImage: { width: '100%', height: '100%' },
-    cardGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 40 },
-    badgeNew: { position: 'absolute', top: 8, right: 8, backgroundColor: Theme.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-    badgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
-    cardTitle: { color: Theme.text, fontSize: 14, fontWeight: '700', marginBottom: 2 },
-    cardMetaRow: { flexDirection: 'row', alignItems: 'center' },
-    cardMeta: { color: Theme.textSecondary, fontSize: 11 },
-    cardDot: { color: Theme.textSecondary, fontSize: 11, marginHorizontal: 4 },
-
-    // Cards (List)
-    listContainer: { gap: 15 },
-    listCard: { flexDirection: 'row', backgroundColor: Theme.surface, borderRadius: 12, padding: 10, alignItems: 'center' },
-    listImage: { width: 80, height: 110, borderRadius: 8, backgroundColor: Theme.surfaceHighlight },
-    listContent: { flex: 1, marginLeft: 15, height: 110, paddingVertical: 5 },
-    listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    listTitle: { color: Theme.text, fontSize: 16, fontWeight: '700', flex: 1, marginRight: 10 },
-    listMeta: { color: Theme.textSecondary, fontSize: 12, marginVertical: 4 },
-    listDesc: { color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 16, marginBottom: 8 },
-    listTags: { flexDirection: 'row', gap: 6 },
-    miniTag: { backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-    miniTagText: { color: Theme.textSecondary, fontSize: 10 },
-    listAction: { paddingLeft: 10, justifyContent: 'center' },
-
-    // Sections
-    section: { marginBottom: 35 },
-    sectionHeader: { color: Theme.text, fontSize: 20, fontWeight: '700', marginLeft: 20, marginBottom: 15 },
-    rowContent: { paddingHorizontal: 20 },
+    sectionHeader: { color: Theme.text, fontSize: 18, fontWeight: '700', marginBottom: 15, paddingHorizontal: SCREEN_PADDING },
+    horizontalList: { paddingHorizontal: SCREEN_PADDING },
+    emptyContainer: { alignItems: 'center', marginTop: 50, opacity: 0.5 },
+    emptyText: { color: Theme.textSecondary, marginTop: 10, fontSize: 15 },
 });
 
 export default MediaScreen;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-    View, Text, StyleSheet, StatusBar, TouchableOpacity, ActivityIndicator, 
-    Pressable, Dimensions 
+import {
+    View, Text, StyleSheet, StatusBar, TouchableOpacity, ActivityIndicator,
+    Pressable, Dimensions
 } from 'react-native';
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -31,7 +31,7 @@ const VideoPlayerScreen = () => {
 
     useEffect(() => {
         // Simulate buffering
-        setTimeout(() => setLoading(false), 1500); 
+        setTimeout(() => setLoading(false), 1500);
         resetTimer();
         return () => {
             ScreenOrientation.unlockAsync();
@@ -47,25 +47,38 @@ const VideoPlayerScreen = () => {
     };
 
     const handleTap = () => {
+        if (locked) {
+            setOverlay(true);
+            setTimeout(() => setOverlay(false), 2000);
+            return;
+        }
         setOverlay(!overlay);
+        resetTimer();
+    };
+    
+    const onDoubleTap = (direction) => {
+        if (locked) return;
+        const newProgress = direction === 'forward'
+            ? Math.min(1, progress + 0.1)
+            : Math.max(0, progress - 0.1);
+        setProgress(newProgress);
         resetTimer();
     };
 
     const toggleOrientation = async () => {
         if (isLandscape) {
             await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-            setIsLandscape(false);
         } else {
             await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-            setIsLandscape(true);
         }
+        setIsLandscape(!isLandscape);
     };
 
     const togglePlay = () => {
         setPaused(!paused);
         resetTimer();
     };
-
+    
     const handleFeature = (name) => {
         showAlert({ title: name, message: 'This feature is simulated.', type: 'info' });
         resetTimer();
@@ -75,16 +88,20 @@ const VideoPlayerScreen = () => {
         <View style={styles.container}>
             <StatusBar hidden={isLandscape} barStyle="light-content" backgroundColor="#000" />
             
-            {/* VIDEO SURFACE (Mock) */}
             <Pressable style={styles.videoSurface} onPress={handleTap}>
                 {loading ? (
                     <ActivityIndicator size="large" color={Theme.primary} />
                 ) : (
-                    <Text style={{color: '#333'}}>Video Rendering Surface</Text>
+                    <>
+                        <View style={styles.doubleTapContainer}>
+                            <TouchableOpacity style={{flex: 1}} onPress={() => onDoubleTap('backward')} />
+                            <TouchableOpacity style={{flex: 1}} onPress={() => onDoubleTap('forward')} />
+                        </View>
+                        <Text style={{color: '#333'}}>Video Rendering Surface</Text>
+                    </>
                 )}
             </Pressable>
 
-            {/* LOCKED OVERLAY */}
             {overlay && locked && (
                 <View style={styles.centerOverlay}>
                     <TouchableOpacity style={styles.lockBtn} onPress={() => setLocked(false)}>
@@ -94,12 +111,10 @@ const VideoPlayerScreen = () => {
                 </View>
             )}
 
-            {/* CONTROLS OVERLAY */}
             {overlay && !locked && (
                 <View style={styles.controlsContainer}>
-                    {/* Top */}
-                    <LinearGradient 
-                        colors={['rgba(0,0,0,0.8)', 'transparent']} 
+                    <LinearGradient
+                        colors={['rgba(0,0,0,0.8)', 'transparent']}
                         style={[styles.topControls, { paddingTop: isLandscape ? 20 : insets.top + 10 }]}
                     >
                         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={20}>
@@ -116,9 +131,8 @@ const VideoPlayerScreen = () => {
                         </View>
                     </LinearGradient>
 
-                    {/* Center */}
                     <View style={styles.centerControls}>
-                        <TouchableOpacity style={styles.skipBtn} onPress={() => setProgress(p => Math.max(0, p - 0.1))}>
+                        <TouchableOpacity style={styles.skipBtn} onPress={() => onDoubleTap('backward')}>
                             <MaterialCommunityIcons name="rewind-10" size={36} color="#fff" />
                         </TouchableOpacity>
                         
@@ -126,14 +140,13 @@ const VideoPlayerScreen = () => {
                             <Ionicons name={paused ? "play" : "pause"} size={40} color="#000" style={{marginLeft: paused ? 4 : 0}} />
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.skipBtn} onPress={() => setProgress(p => Math.min(1, p + 0.1))}>
+                        <TouchableOpacity style={styles.skipBtn} onPress={() => onDoubleTap('forward')}>
                             <MaterialCommunityIcons name="fast-forward-10" size={36} color="#fff" />
                         </TouchableOpacity>
                     </View>
 
-                    {/* Bottom */}
-                    <LinearGradient 
-                        colors={['transparent', 'rgba(0,0,0,0.9)']} 
+                    <LinearGradient
+                        colors={['transparent', 'rgba(0,0,0,0.9)']}
                         style={[styles.bottomControls, { paddingBottom: isLandscape ? 20 : insets.bottom + 10 }]}
                     >
                         <View style={styles.sliderRow}>
@@ -175,6 +188,7 @@ const VideoPlayerScreen = () => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
     videoSurface: { flex: 1, backgroundColor: '#111', justifyContent: 'center', alignItems: 'center' },
+    doubleTapContainer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row', zIndex: 1 },
     controlsContainer: { ...StyleSheet.absoluteFillObject, justifyContent: 'space-between' },
     topControls: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 40 },
     mediaTitle: { flex: 1, color: '#fff', fontSize: 16, fontWeight: '700', marginHorizontal: 15, textAlign: 'center' },
