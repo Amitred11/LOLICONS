@@ -28,7 +28,7 @@ const SettingsRow = ({ icon, label, details, onPress, isLast, color = Colors.tex
 const DataAndStorageScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
     const { profile, clearCache, clearDownloads } = useProfile();
-    const { showAlert } = useAlert(); // Access custom alert
+    const { showAlert, showToast } = useAlert(); // Access custom alert
     
     // Format helper
     const format = (b) => {
@@ -49,7 +49,7 @@ const DataAndStorageScreen = ({ navigation }) => {
 
     const handleClearCache = () => {
         if (storage.cache === 0) {
-            showAlert({ title: "Already Clean", message: "Cache is already empty.", type: "info" });
+            showToast( "Cache is already empty.",  "info" );
             return;
         }
 
@@ -64,9 +64,9 @@ const DataAndStorageScreen = ({ navigation }) => {
                 const success = await clearCache();
                 if (success) {
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    showAlert({ title: "Cleaned", message: "Cache cleared successfully.", type: "success" });
+                    showToast("Cache cleared successfully.", "success" );
                 } else {
-                    showAlert({ title: "Error", message: "Failed to clear cache.", type: "error" });
+                    showToast("Failed to clear cache.", "error" );
                 }
             }
         });
@@ -74,7 +74,7 @@ const DataAndStorageScreen = ({ navigation }) => {
 
     const handleClearDownloads = () => {
         if (storage.downloads === 0) {
-            showAlert({ title: "No Downloads", message: "You don't have any downloaded content.", type: "info" });
+            showToast("You don't have any downloaded content.","info" );
             return;
         }
 
@@ -90,9 +90,9 @@ const DataAndStorageScreen = ({ navigation }) => {
                 const success = await clearDownloads();
                 if (success) {
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    showAlert({ title: "Deleted", message: "All downloads removed.", type: "success" });
+                    showToast( "All downloads removed.", "success" );
                 } else {
-                    showAlert({ title: "Error", message: "Failed to delete downloads.", type: "error" });
+                    showToast( "Failed to delete downloads.",  "error" );
                 }
             }
         });
@@ -101,9 +101,9 @@ const DataAndStorageScreen = ({ navigation }) => {
     const handleManageDownloads = () => {
         // Placeholder for future navigation to a detailed list
         if (storage.downloads === 0) {
-             showAlert({ title: "Empty", message: "No downloads to manage.", type: "info" });
+            showToast( "No downloads to manage.", "info" );
         } else {
-            showAlert({ title: "Coming Soon", message: "Detailed download manager is under construction.", type: "info" });
+            showToast( "Detailed download manager is under construction.", "info" );
         }
     };
 

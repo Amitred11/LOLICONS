@@ -22,7 +22,8 @@ const GuildDetailScreen = ({ route, navigation }) => {
     requestGuildAccess
   } = useCommunity();
   
-  const { showAlert } = useAlert();
+  // --- UPDATED: Using showToast from the AlertContext ---
+  const { showToast } = useAlert();
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
@@ -44,9 +45,10 @@ const GuildDetailScreen = ({ route, navigation }) => {
       return;
     }
 
-    // 2. If Pending -> Do Nothing (Button should be disabled, but safety check)
+    // 2. If Pending -> Show an info toast
     if (status === 'pending') {
-      showAlert({ title: "Request Pending", message: "The admins are reviewing your request.", type: 'info' });
+      // --- UPDATED: Replaced showAlert with showToast ---
+      showToast("The admins are reviewing your request.", 'info');
       return;
     }
 
@@ -57,21 +59,21 @@ const GuildDetailScreen = ({ route, navigation }) => {
       // --- PUBLIC: Join Immediately ---
       const success = await joinGuildPublic(currentGuild.id);
       if (success) {
-        showAlert({ title: "Welcome!", message: `You have joined ${currentGuild.name}.`, type: 'success' });
+        // --- UPDATED: Replaced showAlert with showToast ---
+        showToast(`Welcome to ${currentGuild.name}!`, 'success');
       } else {
-        showAlert({ title: "Error", message: "Could not join guild.", type: 'error' });
+        // --- UPDATED: Replaced showAlert with showToast ---
+        showToast("Could not join the Realm. Please try again.", 'error');
       }
     } else {
       // --- PRIVATE / ADMIN: Request Access ---
       const success = await requestGuildAccess(currentGuild.id);
       if (success) {
-        showAlert({ 
-          title: "Request Sent", 
-          message: "Your request has been sent to the Realm Admins for approval.", 
-          type: 'success' 
-        });
+        // --- UPDATED: Replaced showAlert with showToast ---
+        showToast("Your request has been sent for approval.", 'success');
       } else {
-        showAlert({ title: "Error", message: "Could not send request.", type: 'error' });
+        // --- UPDATED: Replaced showAlert with showToast ---
+        showToast("Could not send your request. Please try again.", 'error');
       }
     }
 

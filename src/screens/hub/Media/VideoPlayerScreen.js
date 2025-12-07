@@ -16,7 +16,7 @@ const Theme = { primary: '#E50914' };
 const VideoPlayerScreen = () => {
     const navigation = useNavigation();
     const { params } = useRoute();
-    const { showAlert } = useAlert();
+    const { showToast } = useAlert();
     const insets = useSafeAreaInsets();
     const media = params?.media || { title: 'Unknown Title' };
 
@@ -80,7 +80,7 @@ const VideoPlayerScreen = () => {
     };
     
     const handleFeature = (name) => {
-        showAlert({ title: name, message: 'This feature is simulated.', type: 'info' });
+        showToast( 'This feature is simulated.', 'info' );
         resetTimer();
     };
 

@@ -47,7 +47,7 @@ const AnimatedInput = ({ label, value, onChangeText, placeholder, multiline, max
 const EditProfileScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
     const { profile, updateProfile, uploadAvatar } = useProfile(); 
-    const { showAlert } = useAlert();
+    const { showAlert, showToast } = useAlert();
 
     const [formData, setFormData] = useState({
         name: profile?.name || '',
@@ -75,7 +75,7 @@ const EditProfileScreen = ({ navigation }) => {
             // Ask for permission
             const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (permissionResult.granted === false) {
-                showAlert({ title: "Permission Required", message: "We need access to your gallery to change your avatar.", type: 'error' });
+                showToast( "We need access to your gallery to change your avatar.", 'error' );
                 return;
             }
 
@@ -95,7 +95,7 @@ const EditProfileScreen = ({ navigation }) => {
             }
         } catch (e) {
             // Fallback for demo/web if ImagePicker fails
-            showAlert({ title: "Simulation", message: "Image Picker simulation: Avatar updated.", type: 'success' });
+            showToast("Image Picker simulation: Avatar updated.", 'success' );
             setFormData(prev => ({ ...prev, avatarUrl: 'https://i.pravatar.cc/300?img=' + Math.floor(Math.random() * 50) }));
         }
     };
@@ -136,7 +136,7 @@ const EditProfileScreen = ({ navigation }) => {
             const uploadSuccess = await uploadAvatar(formData.avatarUrl);
             if (!uploadSuccess) {
                 setIsSaving(false);
-                showAlert({ title: "Error", message: "Failed to upload image.", type: 'error' });
+                showToast( "Failed to upload image.", 'error' );
                 return;
             }
         }

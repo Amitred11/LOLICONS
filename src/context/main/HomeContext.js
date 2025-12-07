@@ -1,5 +1,3 @@
-// @context/main/HomeContext.js
-
 import React, { createContext, useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { HomeService } from '@api/MockHomeService';
@@ -29,11 +27,11 @@ export const HomeProvider = ({ children }) => {
   const [trendingKeywords, setTrendingKeywords] = useState([]);
   
   // Calculate user level from XP
-  const userLevel = useMemo(() => (user ? Math.floor(Math.sqrt(user.xp / 150)) : 0), [user]);
   const currentUserRank = useMemo(() => {
     if (!user) return MOCK_RANKS[0];
     return MOCK_RANKS.slice().reverse().find(r => user.xp >= r.minXp) || MOCK_RANKS[0];
   }, [user]);
+
   // Handles daily reset and loading goals
   const loadHomeData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setIsRefreshing(true); else if (!isLoading) setIsLoading(true);
@@ -42,21 +40,23 @@ export const HomeProvider = ({ children }) => {
         const todayStr = new Date().toISOString().split('T')[0];
         const storedGoalsData = await AsyncStorage.getItem(GOALS_STORAGE_KEY);
         let goalsToSet = [];
+        let storedGoalsMatchToday = false;
 
+        // --- FIX: Logic to prevent progress reset on manual refresh ---
         if (storedGoalsData) {
             const { date, goals } = JSON.parse(storedGoalsData);
-            if (date === todayStr && !isRefresh) {
-                // If data is from today and not a manual refresh, load it from storage
+            if (date === todayStr) {
+                // If data exists for today, always use it as the source of truth
                 goalsToSet = goals;
+                storedGoalsMatchToday = true;
             }
         }
         
-        // If no valid data for today (or it's a refresh), fetch new goals from the service
-        if (goalsToSet.length === 0) {
-            const goalRes = await HomeService.getDailyGoals(userLevel);
+        // Only fetch new goals from the service if no valid data exists for the current day
+        if (!storedGoalsMatchToday) {
+            const goalRes = await HomeService.getDailyGoals(currentUserRank);
             if (goalRes.success) {
                 goalsToSet = goalRes.data;
-                // Save the new goals for today to storage
                 await AsyncStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify({ date: todayStr, goals: goalsToSet }));
             }
         }
@@ -86,7 +86,7 @@ export const HomeProvider = ({ children }) => {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [userLevel, currentUserRank]);
+  }, [currentUserRank]);
 
   useEffect(() => { loadHomeData(); }, [loadHomeData]);
 
@@ -114,8 +114,8 @@ export const HomeProvider = ({ children }) => {
         return updatedGoals;
     });
 
-    await AsyncStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify({ date: todayStr, goals: updatedGoals, rankName: currentUserRank.name }));
-  }, [currentUserRank, awardXP, showReward, user]);
+    await AsyncStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify({ date: todayStr, goals: updatedGoals }));
+  }, [awardXP, showReward, user]);
   
   // Public functions to be called from other screens
   const logChapterRead = useCallback(() => updateGoalProgress('read_chapters', 1), [updateGoalProgress]);
@@ -126,6 +126,7 @@ export const HomeProvider = ({ children }) => {
   const logShare = useCallback(() => updateGoalProgress('share_comic', 1), [updateGoalProgress]);
   const logExplore = useCallback(() => updateGoalProgress('explore_genre', 1), [updateGoalProgress]);
   const logVisitHistory = useCallback(() => updateGoalProgress('check_history', 1), [updateGoalProgress]);
+  const logMissionCompleted = useCallback(() => updateGoalProgress('complete_mission', 1), [updateGoalProgress]);
 
   // --- Search Actions ---
   const searchComics = useCallback(async (query) => {
@@ -154,7 +155,6 @@ export const HomeProvider = ({ children }) => {
       isLoading, isRefreshing,
       featuredComics, continueReading, dailyGoals, upcomingEvents, trendingKeywords, recentSearches,
       refreshData: () => loadHomeData(true),
-      // --- FIX: Expose all the new functions here ---
       logChapterRead,
       logTimeSpent,
       logComicRated,
@@ -163,6 +163,7 @@ export const HomeProvider = ({ children }) => {
       logShare,
       logExplore,
       logVisitHistory,
+      logMissionCompleted, // <-- Expose new function
       searchComics,
       getSuggestions,
       addToHistory,
@@ -170,6 +171,7 @@ export const HomeProvider = ({ children }) => {
   }), [
       isLoading, isRefreshing, featuredComics, continueReading, dailyGoals, upcomingEvents, trendingKeywords, recentSearches, 
       loadHomeData, logChapterRead, logTimeSpent, logComicRated, logAddedToLibrary, logComment, logShare, logExplore, logVisitHistory,
+      logMissionCompleted, // <-- Add to dependency array
       searchComics, getSuggestions, addToHistory, clearHistory
   ]);
 

@@ -9,12 +9,10 @@ import MarketCard from '../../components/MarketCard'; // Check path
 import MarketFilterModal from '../../components/MarketFilterModal'; // Import Modal
 import { useCommunity } from '@context/main/CommunityContext';
 import { Colors } from '@config/Colors'; 
-import { useAlert } from '@context/other/AlertContext';
 
 const CATEGORIES = ['All', 'Hardware', 'Digital', 'Services', 'Merch'];
 
 const MarketplaceScreen = ({ navigation }) => {
-  const { showAlert } = useAlert();
   // Ensure your Context fetch function accepts the 3rd argument 'filters'
   const { marketItems, fetchMarketItems, isLoadingMarket } = useCommunity();
   

@@ -9,6 +9,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors'; 
 import { ProfileAPI } from '@api/MockProfileService'; 
+import { useAlert } from '@context/other/AlertContext'; 
 
 const { width } = Dimensions.get('window');
 
@@ -25,7 +26,7 @@ const FriendProfileScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute();
-  
+  const { showToast } = useAlert();
   // Accept either a full/partial user object or just an ID
   const { user: initialUser, userId } = route.params; 
 
@@ -53,7 +54,7 @@ const FriendProfileScreen = () => {
         }
       } catch (error) {
         console.error("Failed to load friend profile", error);
-        Alert.alert("Error", "Could not load user profile.");
+        showToast("Could not load user profile.", 'error');
       } finally {
         setIsLoading(false);
       }

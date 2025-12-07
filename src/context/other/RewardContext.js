@@ -1,7 +1,7 @@
 // @context/other/RewardContext.js
 
 import React, { createContext, useState, useContext, useCallback, useMemo } from 'react';
-import GoalCompletionModal from '@components/modals/GoalCompletionModal';
+import GoalCompletionModal from '../../screens/home/components/modals/GoalCompletionModal';
 
 const RewardContext = createContext(null);
 

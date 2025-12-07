@@ -28,10 +28,10 @@ const SNAP_SIZE = CARD_WIDTH + 12;
 const HomeScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { showAlert } = useAlert(); 
+  const { showAlert, showToast } = useAlert(); 
   const { user } = useAuth();
   
-  const { isLoading, isRefreshing, featuredComics, continueReading, dailyGoals, upcomingEvents, refreshData, logVisitHistory } = useHome();
+  const { isLoading, isRefreshing, featuredComics, continueReading, dailyGoals, upcomingEvents, refreshData, logVisitHistory, logMissionCompleted } = useHome();
   
   const scrollY = useSharedValue(0);
   const scrollX = useSharedValue(0);
@@ -60,11 +60,11 @@ const HomeScreen = () => {
             navigation.navigate('Search');
             break;
         case 'comment':
-            showAlert({ title: goal.title, message: "Find any comic and leave a comment on a chapter to complete this goal!" });
+            showToast("Find any comic and leave a comment on a chapter to complete this goal!", 'info' );
             navigation.navigate('Comics');
             break;
         case 'share':
-            showAlert({ title: goal.title, message: "Navigate to any comic's detail page and use the share button." });
+            showToast( "Navigate to any comic's detail page and use the share button.", 'info' );
             break;
         case 'explore_genre':
             navigation.navigate('Search', { focus: 'genres' });
@@ -73,14 +73,19 @@ const HomeScreen = () => {
             // This action can be completed right here
             logVisitHistory();
             break;
+        // --- NEW: Handle the 'mission' goal type ---
+        case 'mission':
+            showToast("You completed the special mission! Your reward has been granted.", 'info' );
+            logMissionCompleted();
+            break;
         case 'time':
-            showAlert({ title: goal.title, message: "This goal progresses automatically as you spend time reading." });
+            showToast( "This goal progresses automatically as you spend time reading.", 'info' );
             break;
         default:
-            showAlert({ title: "Goal", message: "No specific action is tied to this goal. It may update automatically." });
+            showToast("No specific action is tied to this goal. It may update automatically.", 'info' );
             break;
     }
-  }, [navigation, showAlert, logVisitHistory]);
+  }, [navigation, showToast, logVisitHistory, logMissionCompleted]);
 
   const handleScroll = useAnimatedScrollHandler((e) => { scrollY.value = e.contentOffset.y; });
   const handleParallaxScroll = useAnimatedScrollHandler((e) => { scrollX.value = e.contentOffset.x; });

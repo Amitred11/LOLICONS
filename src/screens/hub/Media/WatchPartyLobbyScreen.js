@@ -31,7 +31,7 @@ const WatchPartyLobbyScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
     const insets = useSafeAreaInsets();
-    const { showAlert } = useAlert();
+    const { showAlert, showToast } = useAlert();
     
     const { media } = route.params;
 
@@ -63,14 +63,14 @@ const WatchPartyLobbyScreen = () => {
                 message: `Let's watch ${media.title} together! Join my lobby: https://myapp.com/watchparty/12345`
             });
         } catch (error) {
-            showAlert({ title: 'Error', message: 'Could not share invitation.', type: 'error' });
+            showToast( 'Could not share invitation.', 'error' );
         }
     };
 
     const handleStartParty = () => {
         if (participants.length < 2) return;
         
-        showAlert({ title: 'Starting Soon!', message: 'The watch party is about to begin.', type: 'success' });
+        showToast('The watch party is about to begin.','success' );
         
         setTimeout(() => {
             navigation.replace('VideoPlayer', { media });

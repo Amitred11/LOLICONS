@@ -15,7 +15,7 @@ const ChatSettingsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = route.params;
-  const { showAlert } = useAlert(); 
+  const { showAlert, showToast } = useAlert(); 
 
   // Consuming Context
   const { toggleMute, blockUser, reportUser, clearChatHistory } = useChat();
@@ -44,7 +44,7 @@ const ChatSettingsScreen = () => {
         btnText: 'Okay'
       });
     } catch(e) {
-      showAlert({ title: "Error", message: "Could not update notification settings.", type: 'error' });
+      showToast( "Could not update notification settings.", 'error' );
     }
   };
 
@@ -74,7 +74,7 @@ const ChatSettingsScreen = () => {
             await blockUser(user.id);
             navigation.navigate('ChatList'); // Go back to list
         } catch (e) {
-            showAlert({ title: "Error", message: "Failed to block user.", type: 'error' });
+            showToast( "Failed to block user.",  'error' );
         } finally {
             setIsLoadingAction(false);
         }
@@ -94,10 +94,10 @@ const ChatSettingsScreen = () => {
         try {
             await reportUser(user.id);
             setTimeout(() => {
-                showAlert({ title: "Report Sent", message: "Thank you for keeping our community safe.", type: 'success' });
+              showToast( "Thank you for keeping our community safe.",  'success' );
             }, 500);
         } catch (e) {
-            showAlert({ title: "Error", message: "Could not submit report.", type: 'error' });
+            showToast( "Could not submit report.",'error' );
         } finally {
             setIsLoadingAction(false);
         }
@@ -116,9 +116,9 @@ const ChatSettingsScreen = () => {
             setIsLoadingAction(true);
             try {
                 await clearChatHistory(user.id);
-                showAlert({ title: "Success", message: "Chat history cleared.", type: 'success' });
+                showToast( "Chat history cleared.", 'success' );
             } catch(e) {
-                showAlert({ title: "Error", message: "Failed to clear chat.", type: 'error' });
+                showToast( "Failed to clear chat.", 'error' );
             } finally {
                 setIsLoadingAction(false);
             }
@@ -130,11 +130,10 @@ const ChatSettingsScreen = () => {
     setIsLoadingAction(true);
     setTimeout(() => {
         setIsLoadingAction(false);
-        showAlert({
-            title: "Export Ready",
-            message: "Your chat history has been exported to your downloads folder.",
-            type: 'success'
-        });
+        showToast(
+            "Your chat history has been exported to your downloads folder.",
+             'success'
+        );
     }, 1500);
   };
 

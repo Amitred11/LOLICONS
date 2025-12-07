@@ -19,7 +19,7 @@ const DiscussionScreen = ({ route, navigation }) => {
     posts, fetchPosts, togglePostLike, isLoadingPosts, 
     fetchGuildDetails, currentGuild 
   } = useCommunity();
-  const { showAlert } = useAlert();
+  const { showAlert, showToast } = useAlert();
 
   const [refreshing, setRefreshing] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -64,7 +64,7 @@ const DiscussionScreen = ({ route, navigation }) => {
         message: `Check out this post from ${post.user}: "${post.content}"`,
       });
     } catch (error) {
-      showAlert({ title: "Error", message: error.message, type: 'error' });
+      showToast(error.message,  'error' );
     }
   };
 
@@ -85,13 +85,13 @@ const DiscussionScreen = ({ route, navigation }) => {
       icon: 'copy-outline',
       onPress: () => {
         Clipboard.setString(selectedPostForOptions?.content || "");
-        showAlert({ title: "Copied", message: "Text copied to clipboard.", type: 'success' });
+        showToast("Text copied to clipboard.",'success' );
       }
     },
     {
       label: 'Block User',
       icon: 'person-remove-outline',
-      onPress: () => showAlert({ title: "Blocked", message: `You blocked ${selectedPostForOptions?.user}.`, type: 'info' })
+      onPress: () => showToast( `You blocked ${selectedPostForOptions?.user}.`,'info' )
     },
     {
       label: 'Report Post',

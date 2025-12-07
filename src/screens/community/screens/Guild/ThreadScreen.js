@@ -31,7 +31,7 @@ const getMockSubReplies = (index) => {
 
 const ThreadScreen = ({ route, navigation }) => {
   const { post } = route.params; 
-  const { showAlert } = useAlert();
+  const { showAlert, showToast } = useAlert();
   const { fetchReplies, submitReply, currentReplies, isLoadingReplies, togglePostLike } = useCommunity();
   
   // --- STATE ---
@@ -116,7 +116,7 @@ const ThreadScreen = ({ route, navigation }) => {
 
     if (editingComment) {
       setEditedStatus(prev => ({ ...prev, [editingComment.id]: true }));
-      showAlert({ title: "Success", message: "Comment updated.", type: 'success' });
+      showToast("Comment updated.",'success' );
       resetInput();
       setIsSending(false);
       return;
@@ -180,7 +180,7 @@ const ThreadScreen = ({ route, navigation }) => {
       icon: 'copy-outline',
       onPress: () => {
         Clipboard.setString(selectedItem.content);
-        showAlert({ title: "Copied", message: "Text copied.", type: 'success' });
+        showToast("Text copied.", 'success' );
       }
     });
 
@@ -216,7 +216,7 @@ const ThreadScreen = ({ route, navigation }) => {
       options.push({
         label: 'Hide',
         icon: 'eye-off-outline',
-        onPress: () => showAlert({ title: "Hidden", message: "Content hidden.", type: 'info' })
+        onPress: () => showToast("Content hidden.",'info' )
       });
        options.push({
         label: 'Report',

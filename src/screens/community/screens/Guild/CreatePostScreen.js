@@ -11,7 +11,7 @@ import { useAlert } from '@context/other/AlertContext';
 import { Colors } from '@config/Colors';
 
 const CreatePostScreen = ({ navigation, route }) => {
-  const { showAlert } = useAlert();
+  const { showAlert, showToast } = useAlert();
   const { createPost } = useCommunity();
   
   const { guildName, guildId } = route.params || { guildName: 'Community', guildId: null };
@@ -106,9 +106,9 @@ const CreatePostScreen = ({ navigation, route }) => {
     if (success) {
       Keyboard.dismiss();
       navigation.goBack();
-      showAlert({ title: "Posted!", message: "Your message is live.", type: 'success' });
+      showToast( "Your message is live.",  'success' );
     } else {
-      showAlert({ title: "Error", message: "Could not create post.", type: 'error' });
+      showToast( "Could not create post.", 'error' );
       setIsSubmitting(false);
     }
   };

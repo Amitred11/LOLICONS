@@ -25,7 +25,8 @@ const getGoalsForRank = (rank) => {
                 { id: 'read_chapters', type: 'read', title: `Read ${1 + difficulty} Chapters`, total: 1 + difficulty, icon: 'book-outline', xp: 200 },
                 { id: 'time_spent', type: 'time', title: `Spend ${20 + difficulty * 2} Minutes`, total: 20 + difficulty * 2, icon: 'time-outline', xp: 150 },
                 { id: 'rate_comic', type: 'rate', title: 'Rate 2 Different Comics', total: 2, icon: 'star-half-outline', xp: 125 },
-                { id: 'add_to_library', type: 'library', title: 'Add a Comic to Bookshelf', total: 1, icon: 'bookmark-outline', xp: 100 },
+                // --- NEW MISSION GOAL ADDED ---
+                { id: 'complete_mission', type: 'mission', title: 'Complete a Special Mission', total: 1, icon: 'rocket-outline', xp: 250 },
                 { id: 'share_comic', type: 'share', title: 'Share a Comic', total: 1, icon: 'share-social-outline', xp: 150 },
             ];
             break;

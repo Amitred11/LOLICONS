@@ -76,7 +76,7 @@ const ListCard = ({ item, onPress, onDelete }) => (
 const MediaProfileScreen = () => {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
-    const { showAlert } = useAlert();
+    const { showAlert, showToast } = useAlert();
 
     // --- CONTEXTS ---
     const { myList, mediaData, toggleFavorite } = useMedia(); // Added toggleFavorite for removing from list
@@ -111,7 +111,7 @@ const MediaProfileScreen = () => {
                     // Update the local downloads state
                     setDownloads(current => current.filter(item => item.id !== itemToDelete.id));
                 }
-                showAlert({ title: 'Removed', message: `"${itemToDelete.title}" was removed.`, type: 'success' });
+                showToast( `"${itemToDelete.title}" was removed.`,  'success');
             }
         });
     };

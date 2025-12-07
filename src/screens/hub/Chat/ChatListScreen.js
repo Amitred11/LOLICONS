@@ -36,7 +36,7 @@ const AnimatedChatItem = ({ index, children }) => {
 const ChatListScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { showAlert } = useAlert();
+  const { showAlert, showToast } = useAlert();
   
   // Consuming Context
   const { 
@@ -106,7 +106,7 @@ const ChatListScreen = () => {
             secondaryBtnText: "Cancel",
             onClose: async () => {
                 await toggleMute(selectedChat.id, false); // Assuming false = currently not muted
-                showAlert({ title: "Muted", message: "Notifications silenced.", type: 'success' });
+                showToast("Notifications silenced.", 'success' );
             }
         });
         break;

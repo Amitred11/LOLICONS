@@ -14,6 +14,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Colors } from '@config/Colors';
 import ChatBubble from './components/ChatBubble';
 import { useChat } from '@context/hub/ChatContext';
+import { useAlert } from '@context/other/AlertContext';
 
 // ... EmojiPicker Component remains the same ...
 const EmojiPicker = ({ onSelect }) => {
@@ -41,6 +42,7 @@ const ChatDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const flatListRef = useRef();
+  const { showToast } = useAlert();
 
   const { user } = route.params || { user: { id: '0', name: 'Chat', type: 'direct' }};
 
@@ -93,7 +95,7 @@ const ChatDetailScreen = () => {
       // Use Context to send
       await sendMessage(user.id, content, type, fileName);
     } catch (error) {
-      Alert.alert("Error", "Message failed to send");
+      showToast("Message failed to send", 'error');
     }
   };
 

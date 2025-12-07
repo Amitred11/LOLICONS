@@ -5,7 +5,6 @@ import { View, Text, StyleSheet, Pressable, TouchableOpacity } from 'react-nativ
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import { Colors } from '@config/Colors';
 import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
 
 /**
  * A modal that displays detailed information about a user's current rank.

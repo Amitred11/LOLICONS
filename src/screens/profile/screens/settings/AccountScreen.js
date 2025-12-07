@@ -65,7 +65,7 @@ const ConnectedAccountRow = ({ icon, name, isConnected, onConnect, isLast, isLoa
 
 const AccountScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
-    const { showAlert } = useAlert();
+    const { showAlert, showToast } = useAlert();
     const { profile, connectSocial, deleteAccount } = useProfile();
     const [connectingProvider, setConnectingProvider] = useState(null); 
 
@@ -80,7 +80,7 @@ const AccountScreen = ({ navigation }) => {
     const handleCopyId = () => {
         Clipboard.setString(profile?.id || '');
         Haptics?.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        showAlert({ title: "Copied", message: "User ID copied to clipboard.", type: 'success' });
+        showToast("User ID copied to clipboard.", 'success' );
     };
 
     const handleConnect = (key, name) => {
@@ -94,9 +94,9 @@ const AccountScreen = ({ navigation }) => {
                 try {
                     await connectSocial(key);
                     Haptics?.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    showAlert({ title: "Success", message: `${name} account linked successfully!`, type: 'success' });
+                    showToast(`${name} account linked successfully!`, 'success' );
                 } catch (error) {
-                    showAlert({ title: "Error", message: "Connection failed.", type: 'error' });
+                    showToast( "Connection failed.", 'error' );
                 } finally {
                     setConnectingProvider(null);
                 }
@@ -116,7 +116,7 @@ const AccountScreen = ({ navigation }) => {
                 try {
                     await deleteAccount();
                 } catch (err) {
-                    showAlert({ title: "Error", message: "Failed to delete account.", type: 'error' });
+                    showToast("Failed to delete account.",'error' );
                 }
             }
         });

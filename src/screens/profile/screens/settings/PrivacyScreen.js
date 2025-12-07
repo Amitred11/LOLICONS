@@ -47,7 +47,7 @@ const UserListItem = ({ user, onPress, buttonText, buttonColor, isDestructive })
 
 const PrivacyScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
-    const { showAlert } = useAlert();
+    const { showAlert, showToast } = useAlert();
     const { profile, toggleTwoFactor, logoutAllSessions, blockUser, unblockUser, searchUsers } = useProfile();
 
     // Block Modal State
@@ -91,9 +91,9 @@ const PrivacyScreen = ({ navigation }) => {
                     await blockUser(user);
                     // Remove from search results instantly for UI smoothness
                     setSearchResults(prev => prev.filter(u => u.id !== user.id));
-                    showAlert({ title: "Blocked", message: `${user.name} has been blocked.`, type: 'success' });
+                    showToast(`${user.name} has been blocked.`, 'success' );
                 } catch (err) {
-                    showAlert({ title: "Error", message: err.message, type: 'error' });
+                    showToast( err.message, 'error' );
                 }
             }
         });
@@ -109,7 +109,7 @@ const PrivacyScreen = ({ navigation }) => {
                 try {
                     await unblockUser(user.id);
                 } catch (err) {
-                    showAlert({ title: "Error", message: "Failed to unblock user.", type: 'error' });
+                    showToast( "Failed to unblock user.",  'error' );
                 }
             }
         });
@@ -127,9 +127,9 @@ const PrivacyScreen = ({ navigation }) => {
             onClose: async () => {
                 try {
                     const newState = await toggleTwoFactor(settings.twoFactor);
-                    showAlert({ title: "Success", message: `2FA ${newState ? 'enabled' : 'disabled'}.`, type: 'success' });
+                    showToast(`2FA ${newState ? 'enabled' : 'disabled'}.`, 'success' );
                 } catch (err) {
-                    showAlert({ title: "Error", message: "Could not update 2FA.", type: 'error' });
+                    showToast("Could not update 2FA.",'error' );
                 }
             }
         });
@@ -137,7 +137,7 @@ const PrivacyScreen = ({ navigation }) => {
 
     const handleManageSessions = () => {
         if (settings.activeSessions <= 1) {
-            showAlert({ title: "Secure", message: "Only this device is currently active.", type: 'success' });
+            showToast( "Only this device is currently active.", 'success' );
             return;
         }
         showAlert({
@@ -149,9 +149,9 @@ const PrivacyScreen = ({ navigation }) => {
             onClose: async () => {
                 try {
                     await logoutAllSessions();
-                    showAlert({ title: "Success", message: "All other devices logged out.", type: 'success' });
+                    showToast( "All other devices logged out.", 'success' );
                 } catch (err) {
-                    showAlert({ title: "Error", message: "Failed.", type: 'error' });
+                    showToast( "Failed.", 'error' );
                 }
             }
         });

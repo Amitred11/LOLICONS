@@ -10,7 +10,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAlert } from '@context/other/AlertContext'; 
 import { useProfile } from '@context/main/ProfileContext';
 
-// ... PasswordInput Component (same as before) ...
 const PasswordInput = ({ label, value, onChangeText, placeholder, isSecure, onToggleSecurity }) => (
     <View style={styles.inputGroup}>
         <Text style={styles.label}>{label}</Text>
@@ -38,7 +37,7 @@ const PasswordInput = ({ label, value, onChangeText, placeholder, isSecure, onTo
 
 const ChangePasswordScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
-    const { showAlert } = useAlert();
+    const { showAlert, showToast } = useAlert();
     const { changePassword } = useProfile(); // Context Bridge
 
     const [form, setForm] = useState({ current: '', new: '', confirm: '' });
@@ -49,9 +48,9 @@ const ChangePasswordScreen = ({ navigation }) => {
 
     const handleUpdate = async () => {
         Keyboard.dismiss();
-        if (!form.current || !form.new || !form.confirm) return showAlert({ title: "Missing Fields", message: "Fill all fields.", type: 'error' });
-        if (form.new.length < 6) return showAlert({ title: "Weak Password", message: "Min 6 chars.", type: 'error' });
-        if (form.new !== form.confirm) return showAlert({ title: "Mismatch", message: "Passwords don't match.", type: 'error' });
+        if (!form.current || !form.new || !form.confirm) return showToast("Fill all fields.",  'error' );
+        if (form.new.length < 6) return showToast("Min 6 chars.",  'error' );
+        if (form.new !== form.confirm) return showToast( "Passwords don't match.", 'error' );
 
         setIsLoading(true);
         try {
@@ -66,7 +65,6 @@ const ChangePasswordScreen = ({ navigation }) => {
         }
     };
     
-    // ... Render (Same as before)
     return (
         <LinearGradient colors={[Colors.background, '#1a1a2e']} style={styles.container}>
             <StatusBar barStyle="light-content" />

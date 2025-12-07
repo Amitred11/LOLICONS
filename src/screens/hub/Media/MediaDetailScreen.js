@@ -81,7 +81,7 @@ const MediaDetailScreen = () => {
     const route = useRoute();
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
-    const { showAlert } = useAlert();
+    const { showAlert, showToast } = useAlert();
     const { mediaId } = route.params;
     const scrollY = useSharedValue(0);
 
@@ -126,7 +126,7 @@ const MediaDetailScreen = () => {
         setDownloadStatus('downloading');
         setTimeout(() => {
             setDownloadStatus('downloaded');
-            showAlert({ title: 'Download Complete', message: `${mediaItem.title} is now available offline.`, type: 'success' });
+            showToast( `${mediaItem.title} is now available offline.`, 'success' );
         }, 2500);
     };
 
@@ -141,7 +141,7 @@ const MediaDetailScreen = () => {
         setUserRating(stars);
         const res = await MediaService.rateMedia(mediaId, stars);
         if (res.success) {
-            showAlert({ title: 'Thanks for rating!', message: `Your review helps others discover this title.`, type: 'success' });
+            showToast(`Your review helps others discover this title.`, 'success' );
         }
     };
 
@@ -152,7 +152,7 @@ const MediaDetailScreen = () => {
         } else if (option === 'party') {
             navigation.navigate('WatchPartyLobby', { media: mediaItem });
         } else if (option === 'cast') {
-            showAlert({ title: 'Casting', message: `Now casting ${mediaItem.title} to Living Room TV.`, type: 'info' });
+            showToast( `Now casting ${mediaItem.title} to Living Room TV.`, 'info' );
         }
     };
 

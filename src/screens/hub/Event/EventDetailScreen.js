@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors';
 import { useEvents } from '@context/hub/EventsContext';
+import { useAlert } from '@context/other/AlertContext';
 
 const { width } = Dimensions.get('window');
 
@@ -109,6 +110,7 @@ const EventDetailScreen = () => {
     const insets = useSafeAreaInsets();
     const { eventData } = route.params || {}; 
     const { joinEvent, hasTicket } = useEvents();
+    const { showAlert } = useAlert();
     
     const [activeTab, setActiveTab] = useState('Overview');
     const [isProcessing, setIsProcessing] = useState(false);
@@ -162,10 +164,23 @@ const EventDetailScreen = () => {
         setShowPaymentModal(false);
 
         if (success) {
-            Alert.alert("Success!", "You have secured your ticket.", [
-                { text: "View Ticket", onPress: () => setActiveTab('Ticket') }
-            ]);
-        }
+        // --- FIXED: Replaced Alert.alert with the custom showAlert ---
+        showAlert({
+            type: 'success',
+            title: "Success!",
+            message: "You have secured your ticket for the event.",
+            btnText: "View My Ticket",
+            // The onClose callback is triggered when the main button is pressed
+            onClose: () => setActiveTab('Ticket') 
+        });
+        } else {
+        // Optionally handle the failure case with another alert
+        showAlert({
+            type: 'error',
+            title: "Registration Failed",
+            message: "We couldn't process your registration. Please try again."
+        });
+      }
     };
 
     return (

@@ -9,7 +9,7 @@ import { useAlert } from '@context/other/AlertContext';
 
 const MarketDetailScreen = ({ route, navigation }) => {
   const { item } = route.params;
-  const { showAlert } = useAlert();
+  const { showToast } = useAlert();
   const [isWishlisted, setIsWishlisted] = useState(false);
 
   const handleStartChat = () => {
@@ -30,7 +30,7 @@ const MarketDetailScreen = ({ route, navigation }) => {
   const handleToggleWishlist = () => {
     setIsWishlisted(!isWishlisted);
     if (!isWishlisted) {
-      showAlert({ title: "Saved", message: "Item added to wishlist", type: 'success' });
+      showToast( "Item added to wishlist", 'success' );
     }
   };
 

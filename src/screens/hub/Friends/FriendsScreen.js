@@ -12,8 +12,8 @@ import { Colors } from '@config/Colors';
 
 // Components & Context
 import FriendItem from './components/FriendItem'; 
-import { useFriend } from '@context/hub/FriendContext'; // IMPT: Import Context
-import { useAlert } from '@context/other/AlertContext'; // Assuming you have this from previous steps
+import { useFriend } from '@context/hub/FriendContext';
+import { useAlert } from '@context/other/AlertContext'; // Import custom alert/toast hook
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -24,7 +24,8 @@ const FILTERS = ['All', 'Online', 'Offline'];
 const FriendsScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { showAlert } = useAlert(); // Optional: if you want custom alerts instead of RN Alert
+  // --- UPDATED: Using custom showAlert and showToast ---
+  const { showAlert, showToast } = useAlert(); 
   
   // Consuming Context
   const { friends, onlineFriends, isLoading, loadFriends, createEntity } = useFriend();
@@ -84,22 +85,28 @@ const FriendsScreen = () => {
 
   // 3. Finalize Creation (FAB Press)
   const handleFabPress = () => {
-    if (selectedFriends.size < 2) return Alert.alert("Select Friends", "Select at least 2 friends to proceed.");
+    if (selectedFriends.size < 2) {
+      // --- FIXED: Replaced Alert.alert with showToast for validation ---
+      showToast("Select at least 2 friends to proceed.", 'error');
+      return;
+    }
 
     if (pendingCreationType) {
       promptForName(pendingCreationType);
     } else {
-      Alert.alert(
-        "Action",
-        "What would you like to do with selected friends?",
-        [
-          { text: "Create Group", onPress: () => promptForName('Group') },
-          { text: "Cancel", style: "cancel" }
-        ]
-      );
+      // --- FIXED: Replaced Alert.alert with showAlert for user choice ---
+      showAlert({
+        title: "Action",
+        message: "What would you like to do with the selected friends?",
+        btnText: "Create Group",
+        onClose: () => promptForName('Group'),
+        secondaryBtnText: "Cancel",
+      });
     }
   };
-
+  
+  // NOTE: Alert.prompt is kept intentionally as it's a native OS feature for text input,
+  // which the custom showAlert does not support without significant modification.
   const promptForName = (type) => {
     Alert.prompt(
       `Name your ${type}`,
@@ -108,7 +115,13 @@ const FriendsScreen = () => {
         { text: "Cancel", style: "cancel" },
         {
           text: "Create",
-          onPress: (name) => executeCreation(type, name)
+          onPress: (name) => {
+              if (name && name.trim().length > 0) {
+                 executeCreation(type, name);
+              } else {
+                 showToast("Please enter a valid name.", 'error');
+              }
+          }
         }
       ],
       "plain-text"
@@ -120,19 +133,23 @@ const FriendsScreen = () => {
     const memberIds = Array.from(selectedFriends);
     
     try {
-        // Call Context Method
-        const res = await createEntity(type, name || `New ${type}`, memberIds);
+        const res = await createEntity(type, name, memberIds);
         
         setIsCreating(false);
         cancelSelectionMode();
         
         if(res.success) {
+            showToast(`Successfully created ${type}!`, 'success');
             // Navigate to ChatDetail with the new Chat Object
             navigation.navigate('ChatDetail', { user: res.data });
+        } else {
+            // --- FIXED: Use showToast for failure feedback ---
+            showToast(res.message || `Failed to create ${type}.`, 'error');
         }
     } catch (e) {
         setIsCreating(false);
-        Alert.alert("Error", "Failed to create group.");
+        // --- FIXED: Use showToast for caught errors ---
+        showToast("An unexpected error occurred.", 'error');
     }
   };
 
@@ -287,6 +304,9 @@ const FriendsScreen = () => {
                 onQuickAction={() => navigation.navigate('ChatDetail', { user: item })}
             />
             )}
+            ListEmptyComponent={
+                !isLoading && <Text style={styles.emptyText}>No friends found.</Text>
+            }
         />
       )}
 
@@ -352,6 +372,8 @@ const styles = StyleSheet.create({
 
   fab: { position: 'absolute', bottom: 40, right: 30, shadowColor: Colors.primary, shadowOffset: {width:0, height:8}, shadowOpacity:0.4, shadowRadius:12, elevation: 8 },
   fabGradient: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center' },
+  
+  emptyText: { color: Colors.textSecondary, textAlign: 'center', marginTop: 50 },
 });
 
 export default FriendsScreen;
