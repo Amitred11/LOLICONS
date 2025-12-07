@@ -1,7 +1,7 @@
 // screens/hub/HubScreen.js
 
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedScrollHandler } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
@@ -10,26 +10,34 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@config/Colors';
 import { HEADER_EXPANDED_HEIGHT } from './components/constants';
 import HubHeader from './components/HubHeader';
-import { FeaturedSectionCard } from './components/HubComponents';
 
-// Use Context
+// Components
+import { EventHeroCard, MediaPosterCard } from './components/HubComponents';
+
+// Contexts
 import { useEvents } from '@context/hub/EventsContext';
+import { useMedia } from '@context/hub/MediaContext'; 
 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
-const Section = ({ title, children, onPressSeeAll }) => (
-  <View style={styles.sectionContainer}>
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {onPressSeeAll && (
-        <TouchableOpacity onPress={onPressSeeAll} style={styles.seeAllButton}>
-            <Text style={styles.seeAllText}>All Events</Text>
-            <Ionicons name="arrow-forward" size={14} color={Colors.primary} />
-        </TouchableOpacity>
-      )}
+// Helper for formatted date
+const getEventDateObject = (dateString) => {
+    return { month: 'DEC', day: '24' }; 
+};
+
+const SectionHeader = ({ title, subtitle, onPressSeeAll }) => (
+    <View style={styles.sectionHeaderContainer}>
+        <View>
+            <Text style={styles.sectionTitle}>{title}</Text>
+            {subtitle && <Text style={styles.sectionSubtitle}>{subtitle}</Text>}
+        </View>
+        {onPressSeeAll && (
+            <TouchableOpacity onPress={onPressSeeAll} style={styles.seeAllButton}>
+                <Text style={styles.seeAllText}>View All</Text>
+                <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+            </TouchableOpacity>
+        )}
     </View>
-    {children}
-  </View>
 );
 
 const HubScreen = () => {
@@ -37,8 +45,9 @@ const HubScreen = () => {
   const navigation = useNavigation();
   const scrollY = useSharedValue(0);
 
-  // --- Consume Context ---
-  const { events, isLoading } = useEvents();
+  // --- Consume Contexts ---
+  const { events, isLoading: isEventsLoading } = useEvents();
+  const { mediaData, isLoading: isMediaLoading } = useMedia();
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -46,68 +55,107 @@ const HubScreen = () => {
     },
   });
 
-  // Calculate main event for display
-  const mainEvent = events.length > 0 
-    ? events[0] 
-    : { 
-        id: 'placeholder',
-        title: "No Live Events", 
-        date: "Check back later", 
-        image: { uri: 'https://via.placeholder.com/800x600' } 
-      };
+  // Main Event Logic
+  const mainEvent = events.length > 0 ? events[0] : { 
+      id: 'placeholder',
+      title: "Winter Championship", 
+      desc: "The biggest community showdown of the year is finally here.",
+      date: "2025-12-24", 
+      image: { uri: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=800' } // Reliable Gaming Image
+  };
+
+  // Featured Media Logic (Filter for 'Trending' or take top 5)
+  // Ensure we have data to map
+  const trendingMedia = mediaData && mediaData.length > 0 
+    ? mediaData.filter(item => item.tags && item.tags.includes('Trending'))
+    : [];
+    
+  const featuredMediaList = trendingMedia.length > 0 ? trendingMedia : (mediaData || []).slice(0, 5);
+
+  const isGlobalLoading = (isEventsLoading && events.length === 0) || (isMediaLoading && (!mediaData || mediaData.length === 0));
 
   return (
     <View style={styles.container}>
-      {/* Pass scrollY to Header for animation */}
       <HubHeader scrollY={scrollY} />
 
-      {/* Loading Indicator Layer */}
-      {isLoading && events.length === 0 ? (
-         <View style={[styles.loadingContainer, { paddingTop: HEADER_EXPANDED_HEIGHT + insets.top }]}>
+      {isGlobalLoading ? (
+         <View style={[styles.loadingContainer, { paddingTop: HEADER_EXPANDED_HEIGHT }]}>
             <ActivityIndicator size="large" color={Colors.primary} />
          </View>
       ) : (
         <AnimatedScrollView
           onScroll={scrollHandler}
           scrollEventThrottle={16}
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={{
-            paddingTop: (HEADER_EXPANDED_HEIGHT || 200) + insets.top + 20,
+            paddingTop: HEADER_EXPANDED_HEIGHT + insets.top + 20,
             paddingBottom: insets.bottom + 90,
           }}
         >
-          {/* --- Shows & Movies Section --- */}
-          <Section title="Featured Media">
-            <FeaturedSectionCard
-              title="Media Hub"
-              description="Discover your next favorite show or movie"
-              buttonText="Explore"
-              image={{ uri: 'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=800' }}
-              onPress={() => navigation.navigate('Media')}
-            />
-          </Section>
+          
+          {/* --- SECTION 1: Trending Media (Horizontal Scroll) --- */}
+          {featuredMediaList.length > 0 && (
+            <View style={styles.carouselSection}>
+                <View style={{ paddingHorizontal: 20 }}>
+                    <SectionHeader 
+                        title="Trending Now" 
+                        subtitle="Movies, Shows & Anime" 
+                        onPressSeeAll={() => navigation.navigate('Media')} 
+                    />
+                </View>
+                
+                <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingLeft: 20, paddingRight: 4, paddingTop: 10, paddingBottom: 20 }}
+                >
+                    {featuredMediaList.map((item) => (
+                        <MediaPosterCard
+                            key={item.id}
+                            title={item.title}
+                            category={item.type}
+                            image={item.poster}
+                            onPress={() => navigation.navigate('MediaDetail', { mediaId: item.id })}
+                        />
+                    ))}
+                </ScrollView>
+            </View>
+          )}
 
-          {/* --- Main Event Section --- */}
-          <Section 
-              title="Live Events" 
-              onPressSeeAll={() => navigation.navigate('Events', { eventsData: events })} 
-          >
-            <FeaturedSectionCard
-              title={mainEvent.title}
-              description={mainEvent.date}
-              buttonText="Event Details"
-              image={mainEvent.image}
-              onPress={() => navigation.navigate('EventDetail', { eventData: mainEvent })} 
+          {/* --- SECTION 2: Main Event (Hero Card) --- */}
+          <View style={styles.sectionContainer}>
+            <SectionHeader 
+                title="Upcoming Highlight" 
+                subtitle="Don't miss the action"
             />
             
+            <EventHeroCard
+              title={mainEvent.title}
+              description={mainEvent.desc}
+              image={mainEvent.image}
+              date={getEventDateObject(mainEvent.date)} 
+              onPress={() => navigation.navigate('EventDetail', { eventData: mainEvent })} 
+            />
+
             <TouchableOpacity 
-              style={styles.moreEventsButton}
+              style={styles.viewMoreEventsButton}
               onPress={() => navigation.navigate('Events', { eventsData: events })}
+              activeOpacity={0.7}
             >
-              <Text style={styles.moreEventsText}>
-                  View {events.length > 1 ? events.length - 1 : 0}+ more upcoming events
-              </Text>
+                <View style={styles.viewMoreLeft}>
+                    <View style={styles.calendarIconBox}>
+                         <Ionicons name="calendar" size={18} color={Colors.primary} />
+                    </View>
+                    <View>
+                        <Text style={styles.viewMoreTitle}>View Schedule</Text>
+                        <Text style={styles.viewMoreSubtitle}>
+                            {events.length > 1 ? `+${events.length - 1} more events` : 'Check future dates'}
+                        </Text>
+                    </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
             </TouchableOpacity>
-          </Section>
+          </View>
 
         </AnimatedScrollView>
       )}
@@ -118,13 +166,33 @@ const HubScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.darkBackground },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  sectionContainer: { marginBottom: 25, marginTop: 20, paddingHorizontal: 20 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  sectionTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 22 },
-  seeAllButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 15 },
-  seeAllText: { fontFamily: 'Poppins_500Medium', color: Colors.primary, fontSize: 12, marginRight: 5 },
-  moreEventsButton: { alignItems: 'center', marginTop: 15, padding: 10 },
-  moreEventsText: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 14 },
+  
+  carouselSection: { marginBottom: 10 },
+  sectionContainer: { marginBottom: 35, paddingHorizontal: 20 },
+  
+  sectionHeaderContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
+  sectionTitle: { fontFamily: 'Poppins_700Bold', color: Colors.text, fontSize: 22, letterSpacing: -0.5 },
+  sectionSubtitle: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 13, marginTop: -2 },
+  
+  seeAllButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12 },
+  seeAllText: { fontFamily: 'Poppins_600SemiBold', color: Colors.primary, fontSize: 12, marginRight: 2 },
+  
+  viewMoreEventsButton: { 
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      marginTop: 20, padding: 16, 
+      backgroundColor: '#1E1E1E', 
+      borderRadius: 18,
+      borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)'
+  },
+  viewMoreLeft: { flexDirection: 'row', alignItems: 'center' },
+  calendarIconBox: { 
+      width: 40, height: 40, borderRadius: 12, 
+      backgroundColor: 'rgba(255, 107, 107, 0.15)', 
+      alignItems: 'center', justifyContent: 'center', 
+      marginRight: 14 
+  },
+  viewMoreTitle: { fontFamily: 'Poppins_600SemiBold', color: '#fff', fontSize: 15 },
+  viewMoreSubtitle: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 12 },
 });
 
 export default HubScreen;
