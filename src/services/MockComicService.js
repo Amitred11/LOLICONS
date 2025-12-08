@@ -94,7 +94,6 @@ let _history = [
     id: '1',
     title: 'Cybernetic Dawn',
     image: { uri: 'https://images.unsplash.com/photo-1535905557558-afc4877a26fc?w=800&q=80' },
-    chapters: [{id: '15'}], 
     lastChapterRead: 'Chapter 15',
     lastRead: new Date().toISOString(),
     progress: 0.75,
@@ -104,7 +103,6 @@ let _history = [
     id: '4',
     title: 'Chronos Heist',
     image: { uri: 'https://images.unsplash.com/photo-1519074069444-1ba4fff66d16?w=800&q=80' },
-    chapters: [{id: '1'}],
     lastChapterRead: 'Chapter 1',
     lastRead: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString(), 
     progress: 0.2,
@@ -112,12 +110,16 @@ let _history = [
   },
 ];
 
+
 // Mock Library (IDs only)
 let _library = new Set(['1', '3']); 
 
 // Mock Favorites (IDs only) - NEW
 let _favorites = new Set(['5', '2']);
-
+let _userRatings = {
+    '1': 5, // User has rated 'Cybernetic Dawn' 5 stars
+    '3': 4, // User has rated 'Galactic Ghosts' 4 stars
+};
 // --- SERVICE ---
 
 export const ComicService = {
@@ -163,10 +165,9 @@ export const ComicService = {
             id: comicId,
             title: comic.title,
             image: comic.image,
-            chapters: comic.chapters,
             lastChapterRead: chapterTitle,
             lastRead: new Date().toISOString(),
-            progress: Math.random() * 0.9 + 0.1, 
+            progress: Math.random(),
             totalChapters: comic.chapters.length
         };
 
@@ -215,10 +216,9 @@ export const ComicService = {
         return { success: true };
     },
 
-    // 5. Favorites Actions - NEW
+    // 5. Favorites Actions
     getFavorites: async () => {
         await delay(400);
-        // Map IDs back to full comic objects
         const result = _comics.filter(c => _favorites.has(c.id));
         return { success: true, data: result };
     },
@@ -229,25 +229,47 @@ export const ComicService = {
         return { success: true };
     },
 
+    getUserRatings: async () => {
+        await delay(250);
+        return { success: true, data: _userRatings };
+    },
+
+    rateComic: async (comicId, rating) => {
+        await delay(300);
+        _userRatings[comicId] = rating;
+
+        const comic = _comics.find(c => c.id === comicId);
+        if (comic) {
+            const currentTotalRating = comic.rating * comic.views;
+            const newTotalRating = currentTotalRating + rating;
+            const newViewCount = comic.views + 1;
+            comic.rating = Math.round((newTotalRating / newViewCount) * 10) / 10;
+            comic.views = newViewCount;
+        }
+
+        return { success: true };
+    },
+
     removeFromFavorites: async (id) => {
         await delay(200);
         _favorites.delete(id);
         return { success: true };
     },
 
-    // Helper to check status synchronously if needed, 
-    // or you can just rely on the API.
     isFavorite: (id) => {
         return _favorites.has(id);
     },
 
     // 6. Reader/Detail Data
     getChapterPages: async (comicId, chapterId) => {
-        await delay(500);
-        const count = 5 + Math.floor(Math.random() * 5);
-        return Array.from({ length: count }, (_, i) => ({
+        await delay(600);
+        const pageCount = 8; // Use a fixed page count for predictability
+        
+        // **THE FIX: Use a deterministic URL structure**
+        // This ensures the URL for a given page is always the same.
+        return Array.from({ length: pageCount }, (_, i) => ({
             id: `pg_${i}`,
-            uri: `https://via.placeholder.com/400x600.png?text=Comic+${comicId}+Ch+${chapterId}+Pg+${i+1}`
+            uri: `https://picsum.photos/seed/${comicId}-${chapterId}-${i}/800/1200`
         }));
     },
 

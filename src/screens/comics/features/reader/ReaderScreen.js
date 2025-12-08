@@ -1,19 +1,21 @@
-// screens/comics/ReaderScreen.js
+// ReaderScreen.js
 
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, Dimensions, TouchableOpacity, StatusBar, ActivityIndicator } from 'react-native';
+import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
+import { 
+    View, Text, StyleSheet, FlatList, Image, Dimensions, 
+    TouchableOpacity, StatusBar, ActivityIndicator, Animated, Pressable 
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
-// --- IMPORTS ---
-import { ComicService } from '@api/MockComicService'; 
+import { useComic } from '@context/main/ComicContext';
+import { ComicService } from '@api/MockComicService';
 import ReaderSettingsModal from './ReaderSettingsModal';
-import ChapterListModal from './ChapterListModal'; 
+import ChapterListModal from './ChapterListModal';
 
 const { width, height } = Dimensions.get('window');
 
-// Theme Constants
 const Theme = {
     darkBg: '#121212',
     text: '#FFFFFF',
@@ -21,272 +23,315 @@ const Theme = {
     accent: '#5EEAD4',
 };
 
+// Memoized component for each page.
+const MemoizedPage = memo(({ item, settings, onTab }) => {
+    const isSingle = settings.mode === 'single';
+    const imgHeight = isSingle ? height : (settings.fitHeight ? height : width * 1.4);
+    const resizeMode = isSingle ? 'contain' : (settings.fitWidth ? 'cover' : 'contain');
+    const imgWidth = settings.limitWidth ? width * 0.9 : width;
+    const imageStyle = { opacity: settings.dim ? 0.7 : 1.0 };
+
+    return (
+        <Pressable 
+            onPress={onTab}
+            style={[ styles.pageContainer, isSingle ? { width, height } : { alignSelf: 'center', width: imgWidth, height: imgHeight } ]}
+        >
+            <Image source={{ uri: item.uri }} style={[ styles.pageImage, { resizeMode }, imageStyle ]} />
+        </Pressable>
+    );
+});
+
 const ReaderScreen = ({ route }) => {
-    const { comicId, chapterId = 1 } = route.params || {}; 
+    const { comicId, chapterId = 1 } = route.params || {};
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
     const flatListRef = useRef(null);
 
-    // --- STATE ---
+    // Context & State
+    const { getDownloadedPages, updateHistory } = useComic();
     const [currentChapterId, setCurrentChapterId] = useState(chapterId);
-    const [currentPage, setCurrentPage] = useState(0);
-    
-    // Data State
+    const [currentPage, setCurrentPage] = useState(0); 
+    const currentPageRef = useRef(0); 
+
     const [comic, setComic] = useState(null);
     const [pages, setPages] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-
-    // Modal States
+    const [error, setError] = useState(null);
+    
+    // Modals
     const [isSettingsVisible, setIsSettingsVisible] = useState(false);
     const [isChapterListVisible, setIsChapterListVisible] = useState(false);
     
-    // Reader Settings
-    const [settings, setSettings] = useState({
-        mode: 'webtoon', 
-        bg: '#121212',
-        margin: 0,
-        progressBar: 'left',
-        preload: 'some',
-        fitWidth: true,
-        fitHeight: false,
-        greyscale: false,
-        dim: false,
-        limitWidth: false 
-    });
+    // UI Visibility (Immersive Mode)
+    const [controlsVisible, setControlsVisible] = useState(true);
+    const fadeAnim = useRef(new Animated.Value(1)).current; // 1 = visible, 0 = hidden
 
+    const [settings, setSettings] = useState({
+        mode: 'webtoon', bg: '#121212', margin: 0, progressBar: 'left', preload: 'some',
+        fitWidth: true, fitHeight: false, greyscale: false, dim: false, limitWidth: false
+    });
+    
     const totalPages = pages.length;
 
-    // --- DATA FETCHING ---
-    useEffect(() => {
-        let isMounted = true;
-
-        const loadReaderData = async () => {
-            setIsLoading(true);
-            try {
-                // Here we fetch pages. 
-                // Note: In a real app with offline support, you would check 
-                // ComicContext.getDownloadedPages(comicId, currentChapterId) first.
-                // If it returns URIs, use them. If not, fetch from API.
-                
-                const [comicDetails, chapterPages] = await Promise.all([
-                    ComicService.getComicDetails(comicId),
-                    ComicService.getChapterPages(comicId, currentChapterId)
-                ]);
-
-                if (isMounted) {
-                    setComic(comicDetails);
-                    setPages(chapterPages);
-                }
-            } catch (error) {
-                console.error("Failed to load reader content:", error);
-            } finally {
-                if (isMounted) setIsLoading(false);
+    // --- Data Loading ---
+    const loadReaderData = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
+        
+        try {
+            const comicDetails = await ComicService.getComicDetails(comicId);
+            let chapterPages = getDownloadedPages(comicId, currentChapterId);
+            if (!chapterPages) {
+                chapterPages = await ComicService.getChapterPages(comicId, currentChapterId);
             }
-        };
 
-        loadReaderData();
-        return () => { isMounted = false; };
-    }, [comicId, currentChapterId]);
+            setComic(comicDetails);
+            setPages(chapterPages);
 
-    // ... (rest of logic remains same as provided code) ...
+            if (comicDetails) {
+                const chapter = comicDetails.chapters.find(ch => ch.id === currentChapterId.toString());
+                if (chapter) {
+                    updateHistory(comicId, chapter.title);
+                }
+            }
+        } catch (e) {
+            setError("Failed to load chapter data. Please try again.");
+            console.error(e);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [comicId, currentChapterId, getDownloadedPages, updateHistory]); 
 
-    // --- EFFECTS ---
+    useEffect(() => { loadReaderData(); }, [loadReaderData]);
+
+    // Reset page on chapter change
     useEffect(() => {
+        currentPageRef.current = 0;
         setCurrentPage(0);
-        if(flatListRef.current && pages.length > 0) {
+        if (flatListRef.current && pages.length > 0) {
             flatListRef.current.scrollToOffset({ offset: 0, animated: false });
         }
-    }, [pages]); 
+    }, [pages]);
 
-    // --- SCROLL HANDLERS ---
-    const handleScroll = (event) => {
-        const offsetY = event.nativeEvent.contentOffset.y;
-        const pageHeight = width * 1.4; 
-        const index = Math.floor(offsetY / pageHeight);
-        if (index !== currentPage && index >= 0 && index < totalPages) {
+    // --- UI Controls Logic ---
+    const toggleControls = useCallback(() => {
+        const toValue = controlsVisible ? 0 : 1;
+        Animated.timing(fadeAnim, {
+            toValue,
+            duration: 200,
+            useNativeDriver: true,
+        }).start();
+        setControlsVisible(!controlsVisible);
+    }, [controlsVisible, fadeAnim]);
+
+    const hideControls = useCallback(() => {
+        if (controlsVisible) {
+            Animated.timing(fadeAnim, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+            }).start();
+            setControlsVisible(false);
+        }
+    }, [controlsVisible, fadeAnim]);
+
+    // --- Scroll Handling ---
+    const onScrollHandler = useCallback((event) => {
+        // 1. Calculate Page Index
+        let index;
+        if (settings.mode === 'single') {
+            const offsetX = event.nativeEvent.contentOffset.x;
+            index = Math.round(offsetX / width);
+        } else {
+            const offsetY = event.nativeEvent.contentOffset.y;
+            const pageHeight = settings.fitHeight ? height : width * 1.4;
+            index = Math.max(0, Math.floor(offsetY / pageHeight));
+        }
+
+        // 2. Update State if Changed
+        if (index !== currentPageRef.current && index < pages.length) {
+            currentPageRef.current = index;
             setCurrentPage(index);
         }
+    }, [settings.mode, settings.fitHeight, pages.length]);
+
+    // --- Callbacks ---
+    const keyExtractor = useCallback((item) => item.id, []);
+    
+    // Pass toggleControls to the page so tapping the image toggles UI
+    const renderPage = useCallback(({ item }) => (
+        <MemoizedPage item={item} settings={settings} onTab={toggleControls} />
+    ), [settings, toggleControls]);
+    
+    const ItemSeparator = useCallback(() => (settings.mode === 'webtoon' && settings.margin > 0 ? <View style={{ height: 10 }} /> : null), [settings.mode, settings.margin]);
+    
+    const handleChapterSelect = (newChapterId) => { 
+        if (newChapterId && newChapterId !== currentChapterId) { 
+            setCurrentChapterId(newChapterId); 
+            setIsChapterListVisible(false); 
+        } 
     };
 
-    const handleHorizontalScroll = (event) => {
-        const offsetX = event.nativeEvent.contentOffset.x;
-        const index = Math.round(offsetX / width);
-        setCurrentPage(index);
-    };
+    // --- Render ---
 
-    const getPerformanceProps = () => {
-        switch(settings.preload) {
-            case 'all': return { initialNumToRender: 20, windowSize: 21, maxToRenderPerBatch: 20 };
-            case 'none': return { initialNumToRender: 1, windowSize: 3, maxToRenderPerBatch: 1 };
-            default: return { initialNumToRender: 3, windowSize: 5, maxToRenderPerBatch: 3 }; 
-        }
-    };
+    if (isLoading) return <View style={[styles.container, styles.centerContent, { backgroundColor: settings.bg }]}><StatusBar hidden /><ActivityIndicator size="large" color={Theme.accent} /></View>;
+    if (error) return <View style={[styles.container, styles.centerContent, { backgroundColor: settings.bg }]}><StatusBar hidden /><Text style={styles.errorText}>{error}</Text><TouchableOpacity style={styles.retryButton} onPress={loadReaderData}><Text style={styles.retryButtonText}>Retry</Text></TouchableOpacity></View>;
 
-    const handleChapterChange = (direction) => {
-        if(direction === 'next') setCurrentChapterId(prev => (parseInt(prev) + 1).toString());
-        if(direction === 'prev' && parseInt(currentChapterId) > 1) setCurrentChapterId(prev => (parseInt(prev) - 1).toString());
-    };
-
-    if (isLoading) {
-        return (
-            <View style={[styles.container, { backgroundColor: settings.bg, justifyContent: 'center', alignItems: 'center' }]}>
-                <StatusBar hidden />
-                <ActivityIndicator size="large" color={Theme.accent} />
-            </View>
-        );
-    }
+    // Calculate progress for bar
+    const progressPercent = totalPages > 0 ? ((currentPage + 1) / totalPages) * 100 : 0;
 
     return (
         <View style={[styles.container, { backgroundColor: settings.bg }]}>
             <StatusBar hidden />
-
-            <View style={[styles.topOverlay, { top: insets.top + 10 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="chevron-back" size={24} color={Theme.text} />
-                    <Text style={styles.headerTitle} numberOfLines={1}>{comic?.title || "Comic Reader"}</Text>
-                </TouchableOpacity>
-
-                <View style={styles.topRightInfo}>
-                    <Text style={styles.pageCounter}>{currentPage + 1}/{totalPages || 1}</Text>
-                    
-                    <TouchableOpacity 
-                        style={styles.menuBtn}
-                        onPress={() => setIsChapterListVisible(true)}
-                    >
-                        <MaterialCommunityIcons name="message-text-outline" size={20} color={Theme.text} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity 
-                        style={styles.menuBtn} 
-                        onPress={() => setIsChapterListVisible(true)}
-                    >
-                        <MaterialCommunityIcons name="menu" size={24} color={Theme.text} />
-                    </TouchableOpacity>
-                </View>
-            </View>
-
+            
             <FlatList
                 ref={flatListRef}
                 data={pages}
-                key={settings.mode} 
-                keyExtractor={(item, index) => index.toString()}
+                key={settings.mode}
                 horizontal={settings.mode === 'single'}
                 pagingEnabled={settings.mode === 'single'}
-                showsVerticalScrollIndicator={settings.progressBar !== 'none'}
+                showsVerticalScrollIndicator={false}
                 showsHorizontalScrollIndicator={false}
-                onScroll={settings.mode === 'single' ? handleHorizontalScroll : handleScroll}
                 scrollEventThrottle={16}
-                {...getPerformanceProps()} 
-                
-                contentContainerStyle={{ 
-                    paddingVertical: settings.mode === 'webtoon' ? settings.margin : 0,
-                    alignItems: 'center' 
-                }}
-                ItemSeparatorComponent={() => 
-                    settings.mode === 'webtoon' && settings.margin > 0 ? <View style={{height: 10}} /> : null
-                }
-                
-                renderItem={({ item }) => {
-                    const isSingle = settings.mode === 'single';
-                    const imgHeight = isSingle ? height : (settings.fitHeight ? height : width * 1.4);
-                    const resizeMode = isSingle ? 'contain' : (settings.fitWidth ? 'cover' : 'contain');
-                    const imgWidth = settings.limitWidth ? width * 0.9 : width;
-
-                    return (
-                        <View style={[
-                            styles.pageContainer, 
-                            isSingle ? { width: width, height: height } : { width: imgWidth, height: imgHeight }
-                        ]}>
-                            <Image 
-                                source={item} 
-                                style={[
-                                    styles.pageImage, 
-                                    { resizeMode: resizeMode },
-                                    settings.greyscale && { tintColor: 'gray' },
-                                    settings.dim && { opacity: 0.6 }
-                                ]} 
-                            />
-                        </View>
-                    );
-                }}
+                onScroll={onScrollHandler}
+                onScrollBeginDrag={hideControls} // Hide controls when user starts scrolling
+                keyExtractor={keyExtractor}
+                renderItem={renderPage}
+                ItemSeparatorComponent={ItemSeparator}
+                initialNumToRender={5}
+                windowSize={7}
+                maxToRenderPerBatch={5}
             />
 
-            <View style={[styles.bottomControls, { bottom: insets.bottom + 20 }]}>
+            {/* --- TOP HEADER (Animated) --- */}
+            <Animated.View 
+                style={[
+                    styles.topOverlay, 
+                    { top: 0, paddingTop: insets.top + 10, opacity: fadeAnim }
+                ]}
+                pointerEvents={controlsVisible ? 'auto' : 'none'}
+            >
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                    <Ionicons name="chevron-back" size={24} color={Theme.text} />
+                    <Text style={styles.headerTitle} numberOfLines={1}>{comic?.title || "Comic"}</Text>
+                </TouchableOpacity>
+                <View style={styles.topRightInfo}>
+                    <Text style={styles.pageCounter}>{currentPage + 1}/{totalPages || 1}</Text>
+                    <TouchableOpacity style={styles.menuBtn} onPress={() => setIsChapterListVisible(true)}>
+                        <MaterialCommunityIcons name="menu" size={24} color={Theme.text} />
+                    </TouchableOpacity>
+                </View>
+            </Animated.View>
+
+            {/* --- BOTTOM CONTROLS (Animated) --- */}
+            <Animated.View 
+                style={[
+                    styles.bottomControls, 
+                    { bottom: insets.bottom + 20, opacity: fadeAnim }
+                ]}
+                pointerEvents={controlsVisible ? 'auto' : 'none'}
+            >
                 <View style={styles.floatBubble}>
                     <View style={styles.progressCircle}>
                         <MaterialCommunityIcons name="brain" size={20} color="#c084fc" />
                     </View>
                     <View style={styles.percentPill}>
-                         <Text style={styles.percentText}>{totalPages > 0 ? Math.round(((currentPage + 1) / totalPages) * 100) : 0}%</Text>
+                        <Text style={styles.percentText}>
+                            {Math.round(progressPercent)}%
+                        </Text>
                     </View>
                 </View>
-
+                
                 <TouchableOpacity 
                     style={styles.settingsFab} 
-                    onPress={() => setIsSettingsVisible(true)}
+                    onPress={() => setIsSettingsVisible(true)} 
                     activeOpacity={0.8}
                 >
                     <Ionicons name="settings-sharp" size={24} color={Theme.accent} />
                 </TouchableOpacity>
-            </View>
-            
+            </Animated.View>
+
+            {/* --- BOTTOM PROGRESS BAR (Animated - attached to controls visibility) --- */}
+            <Animated.View 
+                style={[
+                    styles.bottomProgressBarContainer, 
+                    { opacity: fadeAnim } 
+                ]}
+            >
+                <View style={[styles.bottomProgressBarFill, { width: `${progressPercent}%` }]} />
+            </Animated.View>
+
+            {/* --- MODALS --- */}
             <ReaderSettingsModal 
                 visible={isSettingsVisible} 
-                onClose={() => setIsSettingsVisible(false)}
-                settings={settings}
-                onUpdate={setSettings}
+                onClose={() => setIsSettingsVisible(false)} 
+                settings={settings} 
+                onUpdateSettings={setSettings} 
             />
-
+            
             <ChapterListModal 
-                visible={isChapterListVisible}
-                onClose={() => setIsChapterListVisible(false)}
-                comicTitle={comic?.title}
-                currentChapter={currentChapterId}
-                onChapterChange={handleChapterChange} 
-            />
-
+                visible={isChapterListVisible} 
+                onClose={() => setIsChapterListVisible(false)} 
+                comicTitle={comic?.title} 
+                chapters={comic?.chapters || []} 
+                currentChapterId={currentChapterId} 
+                onChapterSelect={handleChapterSelect} 
+            />        
         </View>
     );
 };
 
+// Styles
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    topOverlay: {
-        position: 'absolute', left: 0, right: 0, zIndex: 10,
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        paddingHorizontal: 16,
+    centerContent: { justifyContent: 'center', alignItems: 'center', padding: 20 },
+    errorText: { color: Theme.textDim, fontSize: 16, textAlign: 'center', marginBottom: 20 },
+    retryButton: { backgroundColor: Theme.accent, paddingVertical: 12, paddingHorizontal: 30, borderRadius: 8 },
+    retryButtonText: { color: '#000', fontWeight: 'bold', fontSize: 16 },
+    
+    // Top Overlay (Gradient-like effect achieved via rgba bg)
+    topOverlay: { 
+        position: 'absolute', left: 0, right: 0, zIndex: 10, 
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
+        paddingHorizontal: 16, backgroundColor: 'rgba(0,0,0,0.6)', paddingBottom: 15 
     },
-    backButton: { flexDirection: 'row', alignItems: 'center', maxWidth: '60%', paddingVertical: 8 },
-    headerTitle: { color: Theme.textDim, fontSize: 14, fontWeight: '600', marginLeft: 4, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },
+    backButton: { flexDirection: 'row', alignItems: 'center', maxWidth: '60%' },
+    headerTitle: { color: Theme.text, fontSize: 16, fontWeight: '600', marginLeft: 8, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },
     topRightInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    pageCounter: { color: Theme.textDim, fontSize: 13, fontFamily: 'monospace', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },
-    menuBtn: { padding: 4, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 20 },
+    pageCounter: { color: Theme.text, fontSize: 13, fontFamily: 'monospace', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },
+    menuBtn: { padding: 4 },
+    
+    // Page
     pageContainer: { justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent', overflow: 'hidden' },
     pageImage: { width: '100%', height: '100%' },
-    bottomControls: {
-        position: 'absolute', left: 20, right: 20,
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end',
-        zIndex: 10,
+    
+    // Bottom Controls
+    bottomControls: { 
+        position: 'absolute', left: 20, right: 20, 
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', 
+        zIndex: 10, 
     },
-    floatBubble: {
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: '#2A2A2E', borderRadius: 30, padding: 4, paddingRight: 12,
-        borderWidth: 1, borderColor: '#333',
+    floatBubble: { 
+        flexDirection: 'row', alignItems: 'center', backgroundColor: '#2A2A2E', 
+        borderRadius: 30, padding: 4, paddingRight: 12, borderWidth: 1, borderColor: '#333',
+        shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 2, elevation: 4
     },
-    progressCircle: {
-        width: 36, height: 36, borderRadius: 18, backgroundColor: '#1a1a1a',
-        alignItems: 'center', justifyContent: 'center', marginRight: 8,
-    },
+    progressCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center', marginRight: 8 },
     percentPill: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     percentText: { color: Theme.text, fontSize: 12, fontWeight: 'bold' },
-    settingsFab: {
-        width: 48, height: 48, borderRadius: 24,
-        backgroundColor: '#2A2A2E',
-        alignItems: 'center', justifyContent: 'center',
-        borderWidth: 1, borderColor: '#333',
-        shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3, shadowRadius: 4, elevation: 5,
+    settingsFab: { 
+        width: 48, height: 48, borderRadius: 24, backgroundColor: '#2A2A2E', 
+        alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#333', 
+        shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5, 
     },
+
+    // Bottom Progress Bar
+    bottomProgressBarContainer: {
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: 3, backgroundColor: 'rgba(255,255,255,0.1)', zIndex: 9
+    },
+    bottomProgressBarFill: {
+        height: '100%', backgroundColor: Theme.accent,
+    }
 });
 
 export default ReaderScreen;

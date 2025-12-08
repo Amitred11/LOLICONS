@@ -8,7 +8,6 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay } fro
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
-// CHANGE: Context
 import { useComic } from '@context/main/ComicContext';
 
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
@@ -18,8 +17,9 @@ const PADDING = 15;
 const GAP = 15;
 const CARD_WIDTH = (width - (PADDING * 2) - (GAP * (NUM_COLUMNS - 1))) / NUM_COLUMNS;
 
+// REFACTOR: This ProgressRing is specific to the Library, so it stays here.
+// It will be passed into the new SharedComicCard.
 const ProgressRing = ({ progress, size = 32 }) => {
-    // ... (same implementation)
     const strokeWidth = 3;
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
@@ -37,139 +37,144 @@ const ProgressRing = ({ progress, size = 32 }) => {
     )
 }
 
-const LibraryCard = ({ item, index }) => {
-  if (item.empty) { return <View style={{ width: CARD_WIDTH }} />; }
+// REFACTOR: Consolidated `LibraryCard` and `BrowseGridItem` into a shared component concept.
+// This new component is now responsible for rendering any grid-style comic item.
+const SharedComicCard = ({ item, index, cardStyle, imageStyle, showDownloadStatus = false }) => {
+    if (item.empty) { return <View style={[{ width: CARD_WIDTH }, cardStyle]} />; }
 
-  const navigation = useNavigation();
-  // CHANGE: Get download actions/info from unified context
-  const { getDownloadInfo, getDownloadedCoverUri } = useComic();
-  
-  const { downloadedCount, progress } = getDownloadInfo(item.id, item.chapters ? item.chapters.length : 0);
-  const coverImageUri = getDownloadedCoverUri(item.id);
-  
-  const imageSource = coverImageUri 
-    ? { uri: coverImageUri } 
-    : (item.cover || item.image); 
-  
-  const entryOpacity = useSharedValue(0);
-  const entryTranslateY = useSharedValue(20);
+    const navigation = useNavigation();
+    const { getDownloadInfo, getDownloadedCoverUri } = useComic();
+    
+    // Logic for download status is now conditional
+    const { downloadedCount, progress } = showDownloadStatus 
+        ? getDownloadInfo(item.id, item.chapters?.length ?? 0)
+        : { downloadedCount: 0, progress: 0 };
+    
+    const coverImageUri = showDownloadStatus ? getDownloadedCoverUri(item.id) : null;
+    const imageSource = coverImageUri ? { uri: coverImageUri } : (item.cover || item.image);
 
-  useEffect(() => {
-    entryOpacity.value = withDelay(index * 50, withSpring(1));
-    entryTranslateY.value = withDelay(index * 50, withSpring(0));
-  }, [index]);
+    // Animation logic remains the same
+    const entryOpacity = useSharedValue(0);
+    const entryTranslateY = useSharedValue(20);
+    useEffect(() => {
+        entryOpacity.value = withDelay(index * 50, withSpring(1));
+        entryTranslateY.value = withDelay(index * 50, withSpring(0));
+    }, [index]);
+    const animatedEntryStyle = useAnimatedStyle(() => ({
+        opacity: entryOpacity.value,
+        transform: [{ translateY: entryTranslateY.value }],
+    }));
 
-  const animatedEntryStyle = useAnimatedStyle(() => ({
-    opacity: entryOpacity.value,
-    transform: [{ translateY: entryTranslateY.value }],
-  }));
-
-  return (
-    <Animated.View style={[styles.cardContainer, animatedEntryStyle]}>
-      <Pressable 
-        onPress={() => navigation.navigate('ComicDetail', { comicId: item.id })}
-        style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
-      >
-        <ImageBackground source={imageSource} style={styles.cardImage} imageStyle={{ borderRadius: 8 }}>
-            <LinearGradient colors={['transparent', 'rgba(0,0,0,0.9)']} style={styles.cardOverlay}>
-                <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-            </LinearGradient>
-            
-            {downloadedCount > 0 && (
-                <View style={styles.downloadProgressContainer}>
-                    <ProgressRing progress={progress} />
-                    <Text style={styles.downloadProgressText}>{downloadedCount}</Text>
-                </View>
-            )}
-        </ImageBackground>
-      </Pressable>
-    </Animated.View>
-  );
+    return (
+        <Animated.View style={[styles.cardContainer, cardStyle, animatedEntryStyle]}>
+            <Pressable 
+                onPress={() => navigation.navigate('ComicDetail', { comicId: item.id })}
+                style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+            >
+                <ImageBackground source={imageSource} style={[styles.cardImage, imageStyle]} imageStyle={{ borderRadius: 8 }}>
+                    <LinearGradient colors={['transparent', 'rgba(0,0,0,0.9)']} style={styles.cardOverlay}>
+                        <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+                    </LinearGradient>
+                    
+                    {/* Conditional rendering for the download progress ring */}
+                    {showDownloadStatus && downloadedCount > 0 && (
+                        <View style={styles.downloadProgressContainer}>
+                            <ProgressRing progress={progress} />
+                            <Text style={styles.downloadProgressText}>{downloadedCount}</Text>
+                        </View>
+                    )}
+                </ImageBackground>
+            </Pressable>
+        </Animated.View>
+    );
 };
+
 
 const LibraryView = ({ scrollHandler, headerHeight, searchQuery, filters }) => {
-  // CHANGE: Context usage
-  const { libraryComics, isLoadingUserData } = useComic(); 
-  const [librarySections, setLibrarySections] = useState([]);
-  const navigation = useNavigation();
+    const { libraryComics, isLoadingUserData } = useComic(); 
+    const [librarySections, setLibrarySections] = useState([]);
+    const navigation = useNavigation();
 
-  useEffect(() => {
-    // Filter locally based on context data
-    let filtered = [...libraryComics];
-
-    if (searchQuery) {
-        const lowerQ = searchQuery.toLowerCase();
-        filtered = filtered.filter(c => c.title.toLowerCase().includes(lowerQ));
-    }
-    if (filters && filters.status && filters.status !== 'All') {
-        filtered = filtered.filter(c => c.status === filters.status);
-    }
-
-    // Chunking for Grid
-    const addPlaceholdersAndChunk = (data) => {
-        const dataWithPlaceholders = [...data];
-        const itemsToAdd = NUM_COLUMNS - (dataWithPlaceholders.length % NUM_COLUMNS);
-        if (itemsToAdd > 0 && itemsToAdd < NUM_COLUMNS) { 
-            for (let i = 0; i < itemsToAdd; i++) { 
-                dataWithPlaceholders.push({ id: `placeholder-${i}`, empty: true }); 
-            } 
+    useEffect(() => {
+        let filtered = [...libraryComics];
+        if (searchQuery) {
+            const lowerQ = searchQuery.toLowerCase();
+            filtered = filtered.filter(c => c.title.toLowerCase().includes(lowerQ));
         }
-        const rows = [];
-        for (let i = 0; i < dataWithPlaceholders.length; i += NUM_COLUMNS) { 
-            rows.push(dataWithPlaceholders.slice(i, i + NUM_COLUMNS)); 
+        if (filters?.status && filters.status !== 'All') {
+            filtered = filtered.filter(c => c.status === filters.status);
         }
-        return rows;
-    };
-    
-    if (filtered.length > 0) {
-        setLibrarySections([{ title: 'My Library', data: addPlaceholdersAndChunk(filtered) }]);
-    } else {
-        setLibrarySections([]);
+
+        const addPlaceholdersAndChunk = (data) => {
+            const dataWithPlaceholders = [...data];
+            const itemsToAdd = NUM_COLUMNS - (data.length % NUM_COLUMNS);
+            if (itemsToAdd > 0 && itemsToAdd < NUM_COLUMNS) {
+                for (let i = 0; i < itemsToAdd; i++) { 
+                    dataWithPlaceholders.push({ id: `placeholder-${i}`, empty: true }); 
+                }
+            }
+            const rows = [];
+            for (let i = 0; i < dataWithPlaceholders.length; i += NUM_COLUMNS) { 
+                rows.push(dataWithPlaceholders.slice(i, i + NUM_COLUMNS)); 
+            }
+            return rows;
+        };
+        
+        setLibrarySections(filtered.length > 0 ? [{ title: 'My Library', data: addPlaceholdersAndChunk(filtered) }] : []);
+    }, [searchQuery, filters, libraryComics]); 
+
+    if (isLoadingUserData && librarySections.length === 0) {
+        return (
+            <View style={[styles.emptyContainer, { paddingTop: headerHeight }]}>
+                <ActivityIndicator size="large" color={Colors.secondary} />
+            </View>
+        );
     }
-  }, [searchQuery, filters, libraryComics]); 
 
-  if (isLoadingUserData && librarySections.length === 0) {
-      return (
-          <View style={[styles.emptyContainer, { paddingTop: headerHeight }]}>
-              <ActivityIndicator size="large" color={Colors.secondary} />
-          </View>
-      );
-  }
-
-  return (
-    <AnimatedSectionList
-      sections={librarySections}
-      keyExtractor={(item, index) => `row-${index}`}
-      stickySectionHeadersEnabled={false}
-      onScroll={scrollHandler}
-      scrollEventThrottle={16}
-      ListHeaderComponent={() => <View style={{ height: 40 }} />}
-      contentContainerStyle={[styles.listContainer, { paddingTop: headerHeight }]}
-      showsVerticalScrollIndicator={false}
-      renderSectionHeader={({ section: { title } }) => (
-        <Text style={styles.sectionHeader}>{title}</Text>
-      )}
-      renderItem={({ item: row, index: rowIndex }) => (
-        <View style={styles.row}>
-          {row.map((item, itemIndex) => {
-            const globalIndex = rowIndex * NUM_COLUMNS + itemIndex; 
-            return <LibraryCard key={item.id} item={item} index={globalIndex} />;
-          })}
-        </View>
-      )}
-      ListEmptyComponent={
-        <View style={[styles.emptyContainer, { paddingTop: headerHeight }]}>
-          <Ionicons name="library-outline" size={64} color={Colors.textSecondary} />
-          <Text style={styles.emptyText}>Your library is empty</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Browse')}>
-            <Text style={styles.emptySubtext}>Add comics from the Browse tab!</Text>
-          </TouchableOpacity>
-        </View>
-      }
-    />
-  );
+    return (
+        <AnimatedSectionList
+            sections={librarySections}
+            keyExtractor={(item, index) => `row-${index}`}
+            stickySectionHeadersEnabled={false}
+            onScroll={scrollHandler}
+            scrollEventThrottle={16}
+            ListHeaderComponent={() => <View style={{ height: 40 }} />}
+            contentContainerStyle={[styles.listContainer, { paddingTop: headerHeight }]}
+            showsVerticalScrollIndicator={false}
+            renderSectionHeader={({ section: { title } }) => (
+                <Text style={styles.sectionHeader}>{title}</Text>
+            )}
+            renderItem={({ item: row, index: rowIndex }) => (
+                <View style={styles.row}>
+                    {row.map((item, itemIndex) => {
+                        const globalIndex = rowIndex * NUM_COLUMNS + itemIndex; 
+                        // REFACTOR: Using the new shared component
+                        return (
+                            <SharedComicCard 
+                                key={item.id} 
+                                item={item} 
+                                index={globalIndex} 
+                                cardStyle={{ width: CARD_WIDTH }}
+                                showDownloadStatus={true} // Prop to enable library-specific features
+                            />
+                        );
+                    })}
+                </View>
+            )}
+            ListEmptyComponent={
+                <View style={[styles.emptyContainer, { paddingTop: headerHeight }]}>
+                    <Ionicons name="library-outline" size={64} color={Colors.textSecondary} />
+                    <Text style={styles.emptyText}>Your library is empty</Text>
+                    <TouchableOpacity onPress={() => navigation.navigate('Browse')}>
+                        <Text style={styles.emptySubtext}>Add comics from the Browse tab!</Text>
+                    </TouchableOpacity>
+                </View>
+            }
+        />
+    );
 };
 
+// --- Styles remain largely the same, but are now for the SharedComicCard ---
 const styles = StyleSheet.create({
   listContainer: { paddingHorizontal: PADDING, paddingBottom: 120 },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },

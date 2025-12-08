@@ -6,6 +6,7 @@ import ChapterListModal from '@features/comics/features/reader/ChapterListModal'
 import DownloadModal from '@features/comics/common/DownloadModal';
 import InfoModal from '@features/profile/components/modals/InfoModal';
 import QuietHoursModal from '@features/profile/components/modals/QuietHoursModal';
+import RatingModal from '@features/comics/common/RatingModal';
 // Import other modals here in the future.
 
 // Create a context for global modal management.
@@ -64,6 +65,8 @@ export const ModalProvider = ({ children }) => {
         return <InfoModal isVisible={true} onClose={hide} {...props} />;
       case 'quietHours':
         return <QuietHoursModal isVisible={true} onClose={hide} {...props} />;
+      case 'rating':
+        return <RatingModal isVisible={true} onClose={hide} {...props} />;
       // If the type doesn't match any case, render nothing.
       default:
         return null;
