@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native'; // Added Text import
+import { View, Text, StyleSheet } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { 
@@ -12,9 +12,8 @@ import Animated, {
   interpolate,
   FadeIn
 } from 'react-native-reanimated';
-import { Colors } from '../../constants/Colors';
-
-const { width } = Dimensions.get('window');
+// Standardized import path to match your other files
+import { Colors } from '@config/Colors'; 
 
 // --- Configuration ---
 const CONFIG = {
@@ -25,7 +24,7 @@ const CONFIG = {
 };
 
 // --- Sub-Component: A Single Expanding Ring ---
-const PulseRing = ({ delay, index }) => {
+const PulseRing = ({ delay }) => {
   const ringParams = useSharedValue(0);
 
   useEffect(() => {
@@ -82,7 +81,6 @@ const Loading = ({ message = "Loading" }) => {
     shadowRadius: interpolate(glow.value, [0, 1], [10, 25]),
   }));
 
-  // This style now applies to the WRAPPER View, not the Text directly
   const textWrapperStyle = useAnimatedStyle(() => ({
     opacity: interpolate(float.value, [0, 1], [0.5, 1]),
   }));
@@ -104,7 +102,6 @@ const Loading = ({ message = "Loading" }) => {
           <Ionicons name="planet" size={CONFIG.iconSize} color={Colors.text} />
         </Animated.View>
 
-        {/* --- FIX START: Wrapped Text in Animated.View --- */}
         <Animated.View 
           entering={FadeIn.delay(500)} 
           style={[styles.textWrapper, textWrapperStyle]}
@@ -113,7 +110,6 @@ const Loading = ({ message = "Loading" }) => {
             {message}
           </Text>
         </Animated.View>
-        {/* --- FIX END --- */}
 
       </View>
     </View>
@@ -157,12 +153,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     elevation: 15,
   },
-  // New wrapper style for positioning
   textWrapper: {
     marginTop: 40, 
     alignItems: 'center',
   },
-  // Text style strictly for fonts
   text: {
     fontFamily: 'Poppins_600SemiBold',
     color: Colors.text,

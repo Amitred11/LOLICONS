@@ -25,7 +25,6 @@ const getGoalsForRank = (rank) => {
                 { id: 'read_chapters', type: 'read', title: `Read ${1 + difficulty} Chapters`, total: 1 + difficulty, icon: 'book-outline', xp: 200 },
                 { id: 'time_spent', type: 'time', title: `Spend ${20 + difficulty * 2} Minutes`, total: 20 + difficulty * 2, icon: 'time-outline', xp: 150 },
                 { id: 'rate_comic', type: 'rate', title: 'Rate 2 Different Comics', total: 2, icon: 'star-half-outline', xp: 125 },
-                // --- NEW MISSION GOAL ADDED ---
                 { id: 'complete_mission', type: 'mission', title: 'Complete a Special Mission', total: 1, icon: 'rocket-outline', xp: 250 },
                 { id: 'share_comic', type: 'share', title: 'Share a Comic', total: 1, icon: 'share-social-outline', xp: 150 },
             ];
@@ -51,7 +50,6 @@ const getGoalsForRank = (rank) => {
             ];
             break;
     }
-    // Return fresh objects with progress and completed status reset
     return goals.map(g => ({ ...g, progress: 0, completed: false }));
 };
 
@@ -73,7 +71,7 @@ export const HomeService = {
                     title: c.title,
                     author: c.author,
                     cover: c.image,
-                    localSource: c.image, // Ensure compatibility
+                    localSource: c.image, 
                     rating: c.rating,
                     views: formatViews(c.views),
                     tags: c.genres || [],
@@ -129,11 +127,10 @@ export const HomeService = {
     },
     
     getSearchSuggestions: async (query) => {
-        await delay(100); // Fast response for typing
+        await delay(100); 
         if (!query || query.length < 2) return { success: true, data: [] };
 
         try {
-            // Fetch all comics to filter (Simulating backend search index)
             const response = await ComicService.getComics({});
             const allComics = response.data || [];
             const lowerQuery = query.toLowerCase();
@@ -141,7 +138,6 @@ export const HomeService = {
             const suggestions = [];
             const seen = new Set();
 
-            // 1. Match Titles
             allComics.forEach(c => {
                 if (c.title.toLowerCase().includes(lowerQuery)) {
                     if (!seen.has(c.title)) {
@@ -151,7 +147,6 @@ export const HomeService = {
                 }
             });
 
-            // 2. Match Authors
             allComics.forEach(c => {
                 if (c.author && c.author.toLowerCase().includes(lowerQuery)) {
                     if (!seen.has(c.author)) {
@@ -161,7 +156,6 @@ export const HomeService = {
                 }
             });
 
-            // 3. Match Genres (Static list check)
             const commonGenres = ['Action', 'Fantasy', 'Romance', 'Isekai', 'Horror', 'Sci-Fi'];
             commonGenres.forEach(g => {
                 if (g.toLowerCase().includes(lowerQuery)) {
@@ -172,15 +166,12 @@ export const HomeService = {
                 }
             });
 
-            return { success: true, data: suggestions.slice(0, 7) }; // Limit to 7 suggestions
+            return { success: true, data: suggestions.slice(0, 7) }; 
         } catch (e) {
             return { success: true, data: [] };
         }
     },
 
-    /**
-     * Returns "Trending" keywords based on simulated analytics
-     */
     getTrendingKeywords: async () => {
         await delay(500);
         return {
@@ -195,19 +186,56 @@ export const HomeService = {
         };
     },
 
-    /**
-     * Full Search Results
-     */
     searchContent: async (query) => {
         try {
             const rawResults = await ComicService.getComics({ searchQuery: query });
             const results = Array.isArray(rawResults) ? rawResults : (rawResults.data || []);
             return { success: true, data: results.map(mapComicData) };
         } catch (e) { return { success: true, data: [] }; }
+    },
+
+    handleGoalPress: (goal, navigation, showToast) => {
+        if (goal.completed || goal.progress >= goal.total) {
+            return;
+        }
+
+        switch (goal.type) {
+            case 'read':
+            case 'explore_featured':
+                navigation.navigate('Comics');
+                break;
+            case 'rate':
+                navigation.navigate('Comics', { screen: 'MyBookshelf' });
+                break;
+            case 'library':
+                navigation.navigate('Search');
+                break;
+            case 'comment':
+                showToast("Find any comic and leave a comment on a chapter to complete this goal!", 'info' );
+                navigation.navigate('Comics');
+                break;
+            case 'share':
+                showToast( "Navigate to any comic's detail page and use the share button.", 'info' );
+                break;
+            case 'explore_genre':
+                navigation.navigate('Search', { focus: 'genres' });
+                break;
+            case 'history':
+                return 'logVisitHistory';
+            case 'mission':
+                showToast("You completed the special mission! Your reward has been granted.", 'info' );
+                return 'logMissionCompleted';
+            case 'time':
+                showToast( "This goal progresses automatically as you spend time reading.", 'info' );
+                break;
+            default:
+                showToast("No specific action is tied to this goal. It may update automatically.", 'info' );
+                break;
+        }
+        return null;
     }
 };
 
-// Helper
 const mapComicData = (c) => ({
     id: c.id,
     title: c.title,

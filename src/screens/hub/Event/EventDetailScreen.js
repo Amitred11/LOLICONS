@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
     View, Text, StyleSheet, ImageBackground, TouchableOpacity, ScrollView, 
-    Dimensions, ActivityIndicator, Alert, Share, Linking, Modal, Platform 
+    ActivityIndicator, Alert, Share, Linking, Modal, Platform 
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -10,8 +10,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors';
 import { useEvents } from '@context/hub/EventsContext';
 import { useAlert } from '@context/other/AlertContext';
-
-const { width } = Dimensions.get('window');
 
 // --- PAYMENT MODAL COMPONENT ---
 const PaymentModal = ({ visible, onClose, event, onConfirm }) => {

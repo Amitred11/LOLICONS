@@ -136,6 +136,33 @@ const EventsScreen = () => {
                 </View>
             </View>
 
+            {/* --- ADDED: CATEGORIES LIST UI --- */}
+            <View style={styles.categoryContainer}>
+                <FlatList 
+                    horizontal
+                    data={categories}
+                    showsHorizontalScrollIndicator={false}
+                    keyExtractor={item => item}
+                    contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity 
+                            onPress={() => setSelectedCategory(item)}
+                            style={[
+                                styles.categoryChip, 
+                                selectedCategory === item && styles.categoryChipActive
+                            ]}
+                        >
+                            <Text style={[
+                                styles.categoryText, 
+                                selectedCategory === item && styles.categoryTextActive
+                            ]}>
+                                {item}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                />
+            </View>
+
             {isLoading && !refreshing ? (
                 <View style={styles.loadingContainer}><ActivityIndicator size="large" color={Colors.primary} /></View>
             ) : (
@@ -171,6 +198,8 @@ const EventsScreen = () => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    
+    // Header
     headerContainer: { paddingHorizontal: 20, paddingBottom: 15 },
     headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
     headerTitle: { fontFamily: 'Poppins_700Bold', color: '#fff', fontSize: 20 },
@@ -179,6 +208,15 @@ const styles = StyleSheet.create({
     badge: { position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary, borderWidth:1, borderColor: Colors.surface },
     searchBarContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, paddingHorizontal: 15, paddingVertical: 12, borderRadius: 12 },
     searchInput: { flex: 1, color: '#fff', fontFamily: 'Poppins_400Regular' },
+    
+    // --- ADDED: Category Styles ---
+    categoryContainer: { marginBottom: 15, height: 40 },
+    categoryChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: Colors.surface, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    categoryChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+    categoryText: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 13 },
+    categoryTextActive: { color: '#FFF' },
+
+    // List
     listContent: { paddingHorizontal: 20, paddingBottom: 40 },
     sectionTitle: { fontFamily: 'Poppins_700Bold', color: '#fff', fontSize: 18, marginBottom: 10 },
     

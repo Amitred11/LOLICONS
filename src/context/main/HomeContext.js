@@ -16,23 +16,19 @@ export const HomeProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Data States
   const [featuredComics, setFeaturedComics] = useState([]);
   const [continueReading, setContinueReading] = useState([]);
   const [dailyGoals, setDailyGoals] = useState([]);
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   
-  // Search States
   const [recentSearches, setRecentSearches] = useState([]);
   const [trendingKeywords, setTrendingKeywords] = useState([]);
   
-  // Calculate user level from XP
   const currentUserRank = useMemo(() => {
     if (!user) return MOCK_RANKS[0];
     return MOCK_RANKS.slice().reverse().find(r => user.xp >= r.minXp) || MOCK_RANKS[0];
   }, [user]);
 
-  // Handles daily reset and loading goals
   const loadHomeData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setIsRefreshing(true); else if (!isLoading) setIsLoading(true);
 
@@ -42,17 +38,14 @@ export const HomeProvider = ({ children }) => {
         let goalsToSet = [];
         let storedGoalsMatchToday = false;
 
-        // --- FIX: Logic to prevent progress reset on manual refresh ---
         if (storedGoalsData) {
             const { date, goals } = JSON.parse(storedGoalsData);
             if (date === todayStr) {
-                // If data exists for today, always use it as the source of truth
                 goalsToSet = goals;
                 storedGoalsMatchToday = true;
             }
         }
         
-        // Only fetch new goals from the service if no valid data exists for the current day
         if (!storedGoalsMatchToday) {
             const goalRes = await HomeService.getDailyGoals(currentUserRank);
             if (goalRes.success) {
@@ -63,7 +56,6 @@ export const HomeProvider = ({ children }) => {
         
         setDailyGoals(goalsToSet);
 
-      // Fetch other home screen data in parallel
       const [featRes, histRes, eventRes, trendRes] = await Promise.all([
         HomeService.getFeaturedComics(),
         HomeService.getContinueReading(),
@@ -76,7 +68,6 @@ export const HomeProvider = ({ children }) => {
       if (eventRes.success) setUpcomingEvents(eventRes.data);
       if (trendRes.success) setTrendingKeywords(trendRes.data);
 
-      // Also load recent searches from storage
       const storedRecents = await AsyncStorage.getItem('recent_searches');
       if (storedRecents) setRecentSearches(JSON.parse(storedRecents));
 
@@ -117,7 +108,6 @@ export const HomeProvider = ({ children }) => {
     await AsyncStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify({ date: todayStr, goals: updatedGoals }));
   }, [awardXP, showReward, user]);
   
-  // Public functions to be called from other screens
   const logChapterRead = useCallback(() => updateGoalProgress('read_chapters', 1), [updateGoalProgress]);
   const logTimeSpent = useCallback((minutes) => updateGoalProgress('time_spent', minutes), [updateGoalProgress]);
   const logComicRated = useCallback(() => updateGoalProgress('rate_comic', 1), [updateGoalProgress]);
@@ -128,7 +118,6 @@ export const HomeProvider = ({ children }) => {
   const logVisitHistory = useCallback(() => updateGoalProgress('check_history', 1), [updateGoalProgress]);
   const logMissionCompleted = useCallback(() => updateGoalProgress('complete_mission', 1), [updateGoalProgress]);
 
-  // --- Search Actions ---
   const searchComics = useCallback(async (query) => {
       return await HomeService.searchContent(query);
   }, []);
@@ -151,6 +140,16 @@ export const HomeProvider = ({ children }) => {
       AsyncStorage.removeItem('recent_searches');
   }, []);
 
+  const handleGoalPress = useCallback((goal, navigation, showToast) => {
+    const action = HomeService.handleGoalPress(goal, navigation, showToast);
+
+    if (action === 'logVisitHistory') {
+      logVisitHistory();
+    } else if (action === 'logMissionCompleted') {
+      logMissionCompleted();
+    }
+  }, [logVisitHistory, logMissionCompleted]);
+
    const contextValue = useMemo(() => ({
       isLoading, isRefreshing,
       featuredComics, continueReading, dailyGoals, upcomingEvents, trendingKeywords, recentSearches,
@@ -163,7 +162,8 @@ export const HomeProvider = ({ children }) => {
       logShare,
       logExplore,
       logVisitHistory,
-      logMissionCompleted, // <-- Expose new function
+      logMissionCompleted,
+      handleGoalPress, 
       searchComics,
       getSuggestions,
       addToHistory,
@@ -171,7 +171,8 @@ export const HomeProvider = ({ children }) => {
   }), [
       isLoading, isRefreshing, featuredComics, continueReading, dailyGoals, upcomingEvents, trendingKeywords, recentSearches, 
       loadHomeData, logChapterRead, logTimeSpent, logComicRated, logAddedToLibrary, logComment, logShare, logExplore, logVisitHistory,
-      logMissionCompleted, // <-- Add to dependency array
+      logMissionCompleted, 
+      handleGoalPress,
       searchComics, getSuggestions, addToHistory, clearHistory
   ]);
 

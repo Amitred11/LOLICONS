@@ -13,18 +13,13 @@ import { Colors } from '@config/Colors';
 // Components & Context
 import FriendItem from './components/FriendItem'; 
 import { useFriend } from '@context/hub/FriendContext';
-import { useAlert } from '@context/other/AlertContext'; // Import custom alert/toast hook
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+import { useAlert } from '@context/other/AlertContext'; 
 
 const FILTERS = ['All', 'Online', 'Offline'];
 
 const FriendsScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  // --- UPDATED: Using custom showAlert and showToast ---
   const { showAlert, showToast } = useAlert(); 
   
   // Consuming Context
@@ -86,7 +81,6 @@ const FriendsScreen = () => {
   // 3. Finalize Creation (FAB Press)
   const handleFabPress = () => {
     if (selectedFriends.size < 2) {
-      // --- FIXED: Replaced Alert.alert with showToast for validation ---
       showToast("Select at least 2 friends to proceed.", 'error');
       return;
     }
@@ -94,7 +88,6 @@ const FriendsScreen = () => {
     if (pendingCreationType) {
       promptForName(pendingCreationType);
     } else {
-      // --- FIXED: Replaced Alert.alert with showAlert for user choice ---
       showAlert({
         title: "Action",
         message: "What would you like to do with the selected friends?",
@@ -105,8 +98,6 @@ const FriendsScreen = () => {
     }
   };
   
-  // NOTE: Alert.prompt is kept intentionally as it's a native OS feature for text input,
-  // which the custom showAlert does not support without significant modification.
   const promptForName = (type) => {
     Alert.prompt(
       `Name your ${type}`,
@@ -143,12 +134,10 @@ const FriendsScreen = () => {
             // Navigate to ChatDetail with the new Chat Object
             navigation.navigate('ChatDetail', { user: res.data });
         } else {
-            // --- FIXED: Use showToast for failure feedback ---
             showToast(res.message || `Failed to create ${type}.`, 'error');
         }
     } catch (e) {
         setIsCreating(false);
-        // --- FIXED: Use showToast for caught errors ---
         showToast("An unexpected error occurred.", 'error');
     }
   };

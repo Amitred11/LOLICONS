@@ -1,12 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const Toast = ({ message, type, onHide }) => {
-  const translateY = useRef(new Animated.Value(-100)).current;
+  // FIX: Start slightly above natural position (relative animation)
+  const translateY = useRef(new Animated.Value(-50)).current; 
   const opacity = useRef(new Animated.Value(0)).current;
-  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     Animated.parallel([
@@ -16,77 +15,125 @@ const Toast = ({ message, type, onHide }) => {
         useNativeDriver: true,
       }),
       Animated.spring(translateY, {
-        toValue: insets.top + 10,
-        friction: 7,
+        toValue: 0, // Animate to its natural position in the stack
+        friction: 6,
+        tension: 100,
         useNativeDriver: true,
       }),
     ]).start();
 
     const timer = setTimeout(() => {
       Animated.parallel([
-         Animated.timing(opacity, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-         }),
-         Animated.timing(translateY, {
-            toValue: -100,
-            duration: 300,
-            useNativeDriver: true,
-         }),
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: -50, // Slide back up
+          duration: 250,
+          useNativeDriver: true,
+        }),
       ]).start(onHide);
     }, 3000);
 
     return () => clearTimeout(timer);
   }, []);
 
-  const getIcon = () => {
+  const getStyle = () => {
     switch (type) {
-      case 'error': return { name: 'alert-circle-outline', color: '#FF4444' };
-      case 'success': return { name: 'checkmark-circle-outline', color: '#00C851' };
-      default: return { name: 'information-circle-outline', color: '#FFFFFF' };
+      case 'error':
+        return {
+          icon: 'alert-circle-outline',
+          iconColor: '#fff', // Changed for better contrast
+          bg: '#ef4444', // Tailwind red-500
+          border: '#b91c1c',
+        };
+      case 'success':
+        return {
+          icon: 'checkmark-circle-outline',
+          iconColor: '#fff',
+          bg: '#22c55e', // Tailwind green-500
+          border: '#15803d',
+        };
+      case 'info':
+        return {
+          icon: 'information-circle-outline',
+          iconColor: '#fff',
+          bg: '#3b82f6', // Tailwind blue-500
+          border: '#1d4ed8',
+        };
+      default:
+        return {
+          icon: 'information-circle-outline',
+          iconColor: '#333',
+          bg: '#ffffff',
+          border: '#e5e5e5',
+        };
     }
   };
 
-  const iconData = getIcon();
+  const theme = getStyle();
+  // Determine text color based on background (simple logic)
+  const textColor = type && type !== 'default' ? '#fff' : '#333';
 
   return (
-    <Animated.View style={[styles.container, { transform: [{ translateY }], opacity }]}>
-      <Ionicons name={iconData.name} size={22} color={iconData.color} style={styles.icon} />
-      <Text style={styles.message}>{message}</Text>
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          transform: [{ translateY }],
+          opacity,
+          backgroundColor: theme.bg,
+          borderColor: theme.border,
+        },
+      ]}
+    >
+      <Ionicons
+        name={theme.icon}
+        size={24}
+        color={theme.iconColor}
+        style={styles.icon}
+      />
+
+      <Text style={[styles.message, { color: textColor }]}>{message}</Text>
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    top: 0,
-    left: 20,
-    right: 20,
-    backgroundColor: '#2F2F2F',
-    borderRadius: 16,
-    padding: 16,
+    // FIX: Removed position: 'absolute'. 
+    // This allows Toasts to use the 'gap' from the container and stack vertically.
+    width: '100%',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+
+    // Shadow
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
+
   icon: {
-    marginRight: 12,
+    // No specific margin needed due to 'gap' in container, 
+    // but kept just in case gap isn't supported in older RN versions
   },
+
   message: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '500',
     flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 
-// Ensure this export line exists
 export default Toast;

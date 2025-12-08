@@ -28,10 +28,10 @@ const SNAP_SIZE = CARD_WIDTH + 12;
 const HomeScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { showAlert, showToast } = useAlert(); 
+  const { showToast } = useAlert(); 
   const { user } = useAuth();
   
-  const { isLoading, isRefreshing, featuredComics, continueReading, dailyGoals, upcomingEvents, refreshData, logVisitHistory, logMissionCompleted } = useHome();
+  const { isLoading, isRefreshing, featuredComics, continueReading, dailyGoals, upcomingEvents, refreshData, handleGoalPress } = useHome();
   
   const scrollY = useSharedValue(0);
   const scrollX = useSharedValue(0);
@@ -43,54 +43,9 @@ const HomeScreen = () => {
     return dailyGoals.filter(g => (g.progress || 0) >= (g.total || 1)).length / dailyGoals.length;
   }, [dailyGoals]);
 
-  const handleGoalPress = useCallback((goal) => {
-    if (goal.completed || goal.progress >= goal.total) {
-        return;
-    }
-
-    switch (goal.type) {
-        case 'read':
-        case 'explore_featured': // Also navigates to explore comics
-            navigation.navigate('Comics');
-            break;
-        case 'rate':
-            navigation.navigate('Comics', { screen: 'MyBookshelf' });
-            break;
-        case 'library':
-            navigation.navigate('Search');
-            break;
-        case 'comment':
-            showToast("Find any comic and leave a comment on a chapter to complete this goal!", 'info' );
-            navigation.navigate('Comics');
-            break;
-        case 'share':
-            showToast( "Navigate to any comic's detail page and use the share button.", 'info' );
-            break;
-        case 'explore_genre':
-            navigation.navigate('Search', { focus: 'genres' });
-            break;
-        case 'history':
-            // This action can be completed right here
-            logVisitHistory();
-            break;
-        // --- NEW: Handle the 'mission' goal type ---
-        case 'mission':
-            showToast("You completed the special mission! Your reward has been granted.", 'info' );
-            logMissionCompleted();
-            break;
-        case 'time':
-            showToast( "This goal progresses automatically as you spend time reading.", 'info' );
-            break;
-        default:
-            showToast("No specific action is tied to this goal. It may update automatically.", 'info' );
-            break;
-    }
-  }, [navigation, showToast, logVisitHistory, logMissionCompleted]);
-
   const handleScroll = useAnimatedScrollHandler((e) => { scrollY.value = e.contentOffset.y; });
   const handleParallaxScroll = useAnimatedScrollHandler((e) => { scrollX.value = e.contentOffset.x; });
 
-  // Animation Styles
   const headerStyle = useAnimatedStyle(() => ({ height: interpolate(scrollY.value, [0, SCROLL_DISTANCE], [insets.top + HEADER_HEIGHT, insets.top + COLLAPSED_HEADER_HEIGHT], 'clamp') }));
   const blurStyle = useAnimatedStyle(() => ({ opacity: interpolate(scrollY.value, [0, SCROLL_DISTANCE], [0, 1], 'clamp') }));
   const largeHeaderStyle = useAnimatedStyle(() => ({ 
@@ -110,14 +65,12 @@ const HomeScreen = () => {
     <ContinueReadingCard item={item} onPress={() => navigation.navigate('ComicDetail', { comicId: item.id })} />
   ), []);
 
-  // --- NEW: Notification Button Component ---
   const NotificationBtn = () => (
     <TouchableOpacity 
         onPress={() => navigation.navigate('Notifications')} 
         style={styles.iconBtn}
     >
         <Ionicons name="notifications-outline" size={24} color={Colors.text} />
-        {/* Red Dot for unread notifications */}
         <View style={styles.notificationDot} />
     </TouchableOpacity>
   );
@@ -134,14 +87,12 @@ const HomeScreen = () => {
         
         <View style={[styles.headerContent, { paddingTop: insets.top }]}>
             
-            {/* LARGE HEADER (Expanded) */}
             <Animated.View style={[styles.largeHeaderContainer, largeHeaderStyle]}>
                 <View>
                     <Text style={styles.headerSubtitle}>Welcome Back,</Text>
                     <Text style={styles.headerTitle}>{displayUser.username || displayUser.name}</Text>
                 </View>
                 
-                {/* Right Side: Bell + Avatar */}
                 <View style={styles.headerRightActions}>
                     <NotificationBtn />
                     <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.avatarBtn}>
@@ -150,14 +101,12 @@ const HomeScreen = () => {
                 </View>
             </Animated.View>
 
-            {/* COMPACT HEADER (Collapsed) */}
             <Animated.View style={[styles.compactHeaderContainer, compactHeaderStyle]}>
                 <TouchableOpacity style={styles.searchBar} onPress={() => navigation.navigate('Search')}>
                     <Ionicons name="search" size={18} color={Colors.textSecondary} />
                     <Text style={styles.searchPlaceholder}>Find a story...</Text>
                 </TouchableOpacity>
 
-                {/* Right Side: Bell (Avatar removed to save space or kept small) */}
                 <View style={styles.headerRightActions}>
                     <NotificationBtn />
                 </View>
@@ -228,7 +177,7 @@ const HomeScreen = () => {
                     <DailyGoalsWidget 
                         goals={dailyGoals} 
                         dailyProgress={dailyProgress} 
-                        onGoalPress={handleGoalPress} 
+                        onGoalPress={(goal) => handleGoalPress(goal, navigation, showToast)} 
                     />
                 ) : (
                     <View style={styles.section}><EmptyState icon="trophy-outline" title="No Active Goals" message="You're all caught up!" /></View>
@@ -274,10 +223,8 @@ const styles = StyleSheet.create({
   headerSubtitle: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 16 },
   headerTitle: { fontFamily: 'Poppins_700Bold', color: Colors.text, fontSize: 28 },
   
-  // Right Actions (Bell + Avatar)
   headerRightActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   
-  // Icon Button Style
   iconBtn: { 
     width: 40, 
     height: 40, 
@@ -289,7 +236,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.05)'
   },
   
-  // Red Dot Style
   notificationDot: {
     position: 'absolute',
     top: 10,
@@ -297,7 +243,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.primary, // Or red
+    backgroundColor: Colors.primary, 
     borderWidth: 1.5,
     borderColor: Colors.surface
   },

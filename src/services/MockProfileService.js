@@ -110,6 +110,41 @@ export const MOCK_RANKS = [
     title: 'World Creator',
     description: 'The final apotheosis. The power to wield the origin and shape the void into new realities. A true creator of worlds.' 
   },
+  {
+    name: '创',   // Creation / Genesis
+    minXp: 10000000,
+    color: '#9CCC65',
+    title: 'Transcendent Architect',
+    description: 'A being beyond creation itself—shaping laws, concepts, and dimensions beyond reality.'
+  },
+  {
+    name: '宙',   // Universe / Cosmos
+    minXp: 10000001,
+    color: '#8BC34A',
+    title: 'Omniverse Sovereign',
+    description: 'One who commands countless universes, bending infinities and metaphysical constants.'
+  },
+  {
+    name: '源',   // Origin / Source
+    minXp: 10000002,
+    color: '#7CB342',
+    title: 'Boundless Origin',
+    description: 'The unfathomable source from which all creation, paradox, and possibility emerge.'
+  },
+  {
+    name: '异',   // Anomaly / Beyond
+    minXp: 10000003,
+    color: '#689F38',
+    title: 'Absolute Anomaly',
+    description: 'A presence transcending reality, non-reality, and every framework that defines existence.'
+  },
+  {
+    name: '巅',   // Apex / Peak
+    minXp: 10000004,
+    color: '#558B2F',
+    title: 'Primordial Apex',
+    description: 'Older than existence, surpassing creation, the final and ultimate apex of all power.'
+  }
 ];
 //static help, not a mockdata
 const MOCK_FAQ = [
@@ -135,7 +170,7 @@ export const MOCK_USER_DB = {
   name: 'AMITRED11',
   handle: 'pogiako',
   avatarUrl: 'https://i.pravatar.cc/150?u=a042581f4e29026704d',
-  xp: 123123,
+  xp: 100000002,
   
   // Banner will be updated dynamically from ComicService
   favoriteComicBanner: { uri: 'https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?q=80&w=1000&auto=format&fit=crop' },
@@ -225,7 +260,7 @@ export const MOCK_USER_DB = {
       rarity: 'Rare',
       category: 'Collection',
       rewards: { xp: 250, gems: 10 },
-      unlocked: true
+      unlocked: false
     },
     { 
       id: 'b5', 
@@ -233,7 +268,7 @@ export const MOCK_USER_DB = {
       icon: 'heart-circle-outline', 
       description: 'Awarded for reading every day for a full week. That\'s dedication!', 
       unlockedDate: 'Feb 22, 2024',
-      rarity: 'Epic',
+      rarity: 'Rare',
       category: 'Reading',
       rewards: { xp: 1000, gems: 25 },
       unlocked: true

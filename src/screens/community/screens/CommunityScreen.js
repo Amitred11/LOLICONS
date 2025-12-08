@@ -13,10 +13,6 @@ import { Colors } from '@config/Colors';
 import GuildCard from '../components/GuildCard';
 import CommunitySearchHeader from '../components/CommunitySearchHeader'; // Import the new component
 
-// Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 const CommunityScreen = ({ navigation }) => {
   const { guilds, fetchGuilds, isLoadingGuilds } = useCommunity();

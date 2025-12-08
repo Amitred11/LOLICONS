@@ -10,16 +10,12 @@ import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors'; 
 import { useAlert } from '@context/other/AlertContext';
-import { useChat } from '@context/hub/ChatContext'; // IMPT: Import Context
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+import { useChat } from '@context/hub/ChatContext'; 
 
 const { width } = Dimensions.get('window');
 const CATEGORIES = ['All', 'Direct', 'Group', 'Community'];
 
-// ... AnimatedChatItem Component remains the same ...
+// ... AnimatedChatItem Component ...
 const AnimatedChatItem = ({ index, children }) => {
     const animatedValue = useRef(new Animated.Value(0)).current;
     useEffect(() => {
@@ -105,7 +101,7 @@ const ChatListScreen = () => {
             btnText: "Mute",
             secondaryBtnText: "Cancel",
             onClose: async () => {
-                await toggleMute(selectedChat.id, false); // Assuming false = currently not muted
+                await toggleMute(selectedChat.id, false); 
                 showToast("Notifications silenced.", 'success' );
             }
         });

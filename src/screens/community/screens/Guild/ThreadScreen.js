@@ -13,11 +13,6 @@ import { Colors } from '@config/Colors';
 import { useCommunity } from '@context/main/CommunityContext'; 
 import { useAlert } from '@context/other/AlertContext';
 
-// Enable LayoutAnimation
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
 const CURRENT_USER_NAME = 'CurrentUser'; 
 
 // Mock Data Generator (Keep existing)
