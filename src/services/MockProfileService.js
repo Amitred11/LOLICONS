@@ -1,8 +1,5 @@
 // api/MockProfileService.js
 import { ComicService } from '@api/MockComicService';
-import { MOCK_FRIENDS_LIST } from '@api/hub/MockFriendService'; // Import friends for lookup
-
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // --- 1. MOCK DATA DEFINITIONS ---
 
@@ -164,7 +161,8 @@ const MOCK_CONTACT_TOPICS = [
 
 // --- 2. MAIN USER DATABASE ---
 
-export const MOCK_USER_DB = {
+export const MOCK_ALL_USERS = {
+  'usr_a1b2c3d4e5f6g7h8': {
   id: 'usr_a1b2c3d4e5f6g7h8',
   email: 'loli.hunter@example.com',
   name: 'AMITRED11',
@@ -312,29 +310,107 @@ export const MOCK_USER_DB = {
           github: true,
           facebook: false
       }
-  }
+  }},
+  'friend_1': { 
+    id: '1',
+    email: 'jess.dev@example.com',
+    name: 'Jessica Parker', 
+    handle: 'jess_dev',
+    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400',
+    xp: 25000,
+    favoriteComicBanner: { uri: 'https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=800' },
+    stats: [{ label: 'Read', value: '1.2K' }, { label: 'Rank', value: '#45' }, { label: 'Guild', value: 'Apex' }],
+    status: { type: 'online', text: 'Online' },
+    bio: 'Level 99 Mage in real life. 🧙‍♀️ Code by day, Mana cultivation by night.', 
+    badges: [
+      { id: 'b2', name: 'Night Owl', icon: 'moon-outline', description: 'Awarded for reading a chapter between midnight and 4 AM.', unlockedDate: 'Mar 15, 2024', rarity: 'Uncommon', unlocked: true },
+      { id: 'b5', name: 'Loyal Reader', icon: 'heart-circle-outline', description: 'Awarded for reading every day for a full week.', unlockedDate: 'Apr 01, 2024', rarity: 'Rare', unlocked: true },
+    ],
+    favorites: [],
+    history: [],
+    settings: {
+        notifications: {
+            global: true,
+            preferences: { newChapters: true, recommendations: false, newFollowers: true, comments: true, dms: true, promotions: false },
+            quietHours: { enabled: true, start: '11:00 PM', end: '7:00 AM' }
+        },
+        privacy: {
+            twoFactor: true,
+            activeSessions: 2,
+            blockedUsers: []
+        },
+        storage: { downloads: 1200000000, appData: 250000000, cache: 120000000 },
+        connectedAccounts: { google: true, github: true, facebook: true }
+    }
+  },
+  'friend_2': { 
+    id: '2',
+    email: 'dave.gamer@example.com',
+    name: 'David Miller', 
+    handle: 'dave_gamer',
+    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400',
+    xp: 8500,
+    favoriteComicBanner: { uri: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=800' },
+    stats: [{ label: 'Read', value: '800' }, { label: 'Rank', value: '#102' }, { label: 'Guild', value: 'None' }],
+    status: { type: 'ingame', text: 'In Game' },
+    bio: 'Grinding for that Absolute rarity badge. Do not disturb unless it is urgent.', 
+    badges: [
+       { id: 'b3', name: 'Social Butterfly', icon: 'people-outline', description: 'Awarded for making your first comment.', unlockedDate: 'Feb 20, 2024', rarity: 'Common', unlocked: true },
+       { id: 'b4', name: 'Collector', icon: 'albums-outline', description: 'Awarded for adding 10 or more comics to your library.', unlockedDate: 'Mar 05, 2024', rarity: 'Rare', unlocked: true },
+    ],
+    favorites: [],
+    history: [],
+    settings: {
+        notifications: {
+            global: true,
+            preferences: { newChapters: true, recommendations: true, newFollowers: false, comments: false, dms: false, promotions: false },
+            quietHours: { enabled: false, start: '10:00 PM', end: '8:00 AM' }
+        },
+        privacy: {
+            twoFactor: false,
+            activeSessions: 1,
+            blockedUsers: [{ id: 'block_1', name: 'SomeRando', date: '2024-03-01'}]
+        },
+        storage: { downloads: 500000000, appData: 90000000, cache: 30000000 },
+        connectedAccounts: { google: true, github: false, facebook: false }
+    }
+  },
+  'friend_3': { 
+    id: '3',
+    email: 'sarah.connor@example.com',
+    name: 'Sarah Connor', 
+    handle: 'future_savior',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+    xp: 150000,
+    favoriteComicBanner: { uri: 'https://images.unsplash.com/photo-1535905557558-afc4877a26fc?w=800' },
+    stats: [{ label: 'Read', value: '5K' }, { label: 'Rank', value: '#5' }, { label: 'Guild', value: 'Resistance' }],
+    status: { type: 'offline', text: 'Offline' },
+    bio: 'No fate but what we make. Also looking for good Isekai recs.', 
+    badges: [
+        { id: 'b5', name: 'Loyal Reader', icon: 'heart-circle-outline', description: 'Awarded for reading every day for a full week.', unlockedDate: 'Jan 28, 2024', rarity: 'Rare', unlocked: true },
+    ],
+    favorites: [],
+    history: [],
+    settings: {
+        notifications: {
+            global: false,
+            preferences: { newChapters: true, recommendations: true, newFollowers: true, comments: true, dms: true, promotions: true },
+            quietHours: { enabled: false, start: '10:00 PM', end: '8:00 AM' }
+        },
+        privacy: {
+            twoFactor: false,
+            activeSessions: 1,
+            blockedUsers: []
+        },
+        storage: { downloads: 2000000000, appData: 150000000, cache: 80000000 },
+        connectedAccounts: { google: true, github: false, facebook: true }
+    }
+  },
 };
 
-// Generic Friend/Other User (Placeholder)
-const MOCK_FRIEND = {
-    id: 'UID-999-FRIEND',
-    name: 'Jessica Parker',
-    handle: 'jp_comics',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400',
-    banner: 'https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=800',
-    bio: 'Comic enthusiast | Artist | Dreamer ✨',
-    status: 'Online',
-    stats: [
-        { label: 'Reads', value: '890' },
-        { label: 'Likes', value: '1.2k' },
-        { label: 'Rank', value: 'Master' }
-    ],
-    badges: [
-        { id: '1', name: 'First Read', icon: 'book-outline', description: 'Read your first comic chapter.', rarity: 'Common' },
-        { id: '3', name: 'Collector', icon: 'library-outline', description: 'Save 50 comics to library.', rarity: 'Rare' },
-        { id: '5', name: 'Speedster', icon: 'flash-outline', description: 'Finish a chapter in under 1 min.', rarity: 'Epic' },
-    ]
-};
+const MOCK_USER_DB = MOCK_ALL_USERS['usr_a1b2c3d4e5f6g7h8'];
+
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 
 // --- 3. API SERVICE EXPORTS ---
@@ -372,6 +448,18 @@ export const ProfileAPI = {
             }
         };
     },
+
+    getFriendProfile: async (userId) => {
+        await delay(800);
+        
+        const friendData = MOCK_ALL_USERS[userId] || MOCK_ALL_USERS[`friend_${userId}`]; // Find by full or partial ID
+
+        if (!friendData) {
+            return { success: false, message: "User not found" };
+        }
+
+        return { success: true, data: friendData };
+    },
     
     updateProfile: async (updateData) => {
         await delay(1000); // Simulate network latency
@@ -402,14 +490,16 @@ export const ProfileAPI = {
     getFriendProfile: async (userId) => {
         await delay(800);
         
-        // Find the friend in the exported list
-        const friendData = MOCK_FRIENDS_LIST.find(f => f.id === userId);
+        const friendData = MOCK_ALL_USERS[`friend_${userId}`] || Object.values(MOCK_ALL_USERS).find(u => u.id === userId);
 
         if (!friendData) {
-            return { success: true, data: GHOST_USER };
+            return { success: false, message: "User not found" };
         }
+        
+        // Simulate rank calculation for friend
+        const currentRank = MOCK_RANKS.slice().reverse().find(r => friendData.xp >= r.minXp) || MOCK_RANKS[0];
 
-        return { success: true, data: friendData };
+        return { success: true, data: { ...friendData, currentRank } };
     },
 
     // --- TROPHY CASE ---

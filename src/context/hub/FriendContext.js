@@ -48,7 +48,8 @@ export const FriendProvider = ({ children }) => {
     
     // Calculate online friends automatically for the "Favorites" section
     const onlineFriends = useMemo(() => {
-        return friends.filter(f => f.status === 'Online');
+        // Updated to check the status object
+        return friends.filter(f => f.status?.type === 'online');
     }, [friends]);
 
     const value = {

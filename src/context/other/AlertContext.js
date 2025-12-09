@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import CustomAlert from '@components/alerts/CustomAlert';
-import ToastContainer from '@components/alerts/ToastContainer'; // This import needs the files above to work
+import ToastContainer from '@components/alerts/ToastContainer'; 
 
 const AlertContext = createContext();
 
@@ -18,6 +18,7 @@ export const AlertProvider = ({ children }) => {
 
   const [toasts, setToasts] = useState([]);
 
+  // --- Alert Logic ---
   const showAlert = useCallback(({
     title,
     message,
@@ -49,23 +50,41 @@ export const AlertProvider = ({ children }) => {
     setAlertState((prev) => ({ ...prev, visible: false }));
   }, []);
 
-  const showToast = useCallback((message, type = 'info') => {
+  // --- Toast Logic ---
+  const showToast = useCallback((arg1, arg2, arg3) => {
     const id = Date.now() + Math.random();
-    setToasts(prevToasts => [...prevToasts, { id, message, type }]);
+
+    let title = null;
+    let message = '';
+    let type = 'info';
+
+    // Signature 1: showToast(title, message, type)
+    if (arg1 && arg2 && arg3) {
+      title = arg1;
+      message = arg2;
+      type = arg3;
+    }
+    // Signature 2: showToast(message, type)
+    else if (arg1 && arg2) {
+      message = arg1;
+      type = arg2;
+    }
+    // Signature 3: showToast(message) - Fallback
+    else {
+      message = arg1 || "Unknown";
+    }
+
+    setToasts(prev => [...prev, { id, title, message, type }]);
   }, []);
 
   const handleHideToast = useCallback((id) => {
     setToasts(prevToasts => prevToasts.filter(toast => toast.id !== id));
   }, []);
 
-
   return (
     <AlertContext.Provider value={{ showAlert, hideAlert, showToast }}>
       {children}
-      <CustomAlert
-        {...alertState}
-      />
-      {/* This line will no longer cause an error */}
+      <CustomAlert {...alertState} />
       <ToastContainer toasts={toasts} onHide={handleHideToast} />
     </AlertContext.Provider>
   );

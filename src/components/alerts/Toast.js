@@ -1,13 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const Toast = ({ message, type, onHide }) => {
-  // FIX: Start slightly above natural position (relative animation)
+const Toast = ({ title, message, type, onHide }) => {
   const translateY = useRef(new Animated.Value(-50)).current; 
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    // Animation In
     Animated.parallel([
       Animated.timing(opacity, {
         toValue: 1,
@@ -15,14 +15,16 @@ const Toast = ({ message, type, onHide }) => {
         useNativeDriver: true,
       }),
       Animated.spring(translateY, {
-        toValue: 0, // Animate to its natural position in the stack
+        toValue: 0,
         friction: 6,
         tension: 100,
         useNativeDriver: true,
       }),
     ]).start();
 
+    // Auto Hide Timer
     const timer = setTimeout(() => {
+      // Animation Out
       Animated.parallel([
         Animated.timing(opacity, {
           toValue: 0,
@@ -30,7 +32,7 @@ const Toast = ({ message, type, onHide }) => {
           useNativeDriver: true,
         }),
         Animated.timing(translateY, {
-          toValue: -50, // Slide back up
+          toValue: -50,
           duration: 250,
           useNativeDriver: true,
         }),
@@ -43,39 +45,17 @@ const Toast = ({ message, type, onHide }) => {
   const getStyle = () => {
     switch (type) {
       case 'error':
-        return {
-          icon: 'alert-circle-outline',
-          iconColor: '#fff', // Changed for better contrast
-          bg: '#ef4444', // Tailwind red-500
-          border: '#b91c1c',
-        };
+        return { icon: 'alert-circle-outline', bg: '#ef4444', border: '#b91c1c', text: '#fff' };
       case 'success':
-        return {
-          icon: 'checkmark-circle-outline',
-          iconColor: '#fff',
-          bg: '#22c55e', // Tailwind green-500
-          border: '#15803d',
-        };
+        return { icon: 'checkmark-circle-outline', bg: '#22c55e', border: '#15803d', text: '#fff' };
       case 'info':
-        return {
-          icon: 'information-circle-outline',
-          iconColor: '#fff',
-          bg: '#3b82f6', // Tailwind blue-500
-          border: '#1d4ed8',
-        };
+        return { icon: 'information-circle-outline', bg: '#3b82f6', border: '#1d4ed8', text: '#fff' };
       default:
-        return {
-          icon: 'information-circle-outline',
-          iconColor: '#333',
-          bg: '#ffffff',
-          border: '#e5e5e5',
-        };
+        return { icon: 'information-circle-outline', bg: '#ffffff', border: '#e5e5e5', text: '#333' };
     }
   };
 
   const theme = getStyle();
-  // Determine text color based on background (simple logic)
-  const textColor = type && type !== 'default' ? '#fff' : '#333';
 
   return (
     <Animated.View
@@ -92,47 +72,54 @@ const Toast = ({ message, type, onHide }) => {
       <Ionicons
         name={theme.icon}
         size={24}
-        color={theme.iconColor}
-        style={styles.icon}
+        color={theme.text}
       />
 
-      <Text style={[styles.message, { color: textColor }]}>{message}</Text>
+      {/* 
+         FIX: Wrapped Texts in a View with flex: 1.
+         This ensures the text stacks vertically next to the icon.
+      */}
+      <View style={styles.textContainer}>
+        {title ? (
+          <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
+        ) : null}
+        
+        <Text style={[styles.message, { color: theme.text }]}>{message}</Text>
+      </View>
+
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    // FIX: Removed position: 'absolute'. 
-    // This allows Toasts to use the 'gap' from the container and stack vertically.
     width: '100%',
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 12,
-
-    flexDirection: 'row',
+    flexDirection: 'row', // Icon and TextContainer side-by-side
     alignItems: 'center',
     gap: 12,
-
     borderWidth: 1,
-
-    // Shadow
     shadowColor: '#000',
     shadowOpacity: 0.15,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
-
-  icon: {
-    // No specific margin needed due to 'gap' in container, 
-    // but kept just in case gap isn't supported in older RN versions
+  textContainer: {
+    flex: 1, // Takes up remaining space
+    flexDirection: 'column', // Title and Message stacked
+    justifyContent: 'center',
   },
-
+  title: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 2, // Space between title and message
+  },
   message: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '400',
   },
 });
 
