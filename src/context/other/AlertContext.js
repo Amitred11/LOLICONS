@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import CustomAlert from '@components/alerts/CustomAlert';
-import ToastContainer from '@components/alerts/ToastContainer'; 
+import ToastContainer from '@components/alerts/ToastContainer';
+import CustomPrompt from '@components/alerts/CustomPrompt'; // Import the new component
 
 const AlertContext = createContext();
 
@@ -17,6 +18,17 @@ export const AlertProvider = ({ children }) => {
   });
 
   const [toasts, setToasts] = useState([]);
+
+  // --- New Prompt State ---
+  const [promptState, setPromptState] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    defaultValue: '',
+    placeholder: '',
+    onConfirm: () => {},
+    onCancel: () => {},
+  });
 
   // --- Alert Logic ---
   const showAlert = useCallback(({
@@ -50,6 +62,37 @@ export const AlertProvider = ({ children }) => {
     setAlertState((prev) => ({ ...prev, visible: false }));
   }, []);
 
+  // --- New Prompt Logic ---
+  const showAlertPrompt = useCallback(({
+    title,
+    message,
+    defaultValue = '',
+    placeholder = 'Enter value',
+    onConfirm, // Callback when "Create" is pressed, receives input value
+    onCancel,  // Callback when "Cancel" is pressed
+  }) => {
+    setPromptState({
+      visible: true,
+      title,
+      message,
+      defaultValue,
+      placeholder,
+      onConfirm: (text) => { // Wrap to hide and then call original
+        hideAlertPrompt();
+        if (onConfirm) onConfirm(text);
+      },
+      onCancel: () => { // Wrap to hide and then call original
+        hideAlertPrompt();
+        if (onCancel) onCancel();
+      },
+    });
+  }, []);
+
+  const hideAlertPrompt = useCallback(() => {
+    setPromptState((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+
   // --- Toast Logic ---
   const showToast = useCallback((arg1, arg2, arg3) => {
     const id = Date.now() + Math.random();
@@ -82,9 +125,10 @@ export const AlertProvider = ({ children }) => {
   }, []);
 
   return (
-    <AlertContext.Provider value={{ showAlert, hideAlert, showToast }}>
+    <AlertContext.Provider value={{ showAlert, hideAlert, showToast, showAlertPrompt }}> {/* Add showAlertPrompt to context */}
       {children}
       <CustomAlert {...alertState} />
+      <CustomPrompt {...promptState} /> {/* Render the CustomPrompt */}
       <ToastContainer toasts={toasts} onHide={handleHideToast} />
     </AlertContext.Provider>
   );

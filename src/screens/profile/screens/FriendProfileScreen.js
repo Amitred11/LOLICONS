@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { 
   View, Text, StyleSheet, Image, TouchableOpacity, 
-  Dimensions, Animated, StatusBar, Alert, ActivityIndicator 
+  Dimensions, Animated, StatusBar, ActivityIndicator, Modal, Pressable 
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,8 +11,9 @@ import { Colors } from '@config/Colors';
 import { ProfileAPI } from '@api/MockProfileService'; 
 import { useAlert } from '@context/other/AlertContext'; 
 
-// NEW: Import the Profile Context
+// Import Profile & Friend Contexts
 import { useProfile } from '@context/main/ProfileContext'; 
+import { useFriend } from '@context/hub/FriendContext';
 
 const { width } = Dimensions.get('window');
 
@@ -31,39 +32,49 @@ const FriendProfileScreen = () => {
   const route = useRoute();
   
   // Contexts
-  const { showToast } = useAlert();
+  const { showAlert, showToast } = useAlert();
   const { profile, blockUser, unblockUser } = useProfile();
+  const { friends, addFriend, removeFriend } = useFriend();
 
   const { user: initialUser, userId } = route.params; 
 
   const [user, setUser] = useState(initialUser || null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!initialUser);
+  const [actionSheetVisible, setActionSheetVisible] = useState(false);
   
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  // 1. Determine Block Status
-  // We check the logged-in user's profile settings to see if this friend is in the blocked list.
+  // --- STATUS CHECKS ---
   const isBlocked = useMemo(() => {
     if (!profile || !user) return false;
     const blockedList = profile.settings?.privacy?.blockedUsers || [];
-    return blockedList.some(blocked => blocked.id === user.id);
+    return blockedList.some(blocked => blocked.id === user.id || blocked.name === user.name);
   }, [profile, user]);
 
+  const isFriend = useMemo(() => {
+    if (!friends || !user) return false;
+    return friends.some(friend => friend.id === user.id);
+  }, [friends, user]);
+
+  const isSelf = useMemo(() => {
+      if(!profile || !user) return false;
+      return profile.id === user.id;
+  }, [profile, user]);
+
+  // --- DATA LOADING ---
   useEffect(() => {
     const loadProfile = async () => {
       const idToFetch = userId || initialUser?.id;
-      
       if (!idToFetch) {
-         setIsLoading(false);
+         if (isLoading) setIsLoading(false);
          showToast("No user ID provided.", 'error');
          return;
       }
 
-      setIsLoading(true);
       try {
         const response = await ProfileAPI.getFriendProfile(idToFetch);
         if (response.success && response.data) {
-          setUser(prev => ({ ...prev, ...response.data }));
+          setUser(response.data); 
         } else {
           showToast(response.message || "Could not load user profile.", 'error');
         }
@@ -71,65 +82,94 @@ const FriendProfileScreen = () => {
         console.error("Failed to load friend profile", error);
         showToast("An error occurred while loading the profile.", 'error');
       } finally {
-        setIsLoading(false);
+        if (isLoading) setIsLoading(false);
       }
     };
 
     loadProfile();
   }, [userId, initialUser]);
 
-  // 2. Handle Block/Unblock Action
-  const handleOptionPress = () => {
-    if (isBlocked) {
-        Alert.alert(
-            "Unblock User",
-            `Are you sure you want to unblock ${user.name}?`,
-            [
-                { text: "Cancel", style: "cancel" },
-                { 
-                    text: "Unblock", 
-                    onPress: async () => {
-                        try {
-                            // Using ID for unblocking based on your Context signature
-                            await unblockUser(user.id);
-                            showToast(`You unblocked ${user.name}`, 'success');
-                        } catch (error) {
-                            showToast("Failed to unblock user", 'error');
-                        }
-                    } 
-                }
-            ]
-        );
-    } else {
-        Alert.alert(
-            "Block User",
-            `Are you sure you want to block ${user.name}? They will no longer be able to message you.`,
-            [
-                { text: "Cancel", style: "cancel" },
-                { 
-                    text: "Block", 
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            // Using name based on your Context signature (though ID is safer if supported)
-                            await blockUser(user.name); 
-                            showToast(`${user.name} has been blocked`, 'info');
-                            navigation.goBack(); // Optional: Go back after blocking
-                        } catch (error) {
-                            showToast("Failed to block user", 'error');
-                        }
-                    } 
-                }
-            ]
-        );
-    }
+  // --- ACTION HANDLERS ---
+  const handleBlock = () => {
+    setActionSheetVisible(false);
+    showAlert({
+      title: `Block ${user.name}?`,
+      message: "They won't be able to send you messages or requests. You can unblock them later.",
+      type: 'error',
+      btnText: 'Block',
+      onClose: async () => {
+        try {
+          await blockUser(user.name); 
+          showToast(`${user.name} has been blocked`, 'info');
+          navigation.goBack();
+        } catch (error) {
+          showToast("Failed to block user", 'error');
+        }
+      },
+      secondaryBtnText: 'Cancel'
+    });
   };
 
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 150],
-    outputRange: [0, 1],
-    extrapolate: 'clamp'
-  });
+  const handleUnblock = () => {
+    setActionSheetVisible(false);
+    showAlert({
+      title: `Unblock ${user.name}?`,
+      message: 'They will be able to contact you again.',
+      type: 'info',
+      btnText: 'Unblock',
+      onClose: async () => {
+        try {
+          await unblockUser(user.id);
+          showToast(`You unblocked ${user.name}`, 'success');
+        } catch (error) {
+          showToast("Failed to unblock user", 'error');
+        }
+      },
+      secondaryBtnText: 'Cancel'
+    });
+  };
+  
+  const handleUnfriend = () => {
+    setActionSheetVisible(false);
+    showAlert({
+        title: `Unfriend ${user.name}?`,
+        message: 'They will be removed from your friends list.',
+        type: 'error',
+        btnText: 'Unfriend',
+        onClose: async () => {
+            try {
+                await removeFriend(user.id);
+                showToast(`${user.name} removed from friends`, 'info');
+            } catch {
+                showToast('Failed to remove friend', 'error');
+            }
+        },
+        secondaryBtnText: 'Cancel'
+    });
+  };
+
+  const handleAddFriend = () => {
+    setActionSheetVisible(false);
+    // This is now just a toast, the real action is in FriendContext
+    showToast(`Friend request sent to ${user.name}`, 'success');
+    addFriend(user.id).catch(() => {
+        showToast('Failed to send request', 'error');
+    });
+  };
+
+  const handleReport = () => {
+     setActionSheetVisible(false);
+     showAlert({
+        title: `Report ${user.name}?`,
+        message: 'Your report will be reviewed by our moderation team. Thank you for helping keep the community safe.',
+        type: 'info',
+        btnText: 'Submit Report',
+        onClose: () => {
+            showToast('Report submitted', 'success');
+        },
+        secondaryBtnText: 'Cancel'
+    });
+  };
 
   const handleBadgePress = (badge) => {
     showToast(
@@ -139,7 +179,8 @@ const FriendProfileScreen = () => {
     );
   };
 
-  if (isLoading && !user) {
+  // --- RENDER LOGIC ---
+  if (isLoading) {
     return (
       <View style={[styles.container, styles.center]}>
         <StatusBar barStyle="light-content" />
@@ -161,10 +202,97 @@ const FriendProfileScreen = () => {
      );
   }
 
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 150],
+    outputRange: [0, 1],
+    extrapolate: 'clamp'
+  });
+
   const stats = user.stats || [];
   const badges = user.badges || [];
   const bannerUri = typeof user.favoriteComicBanner === 'string' ? user.favoriteComicBanner : user.favoriteComicBanner?.uri;
   
+  const renderActionRow = () => {
+    if (isSelf) {
+      return (
+        <View style={styles.actionRow}>
+          <TouchableOpacity 
+            style={styles.primaryBtn} 
+            onPress={() => navigation.navigate('EditProfile')}
+          >
+            <Ionicons name="pencil" size={20} color="#FFF" />
+            <Text style={styles.btnText}>Edit Profile</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.actionRow}>
+         <TouchableOpacity 
+            style={[styles.primaryBtn, isBlocked && styles.disabledBtn]} 
+            onPress={() => !isBlocked && navigation.navigate('ChatDetail', { user })}
+            activeOpacity={isBlocked ? 1 : 0.7}
+         >
+            <Ionicons name={isBlocked ? "ban" : "chatbubble-ellipses"} size={20} color={isBlocked ? Colors.textSecondary : "#FFF"} />
+            <Text style={[styles.btnText, isBlocked && { color: Colors.textSecondary }]}>
+                {isBlocked ? "Blocked" : "Message"}
+            </Text>
+         </TouchableOpacity>
+         <TouchableOpacity style={styles.secondaryBtn} onPress={() => setActionSheetVisible(true)}>
+            <Ionicons name="ellipsis-horizontal" size={22} color={Colors.textSecondary} />
+         </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderActionSheet = () => (
+    <Modal
+      transparent
+      visible={actionSheetVisible}
+      animationType="fade"
+      onRequestClose={() => setActionSheetVisible(false)}
+    >
+      <Pressable style={styles.actionSheetOverlay} onPress={() => setActionSheetVisible(false)}>
+        <View style={styles.actionSheetContainer}>
+            {isFriend ? (
+                 <TouchableOpacity style={styles.actionSheetButton} onPress={handleUnfriend}>
+                    <Ionicons name="person-remove-outline" size={20} color={'#FF453A'} />
+                    <Text style={[styles.actionSheetText, {color: '#FF453A'}]}>Unfriend</Text>
+                </TouchableOpacity>
+            ) : (
+                <TouchableOpacity style={styles.actionSheetButton} onPress={handleAddFriend}>
+                    <Ionicons name="person-add-outline" size={20} color={Colors.primary} />
+                    <Text style={styles.actionSheetText}>Add Friend</Text>
+                </TouchableOpacity>
+            )}
+
+            {isBlocked ? (
+                <TouchableOpacity style={styles.actionSheetButton} onPress={handleUnblock}>
+                    <Ionicons name="shield-checkmark-outline" size={20} color={'#34C759'} />
+                    <Text style={[styles.actionSheetText, {color: '#34C759'}]}>Unblock</Text>
+                </TouchableOpacity>
+            ) : (
+                <TouchableOpacity style={styles.actionSheetButton} onPress={handleBlock}>
+                    <Ionicons name="shield-outline" size={20} color={'#FF453A'} />
+                    <Text style={[styles.actionSheetText, {color: '#FF453A'}]}>Block User</Text>
+                </TouchableOpacity>
+            )}
+
+             <TouchableOpacity style={styles.actionSheetButton} onPress={handleReport}>
+                <Ionicons name="flag-outline" size={20} color={'#FF9500'} />
+                <Text style={[styles.actionSheetText, {color: '#FF9500'}]}>Report User</Text>
+            </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity style={[styles.actionSheetContainer, {marginTop: 10}]} onPress={() => setActionSheetVisible(false)}>
+             <View style={styles.actionSheetButton}>
+                <Text style={[styles.actionSheetText, {fontWeight: 'bold'}]}>Cancel</Text>
+            </View>
+        </TouchableOpacity>
+      </Pressable>
+    </Modal>
+  );
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -211,32 +339,7 @@ const FriendProfileScreen = () => {
           <Text style={styles.userName}>{user.name}</Text>
           <Text style={styles.userHandle}>@{user.handle}</Text>
           
-          {/* Action Buttons */}
-          <View style={styles.actionRow}>
-             {/* 3. Disable Message Button if Blocked */}
-             <TouchableOpacity 
-                style={[styles.primaryBtn, isBlocked && styles.disabledBtn]} 
-                onPress={() => !isBlocked && navigation.navigate('ChatDetail', { user })}
-                activeOpacity={isBlocked ? 1 : 0.7}
-             >
-                <Ionicons name={isBlocked ? "ban" : "chatbubble-ellipses"} size={20} color={isBlocked ? Colors.textSecondary : "#FFF"} />
-                <Text style={[styles.btnText, isBlocked && { color: Colors.textSecondary }]}>
-                    {isBlocked ? "Blocked" : "Message"}
-                </Text>
-             </TouchableOpacity>
-             
-             {/* 4. Connect Option Press */}
-             <TouchableOpacity 
-                style={[styles.secondaryBtn, isBlocked && { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]} 
-                onPress={handleOptionPress}
-             >
-                <Ionicons 
-                    name="ellipsis-horizontal" 
-                    size={22} 
-                    color={isBlocked ? '#ef4444' : Colors.textSecondary} 
-                />
-             </TouchableOpacity>
-          </View>
+          {renderActionRow()}
 
           {user.bio ? <Text style={styles.bio}>{user.bio}</Text> : null}
 
@@ -276,6 +379,7 @@ const FriendProfileScreen = () => {
           )}
         </View>
       </Animated.ScrollView>
+      {!isSelf && renderActionSheet()}
     </View>
   );
 };
@@ -307,7 +411,6 @@ const styles = StyleSheet.create({
 
   actionRow: { flexDirection: 'row', justifyContent: 'center', gap: 15, marginBottom: 25 },
   primaryBtn: { flexDirection: 'row', backgroundColor: Colors.primary, paddingVertical: 12, paddingHorizontal: 30, borderRadius: 25, alignItems: 'center', gap: 8 },
-  // Style for disabled message button
   disabledBtn: { backgroundColor: Colors.surface, opacity: 0.8 }, 
   
   btnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
@@ -330,7 +433,32 @@ const styles = StyleSheet.create({
   badgeRarity: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
   
   emptyState: { alignItems: 'center', padding: 20, backgroundColor: Colors.surface, borderRadius: 16 },
-  emptyText: { color: Colors.textSecondary, fontStyle: 'italic' }
+  emptyText: { color: Colors.textSecondary, fontStyle: 'italic' },
+  actionSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+    padding: 20,
+  },
+  actionSheetContainer: {
+    backgroundColor: '#2C2C2E',
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  actionSheetButton: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  actionSheetText: {
+    color: Colors.primary,
+    fontSize: 17,
+    fontWeight: '500',
+  },
 });
 
 export default FriendProfileScreen;

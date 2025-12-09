@@ -1,216 +1,146 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { ChatAPI } from '@api/hub/MockChatService';
 
 const ChatContext = createContext();
 
 export const useChat = () => {
     const context = useContext(ChatContext);
-    if (!context) {
-        throw new Error('useChat must be used within a ChatProvider');
-    }
+    if (!context) throw new Error('useChat must be used within a ChatProvider');
     return context;
 };
 
 export const ChatProvider = ({ children }) => {
-    // --- Global State ---
     const [chats, setChats] = useState([]);
     const [isLoadingChats, setIsLoadingChats] = useState(true);
-    
-    // --- Active Conversation State ---
-    const [messageCache, setMessageCache] = useState({});
+    const [messages, setMessages] = useState({});
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
-    // Helper to update a specific chat in the list
-    const updateChatInList = (chatId, updates) => {
+    const updateChatInList = useCallback((chatId, updates) => {
         setChats(prev => prev.map(c => c.id === chatId ? { ...c, ...updates } : c));
-    };
-
-    // --- 1. Global Actions (Chat List) ---
+    }, []);
 
     const loadChats = useCallback(async (isRefresh = false) => {
-        if (!isRefresh && chats.length > 0) return;
-        
-        setIsLoadingChats(true);
+        if (!isRefresh) setIsLoadingChats(true);
         try {
             const response = await ChatAPI.fetchChatList();
-            if (response.success) {
-                const data = response.data.map(c => ({...c, pinned: c.id === '1'})); 
-                setChats(data);
-            }
+            if (response.success) setChats(response.data);
         } catch (error) {
             console.error("ChatContext: Load Chats Error", error);
         } finally {
-            setIsLoadingChats(false);
+            if (!isRefresh) setIsLoadingChats(false);
         }
-    }, [chats.length]);
+    }, []);
+    
+    const createGroupChat = useCallback(async (groupName, memberIds) => {
+        const tempId = `temp_${Date.now()}`;
+        const placeholder = { id: tempId, type: 'group', name: groupName, lastMessage: 'Creating group...', time: 'now', unread: 0 };
+        setChats(prev => [placeholder, ...prev]);
+        try {
+            const response = await ChatAPI.createGroup(groupName, memberIds);
+            if (response.success) {
+                setChats(prev => prev.map(c => c.id === tempId ? response.data : c));
+                return response;
+            }
+            throw new Error(response.message || 'API Error');
+        } catch (error) {
+            setChats(prev => prev.filter(c => c.id !== tempId));
+            throw error;
+        }
+    }, []);
 
-    // --- 2. Active Chat Actions ---
+    const pinChat = useCallback((chatId) => {
+        const chat = chats.find(c => c.id === chatId);
+        if (!chat) return;
+        const isPinned = !chat.pinned;
+        updateChatInList(chatId, { pinned: isPinned });
+    }, [chats, updateChatInList]);
 
+    const deleteChat = useCallback(async (chatId) => {
+        const prevChats = chats;
+        setChats(prev => prev.filter(c => c.id !== chatId));
+        try { await ChatAPI.deleteChat(chatId); } catch (e) { setChats(prevChats); }
+    }, [chats]);
+    
     const loadMessages = useCallback(async (chatId) => {
-        // If not cached, show loader
-        if (!messageCache[chatId]) {
-            setIsLoadingMessages(true);
-        }
-
+        setIsLoadingMessages(true);
         try {
             const response = await ChatAPI.fetchHistory(chatId);
-            if (response.success) {
-                setMessageCache(prev => ({ ...prev, [chatId]: response.data }));
-            }
+            if (response.success) setMessages(prev => ({ ...prev, [chatId]: response.data }));
         } catch (error) {
-            console.error("ChatContext: Load History Error", error);
+            console.error("ChatContext: Load Messages Error", error);
         } finally {
             setIsLoadingMessages(false);
         }
-    }, [messageCache]);
+    }, []);
 
-    const sendMessage = useCallback(async (chatId, content, type = 'text', fileName = null) => {
-        // 1. Optimistic Message
-        const tempId = Date.now().toString();
-        const optimisticMsg = { 
-            id: tempId, 
-            text: type === 'text' ? content : (fileName || 'Attachment'), 
-            sender: 'me', 
-            type: type,
-            imageUri: (type === 'image' || type === 'video') ? content : null,
-            fileUri: type === 'document' ? content : null,
-            time: 'Just now',
-            pending: true
-        };
-
-        // 2. Update Cache
-        setMessageCache(prev => ({
-            ...prev,
-            [chatId]: [optimisticMsg, ...(prev[chatId] || [])]
-        }));
-
-        // 3. Update List Preview
-        updateChatListLocally(chatId, { 
-            lastMessage: type === 'text' ? content : `Sent a ${type}`, 
-            time: 'Now' 
-        });
-
+    const sendMessage = useCallback(async (chatId, content, type, fileName) => {
+        const tempId = `temp_msg_${Date.now()}`;
+        const newMessage = { id: tempId, text: content, sender: 'me', type, time: 'sending...', imageUri: type === 'image' ? content : null, fileName };
+        setMessages(prev => ({ ...prev, [chatId]: [newMessage, ...(prev[chatId] || [])] }));
         try {
-            // 4. Upload if needed
-            let finalContent = content;
-            if (type !== 'text') {
-                const uploadRes = await ChatAPI.uploadMedia(content);
-                if(uploadRes.success) finalContent = uploadRes.url;
-                else throw new Error("Upload failed");
-            }
-
-            // 5. API Call
-            const response = await ChatAPI.sendMessage(chatId, finalContent, type);
-            
+            const response = await ChatAPI.sendMessage(chatId, { content, type, fileName });
             if (response.success) {
-                // 6. Replace Optimistic with Real
-                setMessageCache(prev => ({
-                    ...prev,
-                    [chatId]: prev[chatId].map(m => m.id === tempId ? response.data : m)
-                }));
-            }
-        } catch (error) {
-            console.error("Send Message Fail", error);
-            setMessageCache(prev => ({
-                ...prev,
-                [chatId]: prev[chatId].filter(m => m.id !== tempId)
-            }));
-            throw error; // Let UI know
+                 setMessages(prev => ({ ...prev, [chatId]: prev[chatId].map(m => m.id === tempId ? response.data : m) }));
+                 const lastMessageText = type === 'image' ? 'Sent an image' : type === 'document' ? fileName : content;
+                 updateChatInList(chatId, { lastMessage: lastMessageText, time: response.data.time });
+            } else { throw new Error('API Error'); }
+        } catch(e) {
+             setMessages(prev => ({ ...prev, [chatId]: prev[chatId].map(m => m.id === tempId ? {...m, time: 'failed'} : m) }));
         }
-    }, []);
-
-    // --- 3. Chat Management Actions ---
-
-    const pinChat = useCallback((chatId) => {
-        setChats(prev => prev.map(c => c.id === chatId ? { ...c, pinned: !c.pinned } : c));
-    }, []);
-
-    const markRead = useCallback((chatId) => {
-        updateChatInList(chatId, { unread: 0 });
-    }, []);
+    }, [updateChatInList]);
 
     const toggleReadStatus = useCallback((chatId) => {
-        setChats(prev => prev.map(c => {
-            if (c.id === chatId) {
-                return { ...c, unread: c.unread > 0 ? 0 : 1 };
-            }
-            return c;
-        }));
-    }, []);
-
-    const deleteChat = useCallback(async (chatId) => {
-        const previousChats = [...chats];
-        setChats(prev => prev.filter(c => c.id !== chatId)); // Optimistic
-        try {
-            await ChatAPI.deleteChat(chatId);
-        } catch (error) {
-            setChats(previousChats); // Revert
-            throw error;
-        }
-    }, [chats]);
+        const chat = chats.find(c => c.id === chatId);
+        if (chat) updateChatInList(chatId, { unread: chat.unread > 0 ? 0 : 1 });
+    }, [chats, updateChatInList]);
 
     const archiveChat = useCallback(async (chatId) => {
-        const previousChats = [...chats];
+        const prevChats = chats;
         setChats(prev => prev.filter(c => c.id !== chatId));
-        try {
-            await ChatAPI.archiveChat(chatId);
-        } catch (error) {
-            setChats(previousChats);
-            throw error;
-        }
+        try { await ChatAPI.archiveChat(chatId); } 
+        catch (error) { setChats(prevChats); throw error; }
     }, [chats]);
-
-    // --- 4. Settings Actions ---
+    
+    const clearChatHistory = useCallback(async (chatId) => {
+        const prevMessages = messages[chatId] || [];
+        setMessages(prev => ({ ...prev, [chatId]: [] }));
+        updateChatInList(chatId, { lastMessage: 'Chat history cleared' });
+        try { await ChatAPI.clearHistory(chatId); }
+        catch(e) { setMessages(prev => ({...prev, [chatId]: prevMessages})); }
+    }, [messages, updateChatInList]);
 
     const toggleMute = useCallback(async (chatId, currentState) => {
-        // Toggle in list logic if applicable, or just API
-        // We can update local list state to show a muted icon if we had one
+        updateChatInList(chatId, { isMuted: !currentState }); // Optimistic update
         try {
             await ChatAPI.toggleMute(chatId, !currentState);
             return !currentState;
         } catch (e) {
+            updateChatInList(chatId, { isMuted: currentState }); // Revert
             throw e;
         }
-    }, []);
+    }, [updateChatInList]);
 
     const blockUser = useCallback(async (chatId) => {
-        await ChatAPI.blockUser(chatId);
-        // Remove from list or mark as blocked
+        const prevChats = chats;
         setChats(prev => prev.filter(c => c.id !== chatId));
+        try { await ChatAPI.blockUser(chatId); } catch(e) { setChats(prevChats); }
+    }, [chats]);
+
+    const reportUser = useCallback(async (chatId, reason) => {
+        await ChatAPI.reportUser(chatId, reason);
     }, []);
-
-    const reportUser = useCallback(async (chatId) => {
-        await ChatAPI.reportUser(chatId, 'general');
-    }, []);
-
-    const clearChatHistory = useCallback(async (chatId) => {
-        setMessageCache(prev => ({ ...prev, [chatId]: [] })); // Clear local
-        // await ChatAPI.clearHistory(chatId); // API call if it existed
-    }, []);
-
-    // Helper for optimistic list updates
-    const updateChatListLocally = (chatId, updates) => updateChatInList(chatId, updates);
-
-    const value = {
-        chats,
-        isLoadingChats,
-        loadChats,
-        
-        currentMessages: (id) => (messageCache[id] || []),
-        isLoadingMessages,
-        loadMessages,
-        sendMessage,
-
-        pinChat,
-        markRead,
-        toggleReadStatus,
-        deleteChat,
-        toggleMute,
-        archiveChat,
-        blockUser,
-        reportUser,
-        clearChatHistory
-    };
+    
+    const currentMessages = useCallback((chatId) => messages[chatId] || [], [messages]);
+    
+    const value = useMemo(() => ({
+        chats, isLoadingChats, messages, isLoadingMessages, currentMessages,
+        loadChats, pinChat, deleteChat, createGroupChat, loadMessages, sendMessage,
+        toggleReadStatus, archiveChat, toggleMute, blockUser, reportUser, clearChatHistory
+    }), [
+        chats, isLoadingChats, messages, isLoadingMessages,
+        loadChats, pinChat, deleteChat, createGroupChat, loadMessages, sendMessage,
+        toggleReadStatus, archiveChat, toggleMute, blockUser, reportUser, clearChatHistory
+    ]);
 
     return (
         <ChatContext.Provider value={value}>

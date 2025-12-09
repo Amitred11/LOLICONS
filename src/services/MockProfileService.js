@@ -406,6 +406,55 @@ export const MOCK_ALL_USERS = {
         connectedAccounts: { google: true, github: false, facebook: true }
     }
   },
+  's1': {
+    id: 's1', 
+    name: 'Dr. Doom', 
+    handle: 'latveria_ruler', 
+    avatarUrl: 'https://i.pravatar.cc/150?u=doom', 
+    bio: 'Looking for challengers.', 
+    status: { type: 'online' },
+    xp: 55000,
+    stats: [{ label: 'Read', value: '7K' }, { label: 'Rank', value: '#2' }, { label: 'Guild', value: 'Latveria' }],
+  },
+  's2': {
+    id: 's2', 
+    name: 'Gwen Stacy', 
+    handle: 'ghost_spider', 
+    avatarUrl: 'https://i.pravatar.cc/150?u=gwen', 
+    bio: 'Band practice later?', 
+    status: { type: 'offline' },
+    xp: 9200,
+    stats: [{ label: 'Read', value: '950' }, { label: 'Rank', value: '#98' }, { label: 'Guild', value: 'The Mary Janes' }],
+  },
+  's3': {
+    id: 's3', 
+    name: 'Miles M.', 
+    handle: 'brooklyn_spidey', 
+    avatarUrl: 'https://i.pravatar.cc/150?u=miles', 
+    bio: 'Doing my own thing.', 
+    status: { type: 'online' },
+    xp: 12500,
+    stats: [{ label: 'Read', value: '1.1K' }, { label: 'Rank', value: '#76' }, { label: 'Guild', value: 'Spider-Verse' }],
+    badges: [
+        { id: 'b5', name: 'Loyal Reader', icon: 'heart-circle-outline', description: 'Awarded for reading every day for a full week.', unlockedDate: 'Jan 28, 2024', rarity: 'Rare', unlocked: true },
+    ],
+    favorites: [],
+    history: [],
+    settings: {
+        notifications: {
+            global: false,
+            preferences: { newChapters: true, recommendations: true, newFollowers: true, comments: true, dms: true, promotions: true },
+            quietHours: { enabled: false, start: '10:00 PM', end: '8:00 AM' }
+        },
+        privacy: {
+            twoFactor: false,
+            activeSessions: 1,
+            blockedUsers: []
+        },
+        storage: { downloads: 2000000000, appData: 150000000, cache: 80000000 },
+        connectedAccounts: { google: true, github: false, facebook: true }
+    }
+  },
 };
 
 const MOCK_USER_DB = MOCK_ALL_USERS['usr_a1b2c3d4e5f6g7h8'];
