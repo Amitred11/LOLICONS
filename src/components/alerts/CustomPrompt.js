@@ -1,7 +1,19 @@
-// components/alerts/CustomPrompt.js
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, Animated, Dimensions, TextInput } from 'react-native';
-import { Colors } from '@config/Colors'; // Ensure your Colors path is correct
+import {
+  View,
+  Text,
+  Modal,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+  Dimensions,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons'; 
+import { Colors } from '@config/Colors';
 
 const { width } = Dimensions.get('window');
 
@@ -10,118 +22,267 @@ const CustomPrompt = ({
   title,
   message,
   defaultValue = '',
-  placeholder = 'Enter text here',
+  placeholder = 'Type something...',
   onConfirm,
   onCancel,
+  icon = 'create-outline',
 }) => {
   const [inputValue, setInputValue] = useState(defaultValue);
-  const scaleValue = useRef(new Animated.Value(0)).current;
-  const opacityValue = useRef(new Animated.Value(0)).current;
+  const [isFocused, setIsFocused] = useState(false);
+
+  // Animation values
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const inputRef = useRef(null);
 
   useEffect(() => {
     if (visible) {
-      setInputValue(defaultValue); // Reset input value when visible
+      setInputValue(defaultValue);
+      
+      setTimeout(() => {
+        if (inputRef.current) inputRef.current.focus();
+      }, 100);
+
       Animated.parallel([
-        Animated.spring(scaleValue, { toValue: 1, friction: 5, useNativeDriver: true }),
-        Animated.timing(opacityValue, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 8,
+          tension: 60,
+          useNativeDriver: true,
+        }),
       ]).start();
     } else {
-      Animated.timing(opacityValue, { toValue: 0, duration: 200, useNativeDriver: true })
-        .start(() => scaleValue.setValue(0));
+      Keyboard.dismiss();
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 0.95,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }
-  }, [visible, defaultValue]);
+  }, [visible]);
+
+  const handleConfirm = () => {
+    onConfirm(inputValue);
+  };
 
   if (!visible) return null;
 
   return (
-    <Modal transparent visible={visible} animationType="none">
-      <View style={styles.overlay}>
-        <Animated.View style={[styles.backdrop, { opacity: opacityValue }]} />
+    <Modal transparent visible={visible} animationType="none" onRequestClose={onCancel}>
+      <View style={styles.fullScreenContainer}>
         
-        <Animated.View style={[styles.promptContainer, { transform: [{ scale: scaleValue }] }]}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.message}>{message}</Text>
-
-          <TextInput
-            style={styles.input}
-            placeholder={placeholder}
-            placeholderTextColor="#888"
-            value={inputValue}
-            onChangeText={setInputValue}
-            autoFocus={true}
-            returnKeyType="done"
-            onSubmitEditing={() => onConfirm(inputValue)}
-          />
-
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity 
-              style={[styles.button, styles.cancelButton]} 
-              onPress={onCancel}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.button, styles.confirmButton, { backgroundColor: Colors.primary || '#6200EE' }]} 
-              onPress={() => onConfirm(inputValue)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.buttonText}>Create</Text>
-            </TouchableOpacity>
-          </View>
+        {/* 1. BACKDROP: Outside KAV so it stays full screen & stationary */}
+        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+            <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onCancel} activeOpacity={1} />
         </Animated.View>
+
+        {/* 2. KEYBOARD AVOIDANCE: Only wraps the actual card content */}
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+          style={styles.keyboardView}
+          pointerEvents="box-none" // Allows touches to pass through empty space to the backdrop
+        >
+          <Animated.View
+            style={[
+              styles.container,
+              {
+                opacity: fadeAnim,
+                transform: [{ scale: scaleAnim }],
+              },
+            ]}
+          >
+            {/* Header Icon */}
+            <View style={styles.iconContainer}>
+              <Ionicons name={icon} size={28} color={Colors.primary} />
+            </View>
+
+            {/* Text Content */}
+            <View style={styles.textContainer}>
+              <Text style={styles.title}>{title}</Text>
+              {message && <Text style={styles.message}>{message}</Text>}
+            </View>
+
+            {/* Input Area */}
+            <View style={[
+              styles.inputWrapper, 
+              isFocused && { borderColor: Colors.primary, backgroundColor: 'rgba(255,255,255,0.08)' }
+            ]}>
+              <TextInput
+                ref={inputRef}
+                style={styles.input}
+                placeholder={placeholder}
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                value={inputValue}
+                onChangeText={setInputValue}
+                returnKeyType="done"
+                onSubmitEditing={handleConfirm}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                selectionColor={Colors.primary}
+              />
+              {inputValue.length > 0 && (
+                <TouchableOpacity onPress={() => setInputValue('')} style={styles.clearBtn}>
+                  <Ionicons name="close-circle" size={16} color="rgba(255,255,255,0.3)" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={onCancel}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.confirmBtn, { backgroundColor: Colors.primary }]}
+                onPress={handleConfirm}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.confirmText}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.6)' },
-  promptContainer: {
+  fullScreenContainer: {
+    flex: 1,
+    // Ensures the base container is always full screen
+    justifyContent: 'center', 
+    bottom: 70,
+    alignItems: 'center',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    zIndex: 1, // Behind the modal
+  },
+  keyboardView: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2, // Above the backdrop
+  },
+  container: {
     width: width * 0.85,
     backgroundColor: '#1E1E1E',
     borderRadius: 24,
     padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    shadowColor: '#000',
+    shadowOpacity: 0.5,
+    shadowRadius: 25,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 20,
     alignItems: 'center',
+  },
+  iconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  textContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFF',
+    textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  message: {
+    fontSize: 14,
+    color: '#A0A0A0',
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 10,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    elevation: 10,
+    marginBottom: 24,
+    paddingHorizontal: 16,
+    height: 52,
   },
-  title: { fontSize: 20, fontWeight: '700', color: '#FFF', textAlign: 'center', marginBottom: 8 },
-  message: { fontSize: 15, color: '#AAA', textAlign: 'center', marginBottom: 20, lineHeight: 22 },
   input: {
-    width: '100%',
-    backgroundColor: '#333',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
+    flex: 1,
     color: '#FFF',
     fontSize: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    height: '100%',
   },
-  buttonContainer: { flexDirection: 'row', width: '100%', justifyContent: 'space-between' },
-  button: {
+  clearBtn: {
+    padding: 4,
+  },
+  actions: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 12,
+  },
+  cancelBtn: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 16,
+    height: 48,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  cancelButton: {
-    marginRight: 10,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+  cancelText: {
+    color: '#CCC',
+    fontSize: 15,
+    fontWeight: '600',
   },
-  confirmButton: {
-    marginLeft: 10,
+  confirmBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
   },
-  buttonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
-  cancelButtonText: { color: '#CCC', fontSize: 16, fontWeight: '600' },
+  confirmText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
 });
 
 export default CustomPrompt;

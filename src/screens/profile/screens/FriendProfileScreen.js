@@ -16,7 +16,7 @@ import { useProfile } from '@context/main/ProfileContext';
 import { useFriend } from '@context/hub/FriendContext';
 
 const { width } = Dimensions.get('window');
-
+console.warn("Rendering FriendProfileScreen");
 const RarityColors = {
   Common: ['#A0A0A0', '#505050'],
   Uncommon: ['#4CD964', '#206030'],
@@ -172,11 +172,7 @@ const FriendProfileScreen = () => {
   };
 
   const handleBadgePress = (badge) => {
-    showToast(
-      badge.name,
-      `${badge.description}\n\nRarity: ${badge.rarity}`,
-      'info'
-    );
+    showToast( `${badge.name}\n${badge.description}\nRarity: ${badge.rarity}`, 'info');
   };
 
   // --- RENDER LOGIC ---

@@ -1,22 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, 
-  KeyboardAvoidingView, Platform, Alert, Modal, Image, ActivityIndicator,
-  Animated, Keyboard
+  KeyboardAvoidingView, Platform, Alert, Animated, Keyboard, ActivityIndicator
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient'; 
 import * as ImagePicker from 'expo-image-picker'; 
 import * as DocumentPicker from 'expo-document-picker'; 
 
 import { Colors } from '@config/Colors';
 import ChatBubble from './components/ChatBubble';
+import CallOverlay from './components/CallOverlay'; // <--- Import here
 import { useChat } from '@context/hub/ChatContext';
 import { useAlert } from '@context/other/AlertContext';
 
-// ... EmojiPicker Component remains the same ...
 const EmojiPicker = ({ onSelect }) => {
   const emojis = ['😀','😂','😍','🔥','👍','🎉','❤️','😭','😡','👻','👽','🤖','💩','💀','👀','🧠','👋','🙏'];
   return (
@@ -46,10 +44,8 @@ const ChatDetailScreen = () => {
 
   const { user } = route.params || { user: { id: '0', name: 'Chat', type: 'direct' }};
 
-  // Consuming Context
   const { loadMessages, currentMessages, isLoadingMessages, sendMessage } = useChat();
 
-  // Local State
   const [msg, setMsg] = useState('');
   const [showAttachments, setShowAttachments] = useState(false); 
   const [showEmojis, setShowEmojis] = useState(false); 
@@ -58,14 +54,10 @@ const ChatDetailScreen = () => {
   const [isCalling, setIsCalling] = useState(false);
   const [callType, setCallType] = useState('voice'); 
 
-  // Animations
   const attachmentHeight = useRef(new Animated.Value(0)).current;
 
-  // --- 1. Load Data ---
   useEffect(() => {
-    // Load messages from Context for this specific user
     loadMessages(user.id);
-
     const keyboardSub = Keyboard.addListener('keyboardDidShow', () => {
         setShowAttachments(false);
         setShowEmojis(false);
@@ -81,25 +73,17 @@ const ChatDetailScreen = () => {
     }).start();
   }, [showAttachments]);
 
-  // --- 2. Message Handlers ---
-
   const handleSend = async (content = msg, type = 'text', fileName = null) => {
     if (!content) return;
-
-    // Reset UI
     if(type === 'text') setMsg('');
     setShowAttachments(false);
     setShowEmojis(false);
-
     try {
-      // Use Context to send
       await sendMessage(user.id, content, type, fileName);
     } catch (error) {
       showToast("Message failed to send", 'error');
     }
   };
-
-  // --- 3. Attachment Handlers ---
 
   const handlePickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -123,7 +107,6 @@ const ChatDetailScreen = () => {
         type: '*/*',
         copyToCacheDirectory: true
       });
-
       if (result.assets && result.assets.length > 0) {
         const file = result.assets[0];
         handleSend(file.uri, 'document', file.name); 
@@ -132,8 +115,6 @@ const ChatDetailScreen = () => {
       console.log("Doc Picker Error", err);
     }
   };
-
-  // --- 4. UI Actions ---
 
   const toggleAttachments = () => {
       Keyboard.dismiss();
@@ -151,35 +132,64 @@ const ChatDetailScreen = () => {
       setMsg(prev => prev + emoji);
   };
 
-  const CallOverlay = () => (
-    <Modal visible={isCalling} animationType="slide" transparent={false}>
-      <LinearGradient colors={['#1a2a6c', '#b21f1f', '#fdbb2d']} style={styles.callContainer}>
-        <View style={[styles.callHeader, { marginTop: insets.top + 40 }]}>
-            <Image source={{ uri: user.avatar }} style={styles.callAvatar} />
-            <Text style={styles.callName}>{user.name}</Text>
-            <Text style={styles.callStatus}>{callType === 'video' ? 'Video Calling...' : 'Calling...'}</Text>
-        </View>
-        <View style={[styles.callActions, { marginBottom: insets.bottom + 40 }]}>
-            <TouchableOpacity 
-                style={[styles.callBtn, { backgroundColor: '#FF453A', width: 70, height: 70 }]}
-                onPress={() => setIsCalling(false)}
-            >
-                <Ionicons name="call" size={32} color="#FFF" />
-            </TouchableOpacity>
-        </View>
-      </LinearGradient>
-    </Modal>
-  );
+  const startCall = (type) => {
+      setCallType(type);
+      setIsCalling(true);
+  };
 
-  // Get messages from Context getter
   const messages = currentMessages(user.id);
+  
+  const renderContent = () => {
+    if (isLoadingMessages) {
+        return (
+            <View style={styles.emptyListContainer}>
+                <ActivityIndicator color={Colors.primary} size="large" />
+            </View>
+        );
+    }
+
+    if (messages.length === 0) {
+        return (
+            <View style={styles.emptyListContainer}>
+                <Ionicons name="chatbubbles-outline" size={60} color={Colors.textSecondary} style={{ opacity: 0.5 }} />
+                <Text style={styles.emptyText}>No messages yet.</Text>
+                <Text style={styles.emptySubText}>
+                    {user.type === 'group' ? `Be the first to chat in ${user.name}!` : 'Start the conversation!'}
+                </Text>
+            </View>
+        );
+    }
+
+    return (
+        <FlatList
+            ref={flatListRef}
+            data={messages}
+            inverted
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.listContentContainer}
+            renderItem={({ item }) => (
+                <ChatBubble 
+                    message={item} 
+                    isMe={item.sender === 'me'} 
+                    showSender={user.type === 'group'}
+                />
+            )}
+        />
+    );
+  };
 
   return (
     <View style={styles.container}>
-      <CallOverlay />
+      {/* Updated Call Overlay Component */}
+      <CallOverlay 
+        visible={isCalling} 
+        user={user} 
+        type={callType} 
+        onClose={() => setIsCalling(false)} 
+      />
+
       <View style={styles.bgGlow} />
 
-      {/* Header */}
       <View style={[styles.header, { marginTop: insets.top + 15 }]}>
         <View style={styles.headerLeft}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.glassBtn}>
@@ -191,54 +201,32 @@ const ChatDetailScreen = () => {
                 <Text style={styles.headerSub}>{isLoadingMessages ? 'Connecting...' : 'Online'}</Text>
             </TouchableOpacity>
         </View>
-
         <View style={styles.headerRight}>
-            <TouchableOpacity onPress={() => { setCallType('voice'); setIsCalling(true); }} style={[styles.glassBtn, styles.actionBtn]}>
+            <TouchableOpacity onPress={() => startCall('voice')} style={[styles.glassBtn, styles.actionBtn]}>
                 <Ionicons name="call" size={20} color={Colors.text} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => { setCallType('video'); setIsCalling(true); }} style={[styles.glassBtn, styles.actionBtn, { marginLeft: 10 }]}>
+            <TouchableOpacity onPress={() => startCall('video')} style={[styles.glassBtn, styles.actionBtn, { marginLeft: 10 }]}>
                 <Ionicons name="videocam" size={20} color={Colors.secondary} />
             </TouchableOpacity>
         </View>
       </View>
 
-      {/* Messages */}
-      {isLoadingMessages && messages.length === 0 ? (
-          <View style={{flex:1, justifyContent:'center'}}><ActivityIndicator color={Colors.primary} /></View>
-      ) : (
-        <FlatList
-            ref={flatListRef}
-            data={messages}
-            inverted
-            keyExtractor={item => item.id}
-            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20, paddingTop: 20 }}
-            renderItem={({ item }) => (
-                <ChatBubble 
-                    message={item} 
-                    isMe={item.sender === 'me'} 
-                    showSender={user.type === 'group'}
-                />
-            )}
-        />
-      )}
+      <View style={{ flex: 1 }}>
+          {renderContent()}
+      </View>
 
-      {/* Footer Area: Input + Menus */}
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <View style={{ marginBottom: insets.bottom }}>
-            
-            {/* Input Bar */}
             <View style={styles.inputWrapper}>
                 <View style={styles.glassInputContainer}>
-                    
                     <TouchableOpacity onPress={toggleAttachments} style={styles.attachBtn}>
                         <Animated.View style={{ transform: [{ rotate: showAttachments ? '45deg' : '0deg' }] }}>
                              <Ionicons name="add" size={28} color={Colors.text} />
                         </Animated.View>
                     </TouchableOpacity>
-
                     <TextInput 
                         style={styles.input}
                         placeholder="Message..."
@@ -248,7 +236,6 @@ const ChatDetailScreen = () => {
                         multiline
                         onFocus={() => { setShowAttachments(false); setShowEmojis(false); }}
                     />
-                    
                     {msg.length === 0 ? (
                         <View style={{ flexDirection: 'row' }}>
                             <TouchableOpacity onPress={handleCamera} style={styles.iconBtn}>
@@ -265,9 +252,7 @@ const ChatDetailScreen = () => {
                     )}
                 </View>
             </View>
-            
             {showEmojis && <EmojiPicker onSelect={addEmoji} />}
-
             <Animated.View style={[styles.attachmentMenu, { height: attachmentHeight }]}>
                 <View style={styles.attachmentGrid}>
                     <AttachmentItem icon="image" color="#FF2D55" label="Gallery" onPress={handlePickImage} />
@@ -276,7 +261,6 @@ const ChatDetailScreen = () => {
                     <AttachmentItem icon="person" color="#007AFF" label="Contact" onPress={() => Alert.alert("Contact", "Send contact feature")} />
                 </View>
             </Animated.View>
-
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -303,6 +287,12 @@ const styles = StyleSheet.create({
   headerSub: { color: Colors.secondary, fontSize: 11, fontWeight: '500', marginTop: 2 },
   glassBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   actionBtn: { backgroundColor: 'rgba(255,255,255,0.05)' },
+  listContentContainer: { flexGrow: 1, justifyContent: 'flex-end', paddingHorizontal: 20, paddingBottom: 20, paddingTop: 20 },
+  emptyListContainer: {
+    flex: 1, 
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
   inputWrapper: { paddingHorizontal: 15, paddingVertical: 10 },
   glassInputContainer: { 
       flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, 
@@ -320,13 +310,20 @@ const styles = StyleSheet.create({
   attachLabel: { color: Colors.textSecondary, fontSize: 12 },
   emojiContainer: { height: 60, backgroundColor: '#111', justifyContent: 'center' },
   emojiBtn: { padding: 10 },
-  callContainer: { flex: 1, alignItems: 'center', justifyContent: 'space-between' },
-  callHeader: { alignItems: 'center' },
-  callAvatar: { width: 120, height: 120, borderRadius: 60, marginBottom: 20, borderWidth: 3, borderColor: '#FFF' },
-  callName: { fontSize: 30, color: '#FFF', fontWeight: 'bold' },
-  callStatus: { fontSize: 16, color: 'rgba(255,255,255,0.7)', marginTop: 5 },
-  callActions: { flexDirection: 'row', alignItems: 'center', gap: 30 },
-  callBtn: { width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' }
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginTop: 20,
+  },
+  emptySubText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginTop: 8,
+    opacity: 0.7,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
 });
 
 export default ChatDetailScreen;

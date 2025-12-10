@@ -14,7 +14,27 @@ export const ChatProvider = ({ children }) => {
     const [isLoadingChats, setIsLoadingChats] = useState(true);
     const [messages, setMessages] = useState({});
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
 
+    const searchDirectory = useCallback(async (query) => {
+        if (!query) {
+           setSearchResults([]);
+           return;
+        }
+        setIsSearching(true);
+        try {
+           const response = await FriendAPI.searchUsers(query);
+           if (response.success) {
+            setSearchResults(response.data);
+           }
+        } catch (e) {
+            console.error("Search failed", e);
+        } finally {
+            setIsSearching(false);
+        }
+    }, []);
+    
     const updateChatInList = useCallback((chatId, updates) => {
         setChats(prev => prev.map(c => c.id === chatId ? { ...c, ...updates } : c));
     }, []);
@@ -110,10 +130,11 @@ export const ChatProvider = ({ children }) => {
     }, [messages, updateChatInList]);
 
     const toggleMute = useCallback(async (chatId, currentState) => {
-        updateChatInList(chatId, { isMuted: !currentState }); // Optimistic update
+        const newState = !currentState;
+        updateChatInList(chatId, { isMuted: newState }); // Optimistic update
         try {
-            await ChatAPI.toggleMute(chatId, !currentState);
-            return !currentState;
+            await ChatAPI.toggleMute(chatId, newState);
+            return newState;
         } catch (e) {
             updateChatInList(chatId, { isMuted: currentState }); // Revert
             throw e;
@@ -129,17 +150,92 @@ export const ChatProvider = ({ children }) => {
     const reportUser = useCallback(async (chatId, reason) => {
         await ChatAPI.reportUser(chatId, reason);
     }, []);
+
+    // --- NEW FUNCTIONS ---
+    const leaveGroup = useCallback(async (chatId) => {
+        const prevChats = chats;
+        setChats(prev => prev.filter(c => c.id !== chatId)); // Optimistic update
+        try {
+            await ChatAPI.leaveGroup(chatId);
+        } catch (e) {
+            setChats(prevChats); // Revert on failure
+            throw e;
+        }
+    }, [chats]);
+
+    const addMembersToGroup = useCallback(async (chatId, memberIds) => {
+        try {
+            const response = await ChatAPI.addMembersToGroup(chatId, memberIds);
+            if (response.success) {
+                // Update the chat in the main list with new members
+                updateChatInList(chatId, { members: response.data });
+                return response.data;
+            } else {
+                throw new Error('Failed to add members');
+            }
+        } catch (e) {
+            console.error("ChatContext: Add Members Error", e);
+            throw e;
+        }
+    }, [updateChatInList]);
+
+    const setDisappearingMessages = useCallback(async (chatId, newState) => {
+        const currentChat = chats.find(c => c.id === chatId);
+        const originalState = currentChat.disappearingMessages.enabled;
+        
+        // Optimistic update
+        updateChatInList(chatId, { disappearingMessages: { ...currentChat.disappearingMessages, enabled: newState }});
+
+        try {
+            await ChatAPI.updateChatSettings(chatId, { disappearingMessages: newState });
+            return newState;
+        } catch (e) {
+            updateChatInList(chatId, { disappearingMessages: { ...currentChat.disappearingMessages, enabled: originalState }}); // Revert
+            throw e;
+        }
+    }, [chats, updateChatInList]);
     
     const currentMessages = useCallback((chatId) => messages[chatId] || [], [messages]);
+
+    const updateGroupInfo = useCallback(async (chatId, updates) => {
+        try {
+            const response = await ChatAPI.updateGroupProfile(chatId, updates);
+            if (response.success) {
+                updateChatInList(chatId, updates);
+                return response.data;
+            }
+            throw new Error('Failed to update group info');
+        } catch (e) { throw e; }
+    }, [updateChatInList]);
+
+    const kickMember = useCallback(async (chatId, userId) => {
+        try {
+            const response = await ChatAPI.removeMemberFromGroup(chatId, userId);
+            if(response.success) {
+                // Update local chat list member count/array
+                updateChatInList(chatId, { members: response.data });
+                return true;
+            }
+            return false;
+        } catch(e) { throw e; }
+    }, [updateChatInList]);
+
+    const setNickname = useCallback(async (chatId, userId, nickname) => {
+        // Optimistic update would require deep state management of the member list
+        // For now we rely on the API call
+        await ChatAPI.setMemberNickname(chatId, userId, nickname);
+    }, []);
     
     const value = useMemo(() => ({
-        chats, isLoadingChats, messages, isLoadingMessages, currentMessages,
+        chats, isLoadingChats, messages, isLoadingMessages, searchResults, isSearching, currentMessages,
         loadChats, pinChat, deleteChat, createGroupChat, loadMessages, sendMessage,
-        toggleReadStatus, archiveChat, toggleMute, blockUser, reportUser, clearChatHistory
+        toggleReadStatus, archiveChat, toggleMute, blockUser, reportUser, clearChatHistory, searchDirectory,
+        leaveGroup, setDisappearingMessages,addMembersToGroup, updateGroupInfo, kickMember, setNickname // <-- Expose new functions
     }), [
-        chats, isLoadingChats, messages, isLoadingMessages,
+        chats, isLoadingChats, messages, isLoadingMessages, searchResults, isSearching, 
         loadChats, pinChat, deleteChat, createGroupChat, loadMessages, sendMessage,
-        toggleReadStatus, archiveChat, toggleMute, blockUser, reportUser, clearChatHistory
+        toggleReadStatus, archiveChat, toggleMute, blockUser, reportUser, clearChatHistory,
+        leaveGroup, setDisappearingMessages,addMembersToGroup, updateGroupInfo, kickMember, setNickname, searchDirectory
     ]);
 
     return (

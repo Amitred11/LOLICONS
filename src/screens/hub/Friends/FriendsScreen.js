@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
-  Modal, Alert, StatusBar, ActivityIndicator, LayoutAnimation,
+  Modal, StatusBar, ActivityIndicator, LayoutAnimation,
   ScrollView, Pressable
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,7 +12,7 @@ import { Colors } from '@config/Colors';
 // Components & Context
 import FriendItem from './components/FriendItem';
 import { useFriend } from '@context/hub/FriendContext';
-import { useAlert } from '@context/other/AlertContext'; // Ensure this import is correct
+import { useAlert } from '@context/other/AlertContext'; 
 import { useProfile } from '@context/main/ProfileContext';
 import { useChat } from '@context/hub/ChatContext';
 
@@ -21,10 +21,22 @@ const TABS = ['My Friends', 'Suggestions', 'Blocked'];
 const FriendsScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { showAlert, showToast, showAlertPrompt } = useAlert(); // Add showAlertPrompt
+  const { showAlert, showToast, showAlertPrompt } = useAlert(); 
 
   // Contexts
-  const { friends, suggestions, isLoading, loadFriends, loadSuggestions, addFriend, removeFriend } = useFriend();
+  const { 
+    friends = [],        // Default to empty array
+    suggestions = [],    // Default to empty array
+    isLoading, 
+    loadFriends, 
+    loadSuggestions, 
+    addFriend, 
+    removeFriend,
+    searchDirectory,
+    searchResults = [],  // Default to empty array to prevent filter error
+    isSearching
+  } = useFriend();
+  
   const { profile, blockUser, unblockUser } = useProfile();
   const { createGroupChat } = useChat();
 
@@ -40,29 +52,50 @@ const FriendsScreen = () => {
   const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
-    loadFriends();
-    loadSuggestions();
+    // Ensure functions exist before calling
+    if (loadFriends) loadFriends();
+    if (loadSuggestions) loadSuggestions();
   }, [loadFriends, loadSuggestions]);
+
+  // --- Global Search Effect ---
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        if (search.length > 0 && searchDirectory) {
+            searchDirectory(search);
+        }
+    }, 500); 
+
+    return () => clearTimeout(timer);
+  }, [search, searchDirectory]);
 
   // --- Logic Helpers ---
   const blockedUsers = useMemo(() => profile?.settings?.privacy?.blockedUsers || [], [profile]);
 
-  const filteredData = useMemo(() => {
-    let sourceData = [];
-    if (activeTab === 'My Friends') sourceData = friends;
-    else if (activeTab === 'Suggestions') sourceData = suggestions;
-    else sourceData = blockedUsers;
-    if (!search) return sourceData;
-    return sourceData.filter(item =>
-      item.name.toLowerCase().includes(search.toLowerCase()) ||
-      (item.handle && item.handle.toLowerCase().includes(search.toLowerCase()))
-    );
-  }, [search, friends, suggestions, activeTab, blockedUsers]);
+  // Modified Data Source Logic with Safety Checks
+  const dataToDisplay = useMemo(() => {
+    // 1. If searching, return global search results (excluding self)
+    if (search.length > 0) {
+        const results = searchResults || []; 
+        return results.filter(u => u.id !== profile?.id);
+    }
+    
+    // 2. Otherwise, return the specific tab data
+    if (activeTab === 'My Friends') return friends || [];
+    if (activeTab === 'Suggestions') return suggestions || [];
+    return blockedUsers || [];
+  }, [search, searchResults, friends, suggestions, activeTab, blockedUsers, profile]);
 
+  // Helper to determine the relationship status
   const getItemStatus = (item) => {
+    if (!item) return 'none';
     if (blockedUsers.some(bu => bu.id === item.id)) return 'blocked';
-    if (friends.some(friend => friend.id === item.id)) return 'friend';
+    
+    // Check against the loaded friends list
+    const currentFriends = friends || [];
+    if (currentFriends.some(friend => friend.id === item.id)) return 'friend';
+    
     if (pendingRequests.has(item.id)) return 'pending';
+    
     return 'none';
   };
 
@@ -163,11 +196,11 @@ const FriendsScreen = () => {
   };
 
   const handleCreateGroup = useCallback(() => {
-    showAlertPrompt({ // Use showAlertPrompt instead of Alert.prompt
+    showAlertPrompt({
       title: 'New Group',
       message: 'Enter a name for your group chat.',
-      placeholder: 'Group name', // Optional: provide a placeholder
-      onConfirm: async (groupName) => { // This callback receives the entered text
+      placeholder: 'Group name',
+      onConfirm: async (groupName) => {
         if (!groupName || groupName.trim().length < 3) {
           showToast('Group name must be at least 3 characters', 'error');
           return;
@@ -176,9 +209,9 @@ const FriendsScreen = () => {
         try {
           const memberIds = [profile.id, ...Array.from(selectedFriends)];
           const response = await createGroupChat(groupName, memberIds);
-          if (response.success) {
+          if (response.success && response.data) {
             showToast(`Group "${groupName}" created!`, 'success');
-            navigation.navigate('Chat');
+            navigation.navigate('ChatDetail', { user: response.data });
             cancelSelectionMode();
           } else {
             throw new Error(response.message || 'Failed to create group');
@@ -190,11 +223,10 @@ const FriendsScreen = () => {
         }
       },
       onCancel: () => {
-        // Optional: handle cancellation
         showToast('Group creation cancelled', 'info');
       },
     });
-  }, [selectedFriends, profile, createGroupChat, navigation, showToast, showAlertPrompt, cancelSelectionMode]); // Add showAlertPrompt to dependencies
+  }, [selectedFriends, profile, createGroupChat, navigation, showToast, showAlertPrompt, cancelSelectionMode]);
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
@@ -214,15 +246,37 @@ const FriendsScreen = () => {
         <>
             <View style={styles.searchBar}>
                 <Ionicons name="search" size={18} color={Colors.textSecondary} />
-                <TextInput placeholder="Search..." placeholderTextColor={Colors.textSecondary} style={styles.searchInput} value={search} onChangeText={setSearch} />
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabContainer}>
-                {TABS.map(tab => (
-                    <TouchableOpacity key={tab} onPress={() => { setActiveTab(tab); setSearch(''); }} style={[styles.tabChip, activeTab === tab && styles.tabChipActive]}>
-                        <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+                <TextInput 
+                    placeholder="Search all users..." 
+                    placeholderTextColor={Colors.textSecondary} 
+                    style={styles.searchInput} 
+                    value={search} 
+                    onChangeText={setSearch}
+                    returnKeyType="search"
+                />
+                {search.length > 0 && isSearching && <ActivityIndicator size="small" color={Colors.primary} />}
+                {search.length > 0 && !isSearching && (
+                    <TouchableOpacity onPress={() => setSearch('')}>
+                        <Ionicons name="close-circle" size={16} color={Colors.textSecondary} />
                     </TouchableOpacity>
-                ))}
-            </ScrollView>
+                )}
+            </View>
+            
+            {search.length === 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabContainer}>
+                    {TABS.map(tab => (
+                        <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={[styles.tabChip, activeTab === tab && styles.tabChipActive]}>
+                            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            )}
+            
+            {search.length > 0 && (
+                <Text style={styles.searchResultHeader}>
+                    Global Search Results
+                </Text>
+            )}
         </>
       )}
       <Modal visible={showMenu} transparent animationType="fade" onRequestClose={() => setShowMenu(false)}>
@@ -269,7 +323,7 @@ const FriendsScreen = () => {
       <StatusBar barStyle="light-content" />
       <View style={styles.bgGlow} />
       <FlatList
-          data={filteredData}
+          data={dataToDisplay}
           keyExtractor={item => item.id}
           contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
           ListHeaderComponent={renderHeader}
@@ -277,25 +331,27 @@ const FriendsScreen = () => {
             <FriendItem
                 item={item} index={index}
                 status={getItemStatus(item)}
-                mode={isSelectionMode && activeTab === 'My Friends' ? 'selection' : 'default'}
+                mode={isSelectionMode && activeTab === 'My Friends' && search.length === 0 ? 'selection' : 'default'}
                 isSelected={selectedFriends.has(item.id)}
                 onPress={() => handleItemPress(item)}
-                onAction={(type) => handleAction(type, item)} // **FIX**: Correctly passing 'type'
+                onAction={(type) => handleAction(type, item)}
                 onMoreOptions={() => handleMoreOptions(item)}
             />
           )}
           ListEmptyComponent={
              <View style={styles.emptyContainer}>
-                {isLoading ? <ActivityIndicator color={Colors.primary} size="large" />
+                {(isLoading || isSearching) ? <ActivityIndicator color={Colors.primary} size="large" />
                  : <>
-                      <Ionicons name="people-outline" size={40} color={Colors.textSecondary} />
-                      <Text style={styles.emptyText}>No users found in "{activeTab}"</Text>
+                      <Ionicons name={search.length > 0 ? "search-outline" : "people-outline"} size={40} color={Colors.textSecondary} />
+                      <Text style={styles.emptyText}>
+                          {search.length > 0 ? `No users found for "${search}"` : `No users found in "${activeTab}"`}
+                      </Text>
                    </>
                 }
              </View>
           }
       />
-      {isSelectionMode && selectedFriends.size > 0 && (
+      {isSelectionMode && selectedFriends.size > 0 && search.length === 0 && (
         <TouchableOpacity style={styles.fab} onPress={handleCreateGroup} disabled={isCreating}>
             {isCreating ? <ActivityIndicator color="#FFF" /> : <Ionicons name="arrow-forward" size={24} color="#FFF" />}
         </TouchableOpacity>
@@ -316,6 +372,7 @@ const styles = StyleSheet.create({
   activeIconBtn: { backgroundColor: 'rgba(255, 69, 58, 0.15)', borderColor: 'rgba(255, 69, 58, 0.3)' },
   searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1C1C1E', height: 46, borderRadius: 16, paddingHorizontal: 15, marginBottom: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   searchInput: { flex: 1, marginLeft: 10, color: Colors.text },
+  searchResultHeader: { color: Colors.primary, fontSize: 13, fontWeight: '700', marginBottom: 10, paddingLeft: 5 },
   tabContainer: { gap: 10, paddingBottom: 5 },
   tabChip: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   tabChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
