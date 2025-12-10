@@ -25,7 +25,8 @@
     },
     "backgroundColor": "#0D0D0D",
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-audio"
     ]
   }
 }

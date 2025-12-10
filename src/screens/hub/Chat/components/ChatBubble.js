@@ -1,112 +1,163 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@config/Colors';
+import { Colors } from '@config/Colors'; // Assuming you have this, or use hardcoded colors
 
-const ChatBubble = ({ message, isMe, showSender, onLongPress }) => {
+const { width } = Dimensions.get('window');
+
+const ChatBubble = ({ message, isMe, showSender, onCallAgain }) => {
   
-  const renderContent = () => {
-    // 1. IMAGE TYPE
-    if (message.type === 'image') {
-      return (
-        <View style={styles.imageContainer}>
-          <Image 
-            source={{ uri: message.imageUri }} 
-            style={[styles.mediaImage, message.pending && { opacity: 0.5 }]} 
-            resizeMode="cover"
-          />
-          {message.pending && <View style={styles.pendingOverlay}><Text style={styles.pendingText}>Sending...</Text></View>}
-        </View>
-      );
-    } 
-    
-    // 2. DOCUMENT TYPE
-    else if (message.type === 'document') {
-        return (
-            <TouchableOpacity 
-                style={styles.docContainer} 
-                onPress={() => Alert.alert("Download", "Opening file viewer...")}
-            >
-                <View style={styles.docIcon}>
-                    <Ionicons name="document-text" size={24} color={isMe ? Colors.primary : '#FFF'} />
-                </View>
-                <View style={{flex: 1}}>
-                    <Text style={[styles.docText, isMe ? {color:'#FFF'} : {color: Colors.text}]} numberOfLines={1}>
-                        {message.text || 'Document'}
-                    </Text>
-                    <Text style={[styles.docSize, isMe ? {color:'rgba(255,255,255,0.7)'} : {color:Colors.textSecondary}]}>
-                        PDF • 2.4 MB
-                    </Text>
-                </View>
-            </TouchableOpacity>
-        );
+  // --- RENDER: Call Log (New Logic) ---
+  if (message.type === 'call_log') {
+    let callData = {};
+    try {
+        callData = JSON.parse(message.text);
+    } catch (e) {
+        // Fallback if message.text isn't JSON (legacy support)
+        callData = { status: 'ended', callType: 'voice', duration: 0 };
     }
 
-    // 3. TEXT TYPE
-    return <Text style={isMe ? styles.textMe : styles.textThem}>{message.text}</Text>;
-  };
+    const { callType, duration, status } = callData;
+    
+    // Config based on call data
+    const isVideo = callType === 'video';
+    const isGroup = callType === 'group';
+    const iconName = isVideo ? 'videocam' : isGroup ? 'people' : 'call';
+    const statusText = status === 'missed' ? 'Call cancelled' : 'Call ended';
+    const statusColor = status === 'missed' ? '#FF453A' : Colors.textSecondary;
+    
+    // Format duration
+    const mins = Math.floor(duration / 60);
+    const secs = duration % 60;
+    const durationText = status === 'missed' ? '' : `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 
-  return (
-    <TouchableOpacity 
-        activeOpacity={0.8}
-        onLongPress={onLongPress} 
-        style={[styles.wrapper, isMe ? styles.wrapperMe : styles.wrapperThem]}
-    >
-      {!isMe && showSender && (
-        <View style={styles.avatarContainer}>
-           <Image source={{ uri: 'https://i.pravatar.cc/100' }} style={styles.avatar} /> 
+    return (
+      <View style={[styles.container, isMe ? styles.rightContainer : styles.leftContainer]}>
+        <View style={[styles.callLogCard, { borderColor: isMe ? 'rgba(52, 199, 89, 0.3)' : 'rgba(255,255,255,0.1)' }]}>
+            
+            {/* Header: Icon + Status */}
+            <View style={styles.callLogHeader}>
+                <View style={[styles.iconCircle, { backgroundColor: status === 'missed' ? 'rgba(255, 69, 58, 0.2)' : 'rgba(255,255,255,0.1)' }]}>
+                    <Ionicons name={iconName} size={20} color={status === 'missed' ? '#FF453A' : Colors.text} />
+                </View>
+                <View style={{marginLeft: 10}}>
+                    <Text style={styles.callTitle}>
+                        {isVideo ? 'Video Call' : isGroup ? 'Group Call' : 'Voice Call'}
+                    </Text>
+                    <Text style={[styles.callSubtitle, { color: statusColor }]}>
+                        {statusText} {duration > 0 && `• ${durationText}`}
+                    </Text>
+                </View>
+            </View>
+
+            {/* Action Button */}
+            <TouchableOpacity 
+                style={styles.callAgainBtn} 
+                onPress={() => onCallAgain && onCallAgain(callType)}
+            >
+                <Text style={styles.callAgainText}>Call Again</Text>
+            </TouchableOpacity>
         </View>
-      )}
-      
-      <View style={{ maxWidth: '75%' }}>
-        {isMe ? (
-          <LinearGradient
-            colors={[Colors.primary, '#2E86DE']}
-            style={[styles.bubble, styles.bubbleMe, (message.type === 'image' || message.type === 'document') && styles.bubbleMedia]}
-          >
-            {renderContent()}
-          </LinearGradient>
-        ) : (
-          <View style={[styles.bubble, styles.bubbleThem, (message.type === 'image' || message.type === 'document') && styles.bubbleMedia]}>
-             {renderContent()}
-          </View>
-        )}
-        
-        <Text style={[styles.time, isMe ? { textAlign: 'right' } : { textAlign: 'left' }]}>
-            {message.time} {isMe && message.pending && '🕒'}
-        </Text>
+        <Text style={[styles.timeText, isMe ? styles.timeRight : styles.timeLeft]}>{message.time}</Text>
       </View>
-    </TouchableOpacity>
+    );
+  }
+
+  // --- RENDER: Standard Text/Image/Document (Existing Logic) ---
+  return (
+    <View style={[styles.container, isMe ? styles.rightContainer : styles.leftContainer]}>
+      {showSender && !isMe && <Text style={styles.senderName}>{message.senderName || 'User'}</Text>}
+      
+      <View style={[
+        styles.bubble, 
+        isMe ? styles.bubbleRight : styles.bubbleLeft,
+        message.type === 'image' && styles.bubbleImage
+      ]}>
+        {message.type === 'text' && (
+          <Text style={isMe ? styles.textRight : styles.textLeft}>{message.text}</Text>
+        )}
+
+        {message.type === 'image' && (
+          <Image source={{ uri: message.imageUri }} style={styles.image} resizeMode="cover" />
+        )}
+
+        {message.type === 'document' && (
+            <View style={styles.docContainer}>
+                <Ionicons name="document-text" size={24} color={isMe ? '#FFF' : Colors.text} />
+                <Text style={[styles.docText, { color: isMe ? '#FFF' : Colors.text }]}>
+                    {message.fileName || 'Attachment'}
+                </Text>
+            </View>
+        )}
+      </View>
+      
+      <Text style={[styles.timeText, isMe ? styles.timeRight : styles.timeLeft]}>{message.time}</Text>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  wrapper: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 16 },
-  wrapperMe: { justifyContent: 'flex-end' },
-  wrapperThem: { justifyContent: 'flex-start' },
-  avatarContainer: { marginRight: 10 },
-  avatar: { width: 30, height: 30, borderRadius: 12, backgroundColor: '#333' },
+  container: { marginBottom: 15, maxWidth: '80%' },
+  leftContainer: { alignSelf: 'flex-start' },
+  rightContainer: { alignSelf: 'flex-end' },
   
-  bubble: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 20, minWidth: 60 },
-  bubbleMedia: { padding: 4, borderRadius: 16 }, // tighter padding for media
-  bubbleMe: { borderBottomRightRadius: 4, elevation: 2 },
-  bubbleThem: { backgroundColor: Colors.surface, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  
-  textMe: { color: '#FFF', fontSize: 15 },
-  textThem: { color: Colors.text, fontSize: 15 },
-  time: { color: 'rgba(255,255,255,0.3)', fontSize: 10, marginTop: 4, marginHorizontal: 5 },
-  
-  imageContainer: { width: 220, height: 160, borderRadius: 14, overflow: 'hidden' },
-  mediaImage: { width: '100%', height: '100%' },
-  pendingOverlay: { position: 'absolute', bottom:0, right:0, left:0, backgroundColor:'rgba(0,0,0,0.4)', padding: 4, alignItems:'center' },
-  pendingText: { color:'white', fontSize: 10 },
+  // Standard Bubble Styles
+  bubble: { padding: 12, borderRadius: 20 },
+  bubbleLeft: { backgroundColor: Colors.surface, borderBottomLeftRadius: 4 },
+  bubbleRight: { backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
+  bubbleImage: { padding: 0, overflow: 'hidden' },
+  textLeft: { color: Colors.text, fontSize: 16 },
+  textRight: { color: '#000', fontSize: 16 }, // Assuming primary is bright, text is dark
+  senderName: { color: Colors.textSecondary, fontSize: 12, marginBottom: 4, marginLeft: 12 },
+  timeText: { fontSize: 10, color: Colors.textSecondary, marginTop: 4 },
+  timeRight: { alignSelf: 'flex-end', marginRight: 4 },
+  timeLeft: { alignSelf: 'flex-start', marginLeft: 4 },
+  image: { width: 200, height: 200 },
+  docContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  docText: { textDecorationLine: 'underline' },
 
-  // Document Styles
-  docContainer: { flexDirection: 'row', alignItems: 'center', width: 200, padding: 8 },
-  docIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
-  docText: { fontSize: 14, fontWeight: '600' },
-  docSize: { fontSize: 10, marginTop: 2 }
+  // --- Call Log Specific Styles ---
+  callLogCard: {
+      backgroundColor: '#1C1C1E', // Dark card background
+      borderRadius: 16,
+      padding: 12,
+      borderWidth: 1,
+      minWidth: 200,
+  },
+  callLogHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+  },
+  iconCircle: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+  },
+  callTitle: {
+      color: '#FFF',
+      fontWeight: 'bold',
+      fontSize: 15,
+  },
+  callSubtitle: {
+      fontSize: 12,
+      marginTop: 2,
+  },
+  callAgainBtn: {
+      backgroundColor: 'rgba(255,255,255,0.1)',
+      paddingVertical: 10,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 4
+  },
+  callAgainText: {
+      color: Colors.primary || '#34C759', // Green text for action
+      fontWeight: '600',
+      fontSize: 14
+  }
 });
 
 export default ChatBubble;

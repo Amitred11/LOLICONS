@@ -159,6 +159,17 @@ const MOCK_CONTACT_TOPICS = [
     { label: 'Terms & Privacy', icon: 'document-text-outline', action: { type: 'link', url: 'https://example.com/terms' } },
 ];
 
+const DEFAULT_SETTINGS = {
+    notifications: {
+        global: true,
+        preferences: { newChapters: true, recommendations: true, newFollowers: true, comments: true, dms: false, promotions: false },
+        quietHours: { enabled: false, start: '10:00 PM', end: '8:00 AM' }
+    },
+    privacy: { twoFactor: false, activeSessions: 1, blockedUsers: [] },
+    storage: { downloads: 0, appData: 50000000, cache: 20000000 },
+    connectedAccounts: { google: false, github: false, facebook: false }
+};
+
 // --- 2. MAIN USER DATABASE ---
 
 export const MOCK_ALL_USERS = {
@@ -311,100 +322,64 @@ export const MOCK_ALL_USERS = {
           facebook: false
       }
   }},
+  // 2. TEST USER (Previously Hardcoded)
+  'user_test_002': {
+    id: 'user_test_002',
+    name: 'Test User',
+    email: 'test@test.com', // Corresponds to login 'a' / 'a' (see login logic)
+    handle: 'test_user',
+    avatarUrl: 'https://i.pravatar.cc/150?u=test',
+    xp: 0,
+    stats: [{ label: 'Comics', value: '0' }, { label: 'Rank', value: 'Mortal' }],
+    bio: 'I am a test unit.',
+    badges: [],
+    favorites: [],
+    history: [],
+    settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS))
+  },
+
+  // 3. FRIENDS / OTHER USERS
   'friend_1': { 
-    id: '1',
+    id: 'friend_1',
     email: 'jess.dev@example.com',
     name: 'Jessica Parker', 
     handle: 'jess_dev',
     avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400',
     xp: 25000,
     favoriteComicBanner: { uri: 'https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=800' },
-    stats: [{ label: 'Read', value: '1.2K' }, { label: 'Rank', value: '#45' }, { label: 'Guild', value: 'Apex' }],
+    stats: [{ label: 'Read', value: '1.2K' }, { label: 'Rank', value: '#45' }],
     status: { type: 'online', text: 'Online' },
-    bio: 'Level 99 Mage in real life. 🧙‍♀️ Code by day, Mana cultivation by night.', 
-    badges: [
-      { id: 'b2', name: 'Night Owl', icon: 'moon-outline', description: 'Awarded for reading a chapter between midnight and 4 AM.', unlockedDate: 'Mar 15, 2024', rarity: 'Uncommon', unlocked: true },
-      { id: 'b5', name: 'Loyal Reader', icon: 'heart-circle-outline', description: 'Awarded for reading every day for a full week.', unlockedDate: 'Apr 01, 2024', rarity: 'Rare', unlocked: true },
-    ],
-    favorites: [],
-    history: [],
-    settings: {
-        notifications: {
-            global: true,
-            preferences: { newChapters: true, recommendations: false, newFollowers: true, comments: true, dms: true, promotions: false },
-            quietHours: { enabled: true, start: '11:00 PM', end: '7:00 AM' }
-        },
-        privacy: {
-            twoFactor: true,
-            activeSessions: 2,
-            blockedUsers: []
-        },
-        storage: { downloads: 1200000000, appData: 250000000, cache: 120000000 },
-        connectedAccounts: { google: true, github: true, facebook: true }
-    }
+    bio: 'Level 99 Mage in real life.', 
+    badges: [{ id: 'b5', name: 'Loyal Reader', icon: 'heart-circle-outline', unlocked: true }],
+    settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS))
   },
   'friend_2': { 
-    id: '2',
+    id: 'friend_2',
     email: 'dave.gamer@example.com',
     name: 'David Miller', 
     handle: 'dave_gamer',
     avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400',
     xp: 8500,
     favoriteComicBanner: { uri: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=800' },
-    stats: [{ label: 'Read', value: '800' }, { label: 'Rank', value: '#102' }, { label: 'Guild', value: 'None' }],
+    stats: [{ label: 'Read', value: '800' }, { label: 'Rank', value: '#102' }],
     status: { type: 'ingame', text: 'In Game' },
-    bio: 'Grinding for that Absolute rarity badge. Do not disturb unless it is urgent.', 
-    badges: [
-       { id: 'b3', name: 'Social Butterfly', icon: 'people-outline', description: 'Awarded for making your first comment.', unlockedDate: 'Feb 20, 2024', rarity: 'Common', unlocked: true },
-       { id: 'b4', name: 'Collector', icon: 'albums-outline', description: 'Awarded for adding 10 or more comics to your library.', unlockedDate: 'Mar 05, 2024', rarity: 'Rare', unlocked: true },
-    ],
-    favorites: [],
-    history: [],
-    settings: {
-        notifications: {
-            global: true,
-            preferences: { newChapters: true, recommendations: true, newFollowers: false, comments: false, dms: false, promotions: false },
-            quietHours: { enabled: false, start: '10:00 PM', end: '8:00 AM' }
-        },
-        privacy: {
-            twoFactor: false,
-            activeSessions: 1,
-            blockedUsers: [{ id: 'block_1', name: 'SomeRando', date: '2024-03-01'}]
-        },
-        storage: { downloads: 500000000, appData: 90000000, cache: 30000000 },
-        connectedAccounts: { google: true, github: false, facebook: false }
-    }
+    bio: 'Grinding for that Absolute rarity badge.', 
+    badges: [],
+    settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS))
   },
   'friend_3': { 
-    id: '3',
+    id: 'friend_3',
     email: 'sarah.connor@example.com',
     name: 'Sarah Connor', 
     handle: 'future_savior',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
     xp: 150000,
     favoriteComicBanner: { uri: 'https://images.unsplash.com/photo-1535905557558-afc4877a26fc?w=800' },
-    stats: [{ label: 'Read', value: '5K' }, { label: 'Rank', value: '#5' }, { label: 'Guild', value: 'Resistance' }],
+    stats: [{ label: 'Read', value: '5K' }, { label: 'Rank', value: '#5' }],
     status: { type: 'offline', text: 'Offline' },
-    bio: 'No fate but what we make. Also looking for good Isekai recs.', 
-    badges: [
-        { id: 'b5', name: 'Loyal Reader', icon: 'heart-circle-outline', description: 'Awarded for reading every day for a full week.', unlockedDate: 'Jan 28, 2024', rarity: 'Rare', unlocked: true },
-    ],
-    favorites: [],
-    history: [],
-    settings: {
-        notifications: {
-            global: false,
-            preferences: { newChapters: true, recommendations: true, newFollowers: true, comments: true, dms: true, promotions: true },
-            quietHours: { enabled: false, start: '10:00 PM', end: '8:00 AM' }
-        },
-        privacy: {
-            twoFactor: false,
-            activeSessions: 1,
-            blockedUsers: []
-        },
-        storage: { downloads: 2000000000, appData: 150000000, cache: 80000000 },
-        connectedAccounts: { google: true, github: false, facebook: true }
-    }
+    bio: 'No fate but what we make.', 
+    badges: [],
+    settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS))
   },
   's1': {
     id: 's1', 
@@ -415,6 +390,7 @@ export const MOCK_ALL_USERS = {
     status: { type: 'online' },
     xp: 55000,
     stats: [{ label: 'Read', value: '7K' }, { label: 'Rank', value: '#2' }, { label: 'Guild', value: 'Latveria' }],
+    settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS))
   },
   's2': {
     id: 's2', 
@@ -425,6 +401,7 @@ export const MOCK_ALL_USERS = {
     status: { type: 'offline' },
     xp: 9200,
     stats: [{ label: 'Read', value: '950' }, { label: 'Rank', value: '#98' }, { label: 'Guild', value: 'The Mary Janes' }],
+    settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS))
   },
   's3': {
     id: 's3', 
@@ -435,32 +412,22 @@ export const MOCK_ALL_USERS = {
     status: { type: 'online' },
     xp: 12500,
     stats: [{ label: 'Read', value: '1.1K' }, { label: 'Rank', value: '#76' }, { label: 'Guild', value: 'Spider-Verse' }],
-    badges: [
-        { id: 'b5', name: 'Loyal Reader', icon: 'heart-circle-outline', description: 'Awarded for reading every day for a full week.', unlockedDate: 'Jan 28, 2024', rarity: 'Rare', unlocked: true },
-    ],
-    favorites: [],
-    history: [],
-    settings: {
-        notifications: {
-            global: false,
-            preferences: { newChapters: true, recommendations: true, newFollowers: true, comments: true, dms: true, promotions: true },
-            quietHours: { enabled: false, start: '10:00 PM', end: '8:00 AM' }
-        },
-        privacy: {
-            twoFactor: false,
-            activeSessions: 1,
-            blockedUsers: []
-        },
-        storage: { downloads: 2000000000, appData: 150000000, cache: 80000000 },
-        connectedAccounts: { google: true, github: false, facebook: true }
-    }
+    badges: [],
+    settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS))
   },
 };
 
-const MOCK_USER_DB = MOCK_ALL_USERS['usr_a1b2c3d4e5f6g7h8'];
+// --- STATE MANAGEMENT ---
+// This acts as the "Server Session"
+let CURRENT_USER_ID = 'usr_a1b2c3d4e5f6g7h8'; // Default for development
+
+// Legacy export for backward compatibility if needed, though APIs use ID lookup now
+export const MOCK_USER_DB = MOCK_ALL_USERS[CURRENT_USER_ID]; 
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
+const getCurrentUser = () => {
+    return MOCK_ALL_USERS[CURRENT_USER_ID] || null;
+};
 
 // --- 3. API SERVICE EXPORTS ---
 
@@ -471,81 +438,85 @@ export const ProfileAPI = {
     getProfile: async () => {
         await delay(1000);
         
-        const currentRank = MOCK_RANKS.slice().reverse().find(r => MOCK_USER_DB.xp >= r.minXp) || MOCK_RANKS[0];
+        const currentUser = getCurrentUser();
+        if (!currentUser) throw new Error("No active user");
+
+        const currentRank = MOCK_RANKS.slice().reverse().find(r => currentUser.xp >= r.minXp) || MOCK_RANKS[0];
         const nextRankIndex = MOCK_RANKS.findIndex(r => r.name === currentRank.name) + 1;
         const nextRank = MOCK_RANKS[nextRankIndex] || null;
 
-        const historyData = await ComicService.getHistory();
-        const favoritesData = (await ComicService.getFavorites()).data; // Fixed to extract data property
-        
-        // Update local DB references
-        MOCK_USER_DB.history = historyData.data || historyData; // Handle both return structures if service varies
-        MOCK_USER_DB.favorites = favoritesData || [];
+        // In a real app, History/Favorites would be fetched by User ID. 
+        // For now, we simulate pulling them into the current user object if they aren't there.
+        try {
+            const historyData = await ComicService.getHistory();
+            const favoritesData = (await ComicService.getFavorites()).data;
+            
+            // Only overwrite if empty, or simulate sync
+            if(!currentUser.history || currentUser.history.length === 0) {
+                 currentUser.history = historyData.data || historyData;
+            }
+            if(!currentUser.favorites || currentUser.favorites.length === 0) {
+                 currentUser.favorites = favoritesData || [];
+            }
+        } catch (e) {
+            console.log("Mock ComicService not available or failed, using local user data.");
+        }
 
-        let banner = MOCK_USER_DB.favoriteComicBanner;
-        if (MOCK_USER_DB.favorites.length > 0 && MOCK_USER_DB.favorites[0].image) {
-            banner = MOCK_USER_DB.favorites[0].image;
+        let banner = currentUser.favoriteComicBanner;
+        if (currentUser.favorites && currentUser.favorites.length > 0 && currentUser.favorites[0].image) {
+            banner = currentUser.favorites[0].image;
         }
 
         return {
             success: true,
             data: {
-                ...MOCK_USER_DB,
+                ...currentUser,
                 currentRank,
                 nextRank,
                 favoriteComicBanner: banner,
             }
         };
     },
-
-    getFriendProfile: async (userId) => {
-        await delay(800);
-        
-        const friendData = MOCK_ALL_USERS[userId] || MOCK_ALL_USERS[`friend_${userId}`]; // Find by full or partial ID
-
-        if (!friendData) {
-            return { success: false, message: "User not found" };
-        }
-
-        return { success: true, data: friendData };
-    },
     
     updateProfile: async (updateData) => {
-        await delay(1000); // Simulate network latency
-        
-        // Validation Simulation
+        await delay(1000);
+        const currentUser = getCurrentUser();
+        if (!currentUser) return { success: false, message: "Session expired" };
+
         if (updateData.handle && updateData.handle.length < 3) {
             return { success: false, message: "Username must be at least 3 characters." };
         }
         
-        // Merge updates into the "DB"
-        Object.assign(MOCK_USER_DB, updateData);
+        // Update the global DB object for this user
+        Object.assign(MOCK_ALL_USERS[currentUser.id], updateData);
+        
         return { success: true, message: "Profile updated successfully" };
     },
 
-    // NEW: Simulate Image Upload
     uploadAvatar: async (uri) => {
         await delay(1500);
-        // In a real app, this returns a remote URL. We'll simulate that.
-        const newUrl = uri; 
-        MOCK_USER_DB.avatarUrl = newUrl;
-        return { success: true, url: newUrl };
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            MOCK_ALL_USERS[currentUser.id].avatarUrl = uri;
+        }
+        return { success: true, url: uri };
     },
 
 
     // --- FRIEND PROFILE ---
     
-    // UPDATED: Now looks up the actual friend from MockFriendService
     getFriendProfile: async (userId) => {
         await delay(800);
         
-        const friendData = MOCK_ALL_USERS[`friend_${userId}`] || Object.values(MOCK_ALL_USERS).find(u => u.id === userId);
+        // Search by ID or Partial ID (handling 'friend_1' vs '1')
+        let friendData = MOCK_ALL_USERS[userId] || 
+                         MOCK_ALL_USERS[`friend_${userId}`] ||
+                         Object.values(MOCK_ALL_USERS).find(u => u.id === userId);
 
         if (!friendData) {
             return { success: false, message: "User not found" };
         }
         
-        // Simulate rank calculation for friend
         const currentRank = MOCK_RANKS.slice().reverse().find(r => friendData.xp >= r.minXp) || MOCK_RANKS[0];
 
         return { success: true, data: { ...friendData, currentRank } };
@@ -555,41 +526,51 @@ export const ProfileAPI = {
 
     getTrophies: async () => {
         await delay(800);
-        return { success: true, data: MOCK_USER_DB.badges };
+        const currentUser = getCurrentUser();
+        return { success: true, data: currentUser ? currentUser.badges : [] };
     },
 
     // --- ACCOUNT SCREEN ---
 
     getAccountSettings: async () => {
         await delay(500);
+        const currentUser = getCurrentUser();
+        if (!currentUser) return { success: false, message: "No user" };
+
         return {
             success: true,
             data: {
-                id: MOCK_USER_DB.id,
-                name: MOCK_USER_DB.name, // Ensure this pulls latest
-                handle: MOCK_USER_DB.handle, // Ensure this pulls latest
-                email: MOCK_USER_DB.email,
-                joinDate: '2023-08-15', // Static for now
-                connected: MOCK_USER_DB.settings.connectedAccounts
+                id: currentUser.id,
+                name: currentUser.name,
+                handle: currentUser.handle,
+                email: currentUser.email,
+                joinDate: '2023-08-15',
+                connected: currentUser.settings.connectedAccounts
             }
         };
     },
 
     updateEmail: async (email) => {
         await delay(1000);
-        MOCK_USER_DB.email = email;
+        const currentUser = getCurrentUser();
+        if(currentUser) MOCK_ALL_USERS[currentUser.id].email = email;
         return { success: true };
     },
 
     connectSocial: async (provider) => {
         await delay(1500);
-        MOCK_USER_DB.settings.connectedAccounts[provider] = true;
+        const currentUser = getCurrentUser();
+        if(currentUser) MOCK_ALL_USERS[currentUser.id].settings.connectedAccounts[provider] = true;
         return { success: true };
     },
 
     deleteAccount: async () => {
         await delay(2000);
-        console.log("Account deleted on backend");
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            delete MOCK_ALL_USERS[currentUser.id];
+            CURRENT_USER_ID = null;
+        }
         return { success: true };
     },
 
@@ -597,7 +578,8 @@ export const ProfileAPI = {
 
     changePassword: async (current, newPass) => {
         await delay(1500);
-        if (current === '123456') { 
+        // We accept '123456' OR 'a' as current password for testing
+        if (current === '123456' || current === 'a') { 
             return { success: true };
         } else {
             throw new Error("Current password is incorrect.");
@@ -608,39 +590,52 @@ export const ProfileAPI = {
 
     getPrivacySettings: async () => {
         await delay(600);
+        const currentUser = getCurrentUser();
         return { 
             success: true, 
             data: {
-                twoFactor: MOCK_USER_DB.settings.privacy.twoFactor,
-                sessions: MOCK_USER_DB.settings.privacy.activeSessions,
-                blocked: MOCK_USER_DB.settings.privacy.blockedUsers
+                twoFactor: currentUser.settings.privacy.twoFactor,
+                sessions: currentUser.settings.privacy.activeSessions,
+                blocked: currentUser.settings.privacy.blockedUsers
             }
         };
     },
 
     toggle2FA: async (status) => {
         await delay(500);
-        MOCK_USER_DB.settings.privacy.twoFactor = !status;
-        return !status;
+        const currentUser = getCurrentUser();
+        if(currentUser) {
+            MOCK_ALL_USERS[currentUser.id].settings.privacy.twoFactor = !status;
+            return !status;
+        }
+        return false;
     },
 
     logoutAllSessions: async () => {
         await delay(800);
-        MOCK_USER_DB.settings.privacy.activeSessions = 1;
+        const currentUser = getCurrentUser();
+        if(currentUser) MOCK_ALL_USERS[currentUser.id].settings.privacy.activeSessions = 1;
         return { success: true };
     },
 
     blockUser: async (username) => {
         await delay(500);
         if (!username) throw new Error("Invalid username");
-        const newBlock = { id: Math.random().toString(), name: username, date: new Date().toISOString().split('T')[0] };
-        MOCK_USER_DB.settings.privacy.blockedUsers.push(newBlock);
-        return newBlock;
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            const newBlock = { id: Math.random().toString(), name: username, date: new Date().toISOString().split('T')[0] };
+            MOCK_ALL_USERS[currentUser.id].settings.privacy.blockedUsers.push(newBlock);
+            return newBlock;
+        }
     },
 
     unblockUser: async (id) => {
         await delay(500);
-        MOCK_USER_DB.settings.privacy.blockedUsers = MOCK_USER_DB.settings.privacy.blockedUsers.filter(u => u.id !== id);
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            MOCK_ALL_USERS[currentUser.id].settings.privacy.blockedUsers = 
+                currentUser.settings.privacy.blockedUsers.filter(u => u.id !== id);
+        }
         return { success: true };
     },
 
@@ -648,29 +643,34 @@ export const ProfileAPI = {
 
     getNotificationSettings: async () => {
         await delay(600);
+        const currentUser = getCurrentUser();
         return { 
             success: true, 
             data: {
-                globalEnabled: MOCK_USER_DB.settings.notifications.global,
-                preferences: MOCK_USER_DB.settings.notifications.preferences,
-                quietHours: MOCK_USER_DB.settings.notifications.quietHours
+                globalEnabled: currentUser.settings.notifications.global,
+                preferences: currentUser.settings.notifications.preferences,
+                quietHours: currentUser.settings.notifications.quietHours
             }
         };
     },
 
     updateNotificationSetting: async (key, value) => {
         await delay(300); 
-        if (key === 'global') {
-             MOCK_USER_DB.settings.notifications.global = value;
-        } else {
-             MOCK_USER_DB.settings.notifications.preferences[key] = value;
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            if (key === 'global') {
+                 MOCK_ALL_USERS[currentUser.id].settings.notifications.global = value;
+            } else {
+                 MOCK_ALL_USERS[currentUser.id].settings.notifications.preferences[key] = value;
+            }
         }
         return { success: true };
     },
 
     updateQuietHours: async (newSettings) => {
         await delay(500);
-        MOCK_USER_DB.settings.notifications.quietHours = newSettings;
+        const currentUser = getCurrentUser();
+        if(currentUser) MOCK_ALL_USERS[currentUser.id].settings.notifications.quietHours = newSettings;
         return { success: true };
     },
 
@@ -678,7 +678,10 @@ export const ProfileAPI = {
 
     getStorageUsage: async () => {
         await delay(800);
-        const { downloads, appData, cache } = MOCK_USER_DB.settings.storage;
+        const currentUser = getCurrentUser();
+        if (!currentUser) return { success: false };
+
+        const { downloads, appData, cache } = currentUser.settings.storage;
         
         const format = (b) => {
             if(b === 0) return '0 B';
@@ -701,13 +704,15 @@ export const ProfileAPI = {
 
     clearCache: async () => {
         await delay(1000);
-        MOCK_USER_DB.settings.storage.cache = 0;
+        const currentUser = getCurrentUser();
+        if(currentUser) MOCK_ALL_USERS[currentUser.id].settings.storage.cache = 0;
         return { success: true };
     },
 
     clearDownloads: async () => {
         await delay(1500);
-        MOCK_USER_DB.settings.storage.downloads = 0;
+        const currentUser = getCurrentUser();
+        if(currentUser) MOCK_ALL_USERS[currentUser.id].settings.storage.downloads = 0;
         return { success: true };
     },
 

@@ -1,50 +1,45 @@
-import { MOCK_USER_DB } from '@api/MockProfileService';
+import { MOCK_ALL_USERS } from '@api/MockProfileService';
 
 const DEFAULT_PASSWORD = 'a';
 const SIMULATED_DELAY = 1200; // Unified delay for consistency
 
+
 export const AuthAPI = {
   /**
-   * Simulates logging in.
+   * Simulates logging in against MOCK_ALL_USERS
    */
   login: async (email, password) => {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        // 1. Main Rich User Check
-        if (
-          email.toLowerCase() === MOCK_USER_DB.email.toLowerCase() && 
-          password === DEFAULT_PASSWORD
-        ) {
+        // Normalize input
+        const inputEmail = email ? email.toLowerCase().trim() : '';
+
+        // SPECIAL CASE: The "a" / "a" shortcut maps to the Test User
+        if (email === 'a' && password === 'a') {
+            CURRENT_USER_ID = 'user_test_002';
+            const user = MOCK_ALL_USERS[CURRENT_USER_ID];
+            resolve({ 
+                success: true, 
+                data: { ...user, token: `mock-jwt-token-${user.id}` } 
+            });
+            return;
+        }
+
+        // GENERAL CASE: Search in DB
+        const foundUser = Object.values(MOCK_ALL_USERS).find(
+            u => u.email && u.email.toLowerCase() === inputEmail
+        );
+
+        if (foundUser && password === DEFAULT_PASSWORD) {
+          CURRENT_USER_ID = foundUser.id;
           resolve({ 
             success: true, 
-            data: { ...MOCK_USER_DB, token: 'mock-jwt-token-MAIN-USER' } 
+            data: { ...foundUser, token: `mock-jwt-token-${foundUser.id}` } 
           });
           return;
         }
 
-        // 2. Secondary Test User
-        if (email === 'a' && password === 'a') {
-             resolve({ 
-                success: true, 
-                data: {
-                    id: 'user_test_002',
-                    name: 'Test User',
-                    email: 'test@test.com',
-                    handle: 'test_user',
-                    avatarUrl: 'https://i.pravatar.cc/150?u=test',
-                    xp: 0,
-                    stats: [],
-                    token: 'mock-jwt-token-TEST'
-                }
-             });
-             return;
-        }
-
-        // 3. Fail
-        reject({ 
-          success: false, 
-          message: 'Invalid email or password.' 
-        });
+        reject({ success: false, message: 'Invalid email or password.' });
       }, SIMULATED_DELAY);
     });
   },
@@ -55,13 +50,19 @@ export const AuthAPI = {
   register: async ({ name, email, password }) => {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        if (email.toLowerCase() === MOCK_USER_DB.email.toLowerCase()) {
+        const inputEmail = email.toLowerCase().trim();
+        
+        // Check if email exists in ALL users
+        const exists = Object.values(MOCK_ALL_USERS).some(u => u.email && u.email.toLowerCase() === inputEmail);
+
+        if (exists) {
           reject({ success: false, message: 'This email is already taken.' });
           return;
         }
 
+        const newId = `usr_${Date.now()}`;
         const newUser = {
-          id: `usr_${Date.now()}`,
+          id: newId,
           name: name,
           email: email,
           handle: name.toLowerCase().replace(/\s/g, '_'),
@@ -74,26 +75,32 @@ export const AuthAPI = {
           ],
           bio: 'New to the community!',
           badges: [],
+          favorites: [],
+          history: [],
+          settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), // Clone defaults
           token: `mock-jwt-token-${Date.now()}`,
         };
         
+        // Save to "DB"
+        MOCK_ALL_USERS[newId] = newUser;
+        CURRENT_USER_ID = newId;
+
         resolve({ success: true, data: newUser });
       }, SIMULATED_DELAY); 
     });
   },
 
-  /**
-   * Simulates checking if a stored token is valid (Auto-Login).
-   */
   validateToken: async (userObject) => {
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            if (userObject && userObject.token) {
-                resolve({ success: true, data: userObject });
+            // Check if user still exists in DB
+            if (userObject && userObject.id && MOCK_ALL_USERS[userObject.id]) {
+                CURRENT_USER_ID = userObject.id; // Restore session
+                resolve({ success: true, data: MOCK_ALL_USERS[userObject.id] });
             } else {
                 reject({ success: false, message: 'Session expired' });
             }
-        }, 800); // Faster than login
+        }, 800);
     });
   },
 
@@ -112,6 +119,7 @@ export const AuthAPI = {
   logout: async () => {
     return new Promise((resolve) => {
       setTimeout(() => {
+        CURRENT_USER_ID = null; // Clear session
         resolve({ success: true });
       }, 500);
     });

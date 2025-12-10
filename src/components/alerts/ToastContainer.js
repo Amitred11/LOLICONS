@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 2000,
+    zIndex: 9999,
     elevation: 2000,
     // Removed fixed height so it doesn't block bottom interaction
   },

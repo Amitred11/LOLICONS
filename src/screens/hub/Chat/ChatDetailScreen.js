@@ -11,29 +11,9 @@ import * as DocumentPicker from 'expo-document-picker';
 
 import { Colors } from '@config/Colors';
 import ChatBubble from './components/ChatBubble';
-import CallOverlay from './components/CallOverlay'; // <--- Import here
+import CallOverlay from './components/CallOverlay'; 
 import { useChat } from '@context/hub/ChatContext';
 import { useAlert } from '@context/other/AlertContext';
-
-const EmojiPicker = ({ onSelect }) => {
-  const emojis = ['😀','😂','😍','🔥','👍','🎉','❤️','😭','😡','👻','👽','🤖','💩','💀','👀','🧠','👋','🙏'];
-  return (
-    <View style={styles.emojiContainer}>
-      <FlatList 
-        data={emojis}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 10 }}
-        renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => onSelect(item)} style={styles.emojiBtn}>
-            <Text style={{ fontSize: 24 }}>{item}</Text>
-          </TouchableOpacity>
-        )}
-        keyExtractor={(item) => item}
-      />
-    </View>
-  );
-};
 
 const ChatDetailScreen = () => {
   const insets = useSafeAreaInsets();
@@ -43,6 +23,7 @@ const ChatDetailScreen = () => {
   const { showToast } = useAlert();
 
   const { user } = route.params || { user: { id: '0', name: 'Chat', type: 'direct' }};
+  const isGroup = user.type === 'group';
 
   const { loadMessages, currentMessages, isLoadingMessages, sendMessage } = useChat();
 
@@ -100,7 +81,7 @@ const ChatDetailScreen = () => {
 
   const handleCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) return Alert.alert("Permission", "Camera access needed.");
+    if (!permission.granted) return showToast("Permission", "Camera access needed.", 'info');
     
     const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
     if (!result.canceled) handleSend(result.assets[0].uri, 'image');
@@ -108,58 +89,54 @@ const ChatDetailScreen = () => {
 
   const handleDocument = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
-        copyToCacheDirectory: true
-      });
+      const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
       if (result.assets && result.assets.length > 0) {
         const file = result.assets[0];
         handleSend(file.uri, 'document', file.name); 
       }
-    } catch (err) {
-      console.log("Doc Picker Error", err);
-    }
+    } catch (err) { console.log("Doc Picker Error", err); }
   };
 
-  const toggleAttachments = () => {
-      Keyboard.dismiss();
-      setShowEmojis(false);
-      setShowAttachments(!showAttachments);
+  const handleCallAgain = (type) => {
+    startCall(type);
   };
 
-  const toggleEmojis = () => {
-      Keyboard.dismiss();
-      setShowAttachments(false);
-      setShowEmojis(!showEmojis);
+  const handleCallEnded = async (callData) => {
+      setIsCalling(false);
+      if (!callData) return;
+
+      const { duration, wasConnected, type } = callData;
+
+      const callLogData = {
+          callType: type, 
+          duration: duration,
+          status: wasConnected ? 'ended' : 'missed',
+          timestamp: new Date().toISOString()
+      };
+      try {
+          await sendMessage(user.id, JSON.stringify(callLogData), 'call_log'); 
+      } catch (e) {
+          console.error("Failed to log call", e);
+      }
   };
 
-  const addEmoji = (emoji) => {
-      setMsg(prev => prev + emoji);
-  };
+  const toggleAttachments = () => { Keyboard.dismiss(); setShowEmojis(false); setShowAttachments(!showAttachments); };
+  const toggleEmojis = () => { Keyboard.dismiss(); setShowAttachments(false); setShowEmojis(!showEmojis); };
+  const addEmoji = (emoji) => { setMsg(prev => prev + emoji); };
 
   const messages = currentMessages(user.id);
-  
-  const renderContent = () => {
-    if (isLoadingMessages) {
-        return (
-            <View style={styles.emptyListContainer}>
-                <ActivityIndicator color={Colors.primary} size="large" />
-            </View>
-        );
-    }
 
+  // Helper to render chat list (same as before)
+  const renderContent = () => {
+    if (isLoadingMessages) return <View style={styles.emptyListContainer}><ActivityIndicator color={Colors.primary} size="large" /></View>;
     if (messages.length === 0) {
         return (
             <View style={styles.emptyListContainer}>
                 <Ionicons name="chatbubbles-outline" size={60} color={Colors.textSecondary} style={{ opacity: 0.5 }} />
                 <Text style={styles.emptyText}>No messages yet.</Text>
-                <Text style={styles.emptySubText}>
-                    {user.type === 'group' ? `Be the first to chat in ${user.name}!` : 'Start the conversation!'}
-                </Text>
             </View>
         );
     }
-
     return (
         <FlatList
             ref={flatListRef}
@@ -172,6 +149,8 @@ const ChatDetailScreen = () => {
                     message={item} 
                     isMe={item.sender === 'me'} 
                     showSender={user.type === 'group'}
+                    // Pass the call again handler
+                    onCallAgain={handleCallAgain} 
                 />
             )}
         />
@@ -180,17 +159,16 @@ const ChatDetailScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* Updated Call Overlay Component */}
       <CallOverlay 
         visible={isCalling} 
         user={user} 
         type={callType} 
-        onClose={() => setIsCalling(false)} 
+        onClose={handleCallEnded} 
       />
 
       <View style={styles.bgGlow} />
 
-      <View style={[styles.header, { marginTop: insets.top + 15 }]}>
+      <View style={[styles.header, { marginTop: insets.top + 10 }]}>
         <View style={styles.headerLeft}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.glassBtn}>
                 <Ionicons name="chevron-back" size={24} color={Colors.text} />
@@ -198,27 +176,34 @@ const ChatDetailScreen = () => {
             
             <TouchableOpacity onPress={() => navigation.navigate('ChatSettings', { user })} style={styles.headerInfo}>
                 <Text style={styles.headerTitle}>{user.name}</Text>
-                <Text style={styles.headerSub}>{isLoadingMessages ? 'Connecting...' : 'Online'}</Text>
+                <View style={{flexDirection:'row', alignItems:'center'}}>
+                    {isGroup && <Ionicons name="people" size={12} color={Colors.secondary} style={{marginRight:4}} />}
+                    <Text style={styles.headerSub}>{isLoadingMessages ? 'Connecting...' : 'Online'}</Text>
+                </View>
             </TouchableOpacity>
         </View>
+
+        {/* --- UPDATED CALL BUTTONS ("GREATER" / PROMINENT) --- */}
         <View style={styles.headerRight}>
-            <TouchableOpacity onPress={() => startCall('voice')} style={[styles.glassBtn, styles.actionBtn]}>
-                <Ionicons name="call" size={20} color={Colors.text} />
+            {isGroup && (
+                <TouchableOpacity onPress={() => startCall('group')} style={[styles.callBtn, { backgroundColor: '#5856D6' }]}>
+                    <Ionicons name="people" size={18} color="#FFF" />
+                </TouchableOpacity>
+            )}
+
+            <TouchableOpacity onPress={() => startCall('voice')} style={[styles.callBtn, { backgroundColor: 'rgba(52, 199, 89, 0.2)', borderWidth: 1, borderColor: '#34C759' }]}>
+                <Ionicons name="call" size={18} color="#34C759" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => startCall('video')} style={[styles.glassBtn, styles.actionBtn, { marginLeft: 10 }]}>
-                <Ionicons name="videocam" size={20} color={Colors.secondary} />
+
+            <TouchableOpacity onPress={() => startCall('video')} style={[styles.callBtn, { backgroundColor: 'rgba(0, 122, 255, 0.2)', borderWidth: 1, borderColor: '#007AFF' }]}>
+                <Ionicons name="videocam" size={18} color="#007AFF" />
             </TouchableOpacity>
         </View>
       </View>
 
-      <View style={{ flex: 1 }}>
-          {renderContent()}
-      </View>
+      <View style={{ flex: 1 }}>{renderContent()}</View>
 
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
         <View style={{ marginBottom: insets.bottom }}>
             <View style={styles.inputWrapper}>
                 <View style={styles.glassInputContainer}>
@@ -257,14 +242,28 @@ const ChatDetailScreen = () => {
                 <View style={styles.attachmentGrid}>
                     <AttachmentItem icon="image" color="#FF2D55" label="Gallery" onPress={handlePickImage} />
                     <AttachmentItem icon="document-text" color="#5856D6" label="File" onPress={handleDocument} />
-                    <AttachmentItem icon="location" color="#34C759" label="Location" onPress={() => Alert.alert("Loc", "Send location feature")} />
-                    <AttachmentItem icon="person" color="#007AFF" label="Contact" onPress={() => Alert.alert("Contact", "Send contact feature")} />
+                    <AttachmentItem icon="location" color="#34C759" label="Location" onPress={() => showToast("Location", "Feature coming soon", 'info')} />
+                    <AttachmentItem icon="person" color="#007AFF" label="Contact" onPress={() => showToast("Contact", "Feature coming soon", 'info')} />
                 </View>
             </Animated.View>
         </View>
       </KeyboardAvoidingView>
     </View>
   );
+};
+
+const EmojiPicker = ({ onSelect }) => {
+    const emojis = ['😀','😂','😍','🔥','👍','🎉','❤️','😭','😡','👻','👽','🤖','💩','💀','👀','🧠','👋','🙏'];
+    return (
+      <View style={{ height: 50, backgroundColor: '#111' }}>
+        <FlatList data={emojis} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 10 }}
+          renderItem={({ item }) => (
+            <TouchableOpacity onPress={() => onSelect(item)} style={{ padding: 10 }}>
+              <Text style={{ fontSize: 24 }}>{item}</Text>
+            </TouchableOpacity>
+          )} keyExtractor={(item) => item} />
+      </View>
+    );
 };
 
 const AttachmentItem = ({ icon, color, label, onPress }) => (
@@ -279,26 +278,21 @@ const AttachmentItem = ({ icon, color, label, onPress }) => (
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   bgGlow: { position: 'absolute', top: -100, left: -100, width: 300, height: 300, backgroundColor: Colors.primary, opacity: 0.1, borderRadius: 150, blurRadius: 100 },
-  header: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 10, justifyContent: 'space-between', zIndex: 10 },
+  header: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 15, marginBottom: 10, justifyContent: 'space-between', zIndex: 10 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   headerRight: { flexDirection: 'row', alignItems: 'center' },
   headerInfo: { marginLeft: 15 },
   headerTitle: { fontWeight: '700', color: Colors.text, fontSize: 16 },
   headerSub: { color: Colors.secondary, fontSize: 11, fontWeight: '500', marginTop: 2 },
   glassBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  actionBtn: { backgroundColor: 'rgba(255,255,255,0.05)' },
+  
+  // New Header Right Styles
+  callBtn: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
+
   listContentContainer: { flexGrow: 1, justifyContent: 'flex-end', paddingHorizontal: 20, paddingBottom: 20, paddingTop: 20 },
-  emptyListContainer: {
-    flex: 1, 
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
+  emptyListContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   inputWrapper: { paddingHorizontal: 15, paddingVertical: 10 },
-  glassInputContainer: { 
-      flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, 
-      borderRadius: 25, padding: 5, paddingHorizontal: 10,
-      borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)'
-  },
+  glassInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 25, padding: 5, paddingHorizontal: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   attachBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center', marginRight: 5 },
   input: { flex: 1, color: Colors.text, maxHeight: 100, fontSize: 16, paddingVertical: 8 },
   iconBtn: { padding: 8 },
@@ -308,22 +302,7 @@ const styles = StyleSheet.create({
   attachItem: { alignItems: 'center' },
   attachIconBg: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
   attachLabel: { color: Colors.textSecondary, fontSize: 12 },
-  emojiContainer: { height: 60, backgroundColor: '#111', justifyContent: 'center' },
-  emojiBtn: { padding: 10 },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    marginTop: 20,
-  },
-  emptySubText: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginTop: 8,
-    opacity: 0.7,
-    textAlign: 'center',
-    paddingHorizontal: 40,
-  },
+  emptyText: { fontSize: 18, fontWeight: '600', color: Colors.textSecondary, marginTop: 20 },
 });
 
 export default ChatDetailScreen;
