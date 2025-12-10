@@ -45,6 +45,23 @@ export const FriendAPI = {
     console.log('[API] Friend Added. Current Friends:', MAIN_USER_FRIEND_IDS);
     return { success: true };
   },
+  searchUsers: async (query) => {
+    // Simulate network delay for realism (debounce testing)
+    await delay(600); 
+
+    if (!query) return { success: true, data: [] };
+
+    const lowerQuery = query.toLowerCase();
+    const allUsers = Object.values(MOCK_ALL_USERS);
+
+    const results = allUsers.filter(user => 
+        user.id !== MAIN_USER_ID && // Don't show self
+        (user.name.toLowerCase().includes(lowerQuery) || 
+         user.handle.toLowerCase().includes(lowerQuery))
+    );
+
+    return { success: true, data: results };
+  },
 
   // NEW: Remove a friend by their ID
   removeFriend: async (userId) => {

@@ -237,19 +237,4 @@ export const ChatAPI = {
     }
     return { success: false };
   },
-  searchUsers: async (query) => {
-    await delay(600);
-    if (!query) return { success: true, data: [] };
-
-    const lowerQuery = query.toLowerCase();
-    const allUsers = Object.values(MOCK_ALL_USERS);
-
-    // Filter all users by name or handle
-    const results = allUsers.filter(u => 
-      (u.name && u.name.toLowerCase().includes(lowerQuery)) ||
-      (u.handle && u.handle.toLowerCase().includes(lowerQuery))
-    );
-
-    return { success: true, data: results };
-  },
 };

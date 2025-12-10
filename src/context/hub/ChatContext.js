@@ -14,26 +14,7 @@ export const ChatProvider = ({ children }) => {
     const [isLoadingChats, setIsLoadingChats] = useState(true);
     const [messages, setMessages] = useState({});
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-    const [searchResults, setSearchResults] = useState([]);
-    const [isSearching, setIsSearching] = useState(false);
 
-    const searchDirectory = useCallback(async (query) => {
-        if (!query) {
-           setSearchResults([]);
-           return;
-        }
-        setIsSearching(true);
-        try {
-           const response = await FriendAPI.searchUsers(query);
-           if (response.success) {
-            setSearchResults(response.data);
-           }
-        } catch (e) {
-            console.error("Search failed", e);
-        } finally {
-            setIsSearching(false);
-        }
-    }, []);
     
     const updateChatInList = useCallback((chatId, updates) => {
         setChats(prev => prev.map(c => c.id === chatId ? { ...c, ...updates } : c));
@@ -227,15 +208,15 @@ export const ChatProvider = ({ children }) => {
     }, []);
     
     const value = useMemo(() => ({
-        chats, isLoadingChats, messages, isLoadingMessages, searchResults, isSearching, currentMessages,
-        loadChats, pinChat, deleteChat, createGroupChat, loadMessages, sendMessage,
-        toggleReadStatus, archiveChat, toggleMute, blockUser, reportUser, clearChatHistory, searchDirectory,
-        leaveGroup, setDisappearingMessages,addMembersToGroup, updateGroupInfo, kickMember, setNickname // <-- Expose new functions
-    }), [
-        chats, isLoadingChats, messages, isLoadingMessages, searchResults, isSearching, 
+        chats, isLoadingChats, messages, isLoadingMessages, currentMessages,
         loadChats, pinChat, deleteChat, createGroupChat, loadMessages, sendMessage,
         toggleReadStatus, archiveChat, toggleMute, blockUser, reportUser, clearChatHistory,
-        leaveGroup, setDisappearingMessages,addMembersToGroup, updateGroupInfo, kickMember, setNickname, searchDirectory
+        leaveGroup, setDisappearingMessages,addMembersToGroup, updateGroupInfo, kickMember, setNickname // <-- Expose new functions
+    }), [
+        chats, isLoadingChats, messages, isLoadingMessages,
+        loadChats, pinChat, deleteChat, createGroupChat, loadMessages, sendMessage,
+        toggleReadStatus, archiveChat, toggleMute, blockUser, reportUser, clearChatHistory,
+        leaveGroup, setDisappearingMessages,addMembersToGroup, updateGroupInfo, kickMember, setNickname
     ]);
 
     return (

@@ -54,6 +54,11 @@ const ChatDetailScreen = () => {
   const [isCalling, setIsCalling] = useState(false);
   const [callType, setCallType] = useState('voice'); 
 
+  const startCall = (type) => {
+      setCallType(type);
+      setIsCalling(true);
+  };
+
   const attachmentHeight = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -130,11 +135,6 @@ const ChatDetailScreen = () => {
 
   const addEmoji = (emoji) => {
       setMsg(prev => prev + emoji);
-  };
-
-  const startCall = (type) => {
-      setCallType(type);
-      setIsCalling(true);
   };
 
   const messages = currentMessages(user.id);

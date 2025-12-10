@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { FriendAPI } from '@api/hub/MockFriendService';
+import { MOCK_ALL_USERS } from '@api/MockProfileService'; // Needed for addFriend optimistic update
 
 const FriendContext = createContext();
 
@@ -14,18 +15,19 @@ export const useFriend = () => {
 export const FriendProvider = ({ children }) => {
     // --- State ---
     const [friends, setFriends] = useState([]);
-    const [suggestions, setSuggestions] = useState([]); // New state for suggestions
+    const [suggestions, setSuggestions] = useState([]); 
     const [isLoading, setIsLoading] = useState(true);
 
-    // --- Actions ---
+    // --- Search State (NEW) ---
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
 
+    // --- Actions ---
     const loadFriends = useCallback(async () => {
         setIsLoading(true);
         try {
             const response = await FriendAPI.fetchFriends();
-            if (response.success) {
-                setFriends(response.data);
-            }
+            if (response.success) setFriends(response.data);
         } catch (error) {
             console.error("FriendContext: Load Friends Error", error);
         } finally {
@@ -33,14 +35,11 @@ export const FriendProvider = ({ children }) => {
         }
     }, []);
 
-    // New action to load suggestions
     const loadSuggestions = useCallback(async () => {
         setIsLoading(true);
         try {
             const response = await FriendAPI.fetchSuggestions();
-            if (response.success) {
-                setSuggestions(response.data);
-            }
+            if (response.success) setSuggestions(response.data);
         } catch (error) {
             console.error("FriendContext: Load Suggestions Error", error);
         } finally {
@@ -48,65 +47,83 @@ export const FriendProvider = ({ children }) => {
         }
     }, []);
 
-    const addFriend = useCallback(async (userId) => {
-        const userToAdd = MOCK_ALL_USERS[userId] || MOCK_ALL_USERS[`friend_${userId}`];
-        if (!userToAdd || friends.some(f => f.id === userId)) return; // Don't add if already a friend
+    // --- NEW SEARCH FUNCTION ---
+    const searchDirectory = useCallback(async (query) => {
+        if (!query) {
+            setSearchResults([]);
+            return;
+        }
+        
+        setIsSearching(true);
+        try {
+            const response = await FriendAPI.searchUsers(query);
+            if (response.success) {
+                setSearchResults(response.data);
+            }
+        } catch (error) {
+            console.error("Search failed", error);
+            setSearchResults([]);
+        } finally {
+            setIsSearching(false);
+        }
+    }, []);
+    // ---------------------------
 
-        const previousFriends = friends;
-        setFriends(prev => [...prev, userToAdd]); // Optimistic update
+    const addFriend = useCallback(async (userId) => {
+        // Optimistic update
+        const userToAdd = Object.values(MOCK_ALL_USERS).find(u => u.id === userId);
+        
+        if (userToAdd && !friends.some(f => f.id === userId)) {
+             setFriends(prev => [...prev, userToAdd]);
+        }
 
         try {
             const response = await FriendAPI.addFriend(userId);
             if (!response.success) throw new Error("API failed");
         } catch (error) {
             console.error("FriendContext: Add Friend Error", error);
-            setFriends(previousFriends); // Revert on failure
-            throw error; // Re-throw to be caught in the UI
+            // Revert on failure
+            if(userToAdd) setFriends(prev => prev.filter(f => f.id !== userId));
+            throw error; 
         }
     }, [friends]);
 
-    // NEW: Remove Friend action with optimistic update
     const removeFriend = useCallback(async (userId) => {
         if (!friends.some(f => f.id === userId)) return;
 
         const previousFriends = friends;
-        setFriends(prev => prev.filter(f => f.id !== userId)); // Optimistic update
+        setFriends(prev => prev.filter(f => f.id !== userId)); 
 
         try {
             const response = await FriendAPI.removeFriend(userId);
             if (!response.success) throw new Error("API failed");
         } catch (error) {
             console.error("FriendContext: Remove Friend Error", error);
-            setFriends(previousFriends); // Revert on failure
+            setFriends(previousFriends);
             throw error;
         }
     }, [friends]);
 
     const createEntity = useCallback(async (type, name, memberIds) => {
-        try {
-            const response = await FriendAPI.createEntity(type, name, memberIds);
-            return response;
-        } catch (error) {
-            console.error(`FriendContext: Create ${type} Error`, error);
-            throw error;
-        }
+        return await FriendAPI.createEntity(type, name, memberIds);
     }, []);
 
-    // --- Derived State ---
-    
-    const onlineFriends = useMemo(() => {
-        return friends.filter(f => f.status?.type === 'online');
-    }, [friends]);
+    const onlineFriends = useMemo(() => friends.filter(f => f.status?.type === 'online'), [friends]);
 
     const value = {
         friends,
-        suggestions, // Expose suggestions
+        suggestions,
         onlineFriends,
         isLoading,
+        // Export Search Stuff
+        searchResults, 
+        isSearching,
+        searchDirectory,
+        // ------------------
         loadFriends,
-        loadSuggestions, // Expose suggestion loader
+        loadSuggestions,
         createEntity,
-        addFriend,      // Expose new function
+        addFriend,
         removeFriend,
     };
 

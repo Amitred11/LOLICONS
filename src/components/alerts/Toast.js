@@ -50,7 +50,9 @@ const Toast = ({ title, message, type, onHide }) => {
         return { icon: 'checkmark-circle-outline', bg: '#22c55e', border: '#15803d', text: '#fff' };
       case 'info':
         return { icon: 'information-circle-outline', bg: '#3b82f6', border: '#1d4ed8', text: '#fff' };
-      default:
+      case 'badge' :
+        return { icon: 'ribbon-outline', bg: '#fef3c7', border: '#f59e0b', text: '#92400e' };
+        default:
         return { icon: 'information-circle-outline', bg: '#ffffff', border: '#e5e5e5', text: '#333' };
     }
   };

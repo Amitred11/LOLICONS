@@ -20,6 +20,8 @@ export const CommunityProvider = ({ children }) => {
   const [posts, setPosts] = useState([]);
   const [marketItems, setMarketItems] = useState([]);
   const [currentGuild, setCurrentGuild] = useState(null);
+  const [pendingProposals, setPendingProposals] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // New State for Replies
   const [currentReplies, setCurrentReplies] = useState([]);
@@ -99,6 +101,52 @@ export const CommunityProvider = ({ children }) => {
       return false;
     }
   }, []);
+
+  const submitGuildProposal = useCallback(async (guildId, config, reason) => {
+    setIsSubmitting(true);
+    try {
+      await CommunityAPI.submitConfigProposal(guildId, config, reason);
+      return true;
+    } catch (err) {
+      console.error("Context: Failed to submit proposal", err);
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  const fetchPendingProposals = useCallback(async () => {
+    try {
+      const data = await CommunityAPI.getPendingProposals();
+      setPendingProposals(data);
+    } catch (err) {
+      console.error("Context: Failed to fetch proposals", err);
+    }
+  }, []);
+
+  const approveGuildProposal = useCallback(async (proposalId) => {
+    try {
+      await CommunityAPI.approveProposal(proposalId);
+      // Refresh the list of pending proposals
+      fetchPendingProposals();
+      return true;
+    } catch (err) {
+      console.error("Context: Failed to approve proposal", err);
+      return false;
+    }
+  }, [fetchPendingProposals]);
+  
+  const rejectGuildProposal = useCallback(async (proposalId) => {
+    try {
+      await CommunityAPI.rejectProposal(proposalId);
+       // Refresh the list of pending proposals
+      fetchPendingProposals();
+      return true;
+    } catch (err) {
+      console.error("Context: Failed to reject proposal", err);
+      return false;
+    }
+  }, [fetchPendingProposals]);
 
   // ==============================
   //         POST LOGIC
@@ -219,8 +267,14 @@ export const CommunityProvider = ({ children }) => {
     isLoadingPosts,
     isLoadingMarket,
     isLoadingReplies, // Exported
+    isSubmitting,
+    pendingProposals,
 
     fetchGuilds,
+    submitGuildProposal,
+    fetchPendingProposals,
+    approveGuildProposal,
+    rejectGuildProposal,
     searchGuilds,
     fetchGuildDetails,
     fetchPosts,

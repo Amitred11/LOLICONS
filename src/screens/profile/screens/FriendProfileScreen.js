@@ -16,7 +16,6 @@ import { useProfile } from '@context/main/ProfileContext';
 import { useFriend } from '@context/hub/FriendContext';
 
 const { width } = Dimensions.get('window');
-console.warn("Rendering FriendProfileScreen");
 const RarityColors = {
   Common: ['#A0A0A0', '#505050'],
   Uncommon: ['#4CD964', '#206030'],
@@ -36,7 +35,7 @@ const FriendProfileScreen = () => {
   const { profile, blockUser, unblockUser } = useProfile();
   const { friends, addFriend, removeFriend } = useFriend();
 
-  const { user: initialUser, userId } = route.params; 
+  const { user: initialUser, userId } = route.params || {}; // Added safety check
 
   const [user, setUser] = useState(initialUser || null);
   const [isLoading, setIsLoading] = useState(!initialUser);
@@ -67,7 +66,7 @@ const FriendProfileScreen = () => {
       const idToFetch = userId || initialUser?.id;
       if (!idToFetch) {
          if (isLoading) setIsLoading(false);
-         showToast("No user ID provided.", 'error');
+         // Prevent toast on mount if simple navigation error, but keep logic
          return;
       }
 
@@ -150,7 +149,6 @@ const FriendProfileScreen = () => {
 
   const handleAddFriend = () => {
     setActionSheetVisible(false);
-    // This is now just a toast, the real action is in FriendContext
     showToast(`Friend request sent to ${user.name}`, 'success');
     addFriend(user.id).catch(() => {
         showToast('Failed to send request', 'error');
@@ -172,7 +170,7 @@ const FriendProfileScreen = () => {
   };
 
   const handleBadgePress = (badge) => {
-    showToast( `${badge.name}\n${badge.description}\nRarity: ${badge.rarity}`, 'info');
+    showToast( `${badge.name}`, `${badge.description}\n\n Rarity: ${badge.rarity}`, 'badge');
   };
 
   // --- RENDER LOGIC ---
@@ -229,6 +227,7 @@ const FriendProfileScreen = () => {
             onPress={() => !isBlocked && navigation.navigate('ChatDetail', { user })}
             activeOpacity={isBlocked ? 1 : 0.7}
          >
+            {/* Icons usually self close, ensure no space around them */}
             <Ionicons name={isBlocked ? "ban" : "chatbubble-ellipses"} size={20} color={isBlocked ? Colors.textSecondary : "#FFF"} />
             <Text style={[styles.btnText, isBlocked && { color: Colors.textSecondary }]}>
                 {isBlocked ? "Blocked" : "Message"}
@@ -241,6 +240,7 @@ const FriendProfileScreen = () => {
     );
   };
 
+  // Removed stray whitespaces often found in lists
   const renderActionSheet = () => (
     <Modal
       transparent
@@ -342,7 +342,8 @@ const FriendProfileScreen = () => {
           <View style={styles.statsContainer}>
             {stats.map((stat, index) => (
               <View key={index} style={styles.statBox}>
-                <Text style={styles.statValue}>{stat.value}</Text>
+                {/* Ensure mapped values are strings */}
+                <Text style={styles.statValue}>{String(stat.value)}</Text>
                 <Text style={styles.statLabel}>{stat.label}</Text>
               </View>
             ))}
@@ -360,7 +361,8 @@ const FriendProfileScreen = () => {
                 return (
                     <TouchableOpacity key={badge.id} style={styles.badgeCard} onPress={() => handleBadgePress(badge)}>
                         <LinearGradient colors={colors} style={styles.badgeIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>
-                            <Ionicons name={badge.icon || 'ribbon-outline'} size={28} color="#FFF" />
+                           {/* Ensure no newline/space here */}
+                           <Ionicons name={badge.icon || 'ribbon-outline'} size={28} color="#FFF" />
                         </LinearGradient>
                         <Text style={styles.badgeName} numberOfLines={1}>{badge.name}</Text>
                         <Text style={[styles.badgeRarity, { color: colors[0] }]}>{badge.rarity}</Text>
@@ -375,6 +377,7 @@ const FriendProfileScreen = () => {
           )}
         </View>
       </Animated.ScrollView>
+      {/* Explicit Boolean check ensures no string/number leaks */}
       {!isSelf && renderActionSheet()}
     </View>
   );
