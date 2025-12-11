@@ -39,40 +39,30 @@ const GuildDetailScreen = ({ route, navigation }) => {
   const handleMainAction = async () => {
     if (isProcessing) return;
 
-    // 1. If Member or Owner -> ENTER
     if (status === 'member' || status === 'owner') {
       navigation.navigate('Discussion', { guildId: currentGuild.id, guildName: currentGuild.name });
       return;
     }
 
-    // 2. If Pending -> Show an info toast
     if (status === 'pending') {
-      // --- UPDATED: Replaced showAlert with showToast ---
       showToast("The admins are reviewing your request.", 'info');
       return;
     }
 
-    // 3. Logic for joining based on Type
     setIsProcessing(true);
 
     if (security.type === 'PUBLIC') {
-      // --- PUBLIC: Join Immediately ---
       const success = await joinGuildPublic(currentGuild.id);
       if (success) {
-        // --- UPDATED: Replaced showAlert with showToast ---
         showToast(`Welcome to ${currentGuild.name}!`, 'success');
       } else {
-        // --- UPDATED: Replaced showAlert with showToast ---
         showToast("Could not join the Realm. Please try again.", 'error');
       }
     } else {
-      // --- PRIVATE / ADMIN: Request Access ---
       const success = await requestGuildAccess(currentGuild.id);
       if (success) {
-        // --- UPDATED: Replaced showAlert with showToast ---
         showToast("Your request has been sent for approval.", 'success');
       } else {
-        // --- UPDATED: Replaced showAlert with showToast ---
         showToast("Could not send your request. Please try again.", 'error');
       }
     }
@@ -188,9 +178,9 @@ const GuildDetailScreen = ({ route, navigation }) => {
           <Text style={styles.description}>{currentGuild.desc}</Text>
 
           <View style={styles.infoGrid}>
-            <InfoItem icon="finger-print" color={Colors.primary} title="Encrypted" sub="E2E Chat" />
-            <InfoItem icon="server-outline" color={Colors.secondary} title="Low Latency" sub="US-East" />
-            <InfoItem icon="ribbon-outline" color="#A78BFA" title="Reputation" sub="Tracked" />
+            <InfoItem icon="finger-print" color={Colors.primary} title="Encrypted" sub="E2E Chat" onPress={() => showToast("Encrypted", "All chat is secured", "info")} />
+            <InfoItem icon="server-outline" color={Colors.secondary} title="Low Latency" sub="PH" onPress={() => showToast("Low Latency", "Faster Connection and No Lagging", "info")} />
+            <InfoItem icon="ribbon-outline" color="#A78BFA" title="Reputation" sub="Tracked" onPress={() => showToast("Reputation", "Is Secured and Will not take your data.", "info")} />
           </View>
         </View>
       </ScrollView>
@@ -198,12 +188,12 @@ const GuildDetailScreen = ({ route, navigation }) => {
   );
 };
 
-const InfoItem = ({ icon, color, title, sub }) => (
-  <View style={styles.infoCard}>
+const InfoItem = ({ icon, color, title, sub, onPress }) => (
+  <TouchableOpacity style={styles.infoCard} onPress={onPress}>
     <Ionicons name={icon} size={24} color={color} />
     <Text style={styles.infoTitle}>{title}</Text>
     <Text style={styles.infoSub}>{sub}</Text>
-  </View>
+  </TouchableOpacity>
 );
 
 const styles = StyleSheet.create({
@@ -244,9 +234,9 @@ const styles = StyleSheet.create({
   description: { color: Colors.textSecondary, fontSize: 15, lineHeight: 24, textAlign: 'left' },
 
   infoGrid: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 30 },
-  infoCard: { width: '31%', backgroundColor: Colors.surface, padding: 15, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
-  infoTitle: { color: Colors.text, fontWeight: 'bold', marginTop: 8, fontSize: 13 },
-  infoSub: { color: Colors.textSecondary, fontSize: 11, marginTop: 2 },
+  infoCard: { width: '32%', backgroundColor: Colors.surface, padding: 15, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+  infoTitle: { color: Colors.text, fontWeight: 'bold', marginTop: 8, fontSize: 10 },
+  infoSub: { color: Colors.textSecondary, fontSize: 9, marginTop: 2 },
 });
 
 export default GuildDetailScreen;

@@ -143,6 +143,7 @@ export const MOCK_RANKS = [
     description: 'Older than existence, surpassing creation, the final and ultimate apex of all power.'
   }
 ];
+
 //static help, not a mockdata
 const MOCK_FAQ = [
     { q: "How do I reset my password?", a: "Go to Account > Login Credentials > Password to initiate a reset link sent to your email." },
@@ -154,9 +155,9 @@ const MOCK_FAQ = [
 
 const MOCK_CONTACT_TOPICS = [
     { label: 'Report a Bug', icon: 'bug-outline', action: { type: 'modal', modalName: 'reportBug' } },
-    { label: 'Feature Request', icon: 'bulb-outline', action: { type: 'link', url: 'https://feedback.example.com' } },
-    { label: 'Community', icon: 'people-outline', action: { type: 'link', url: 'https://discord.gg/example' } },
-    { label: 'Terms & Privacy', icon: 'document-text-outline', action: { type: 'link', url: 'https://example.com/terms' } },
+    { label: 'Feature Request', icon: 'bulb-outline', action: { type: 'link', url: 'https://lha-web.vercel.app/#dms' } },
+    { label: 'Community', icon: 'people-outline', action: { type: 'link', url: 'https://lha-web.vercel.app/' } },
+    { label: 'Terms & Privacy', icon: 'document-text-outline', action: { type: 'link', url: 'https://lha-web.vercel.app/#dms' } },
 ];
 
 const DEFAULT_SETTINGS = {

@@ -57,7 +57,7 @@ const ChapterEndFooter = ({
                     
                     <View style={styles.footerActions}>
                         <View style={styles.likeBtn}>
-                            <Text style={styles.likeCount}>1</Text>
+                            <Text style={styles.likeCount}>4</Text>
                             <Ionicons name="thumbs-up" size={18} color="#FFF" />
                         </View>
                         <TouchableOpacity style={styles.homeBtn} onPress={onHome}>

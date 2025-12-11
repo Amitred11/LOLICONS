@@ -285,7 +285,7 @@ const CallOverlay = ({ visible, user, type, onClose }) => {
             <View style={[styles.bottomControls, { paddingBottom: insets.bottom + 20 }]}>
                 {status === 'connected' && (
                     <View style={styles.reactionRow}>
-                        {['❤️','👍','😂','👋'].map(e => (
+                        {['😀','😂','😍','🔥','👍'].map(e => (
                             <TouchableOpacity key={e} onPress={() => sendReaction(e)} style={styles.reactionBtn}>
                                 <Text style={{fontSize: 24}}>{e}</Text>
                             </TouchableOpacity>
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
   gridAvatar: { width: '100%', height: '100%' },
   gridOverlay: { position: 'absolute', bottom: 0, width: '100%', padding: 10, flexDirection: 'row', justifyContent: 'space-between' },
   gridName: { color: '#FFF', fontWeight: 'bold' },
-  bottomControls: { width: '100%' }, // Removed fixed padding here, handled in JSX with insets
+  bottomControls: { width: '100%' },
   reactionRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
   reactionBtn: { marginHorizontal: 15, padding: 5, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20 },
   controlRow: { flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', paddingHorizontal: 10 },

@@ -13,16 +13,15 @@ const MarketDetailScreen = ({ route, navigation }) => {
   const [isWishlisted, setIsWishlisted] = useState(false);
 
   const handleStartChat = () => {
-    // Navigate to a Chat Screen (Mocked)
     const sellerUser = {
-      id: item.sellerId || 'unknown', // Use ID from item
+      id: item.sellerId || 'unknown',
       name: item.seller,
       avatar: item.sellerAvatar,
       status: 'Online' 
     };
 
     navigation.navigate('ChatDetail', { 
-      user: sellerUser,
+      user: sellerUser, // add a item photo with its title... (refactor)
       initialMessage: `Hi @${item.seller}, is the "${item.title}" still available?` 
     });
   };
@@ -35,7 +34,6 @@ const MarketDetailScreen = ({ route, navigation }) => {
   };
 
   const handleSellerProfile = () => {
-    // Navigation to FriendProfile
     navigation.navigate('FriendProfile', { 
       userId: item.sellerId || 'mock_user_id',
       username: item.seller

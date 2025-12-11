@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
     View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-    StatusBar, Image, Share, ActivityIndicator, Pressable 
+    StatusBar, Image, Share, ActivityIndicator,
 } from 'react-native';
 import { Colors } from '@config/Colors';
 import { LinearGradient } from 'expo-linear-gradient';

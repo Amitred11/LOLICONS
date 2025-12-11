@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     supportTitle: { fontFamily: 'Poppins_700Bold', color: Colors.text, fontSize: 28, textAlign: 'center' },
     searchBarWrapper: { width: '90%' },
     searchBarContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 22, height: 44, paddingHorizontal: 15 },
-    searchInput: { flex: 1, color: Colors.text, fontFamily: 'Poppins_400Regular', fontSize: 16 },
+    searchInput: { flex: 1, color: Colors.text, fontFamily: 'Poppins_400Regular', fontSize: 14, top: 3, left: 10 },
     clearButton: { paddingLeft: 5 },
     loadingContainer: { padding: 40, justifyContent: 'center', alignItems: 'center' },
     content: { padding: 20, gap: 20 },
