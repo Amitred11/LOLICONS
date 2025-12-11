@@ -15,7 +15,6 @@ export const ChatProvider = ({ children }) => {
     const [messages, setMessages] = useState({});
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
-    
     const updateChatInList = useCallback((chatId, updates) => {
         setChats(prev => prev.map(c => c.id === chatId ? { ...c, ...updates } : c));
     }, []);
@@ -76,7 +75,11 @@ export const ChatProvider = ({ children }) => {
 
     const sendMessage = useCallback(async (chatId, content, type, fileName) => {
         const tempId = `temp_msg_${Date.now()}`;
-        const newMessage = { id: tempId, text: content, sender: 'me', type, time: 'sending...', imageUri: type === 'image' ? content : null, fileName };
+        const newMessage = { 
+            id: tempId, text: content, sender: 'me', type, time: 'sending...', 
+            imageUri: type === 'image' ? content : null, fileName,
+            reactions: {}, isEdited: false
+        };
         setMessages(prev => ({ ...prev, [chatId]: [newMessage, ...(prev[chatId] || [])] }));
         try {
             const response = await ChatAPI.sendMessage(chatId, { content, type, fileName });
@@ -89,6 +92,71 @@ export const ChatProvider = ({ children }) => {
              setMessages(prev => ({ ...prev, [chatId]: prev[chatId].map(m => m.id === tempId ? {...m, time: 'failed'} : m) }));
         }
     }, [updateChatInList]);
+
+    // --- NEW ACTIONS: React, Edit, Delete ---
+
+    const reactToMessage = useCallback(async (chatId, messageId, reaction) => {
+        // Optimistic Update with Toggle Logic
+        setMessages(prev => ({
+            ...prev,
+            [chatId]: prev[chatId].map(m => {
+                if (m.id === messageId) {
+                    const currentReactions = m.reactions?.[reaction] || [];
+                    const userId = 'me'; // Current user
+                    
+                    let newReactionList;
+                    if (currentReactions.includes(userId)) {
+                        // User already reacted: Remove them (Toggle Off)
+                        newReactionList = currentReactions.filter(id => id !== userId);
+                    } else {
+                        // User hasn't reacted: Add them (Toggle On)
+                        newReactionList = [...currentReactions, userId];
+                    }
+
+                    const newReactionsObj = { ...m.reactions };
+                    
+                    if (newReactionList.length > 0) {
+                        newReactionsObj[reaction] = newReactionList;
+                    } else {
+                        // If no one is left reacting, remove the key
+                        delete newReactionsObj[reaction];
+                    }
+
+                    return { ...m, reactions: newReactionsObj };
+                }
+                return m;
+            })
+        }));
+        await ChatAPI.reactToMessage(chatId, messageId, reaction);
+    }, []);
+
+    const editMessage = useCallback(async (chatId, messageId, newText) => {
+        setMessages(prev => ({
+            ...prev,
+            [chatId]: prev[chatId].map(m => m.id === messageId ? { ...m, text: newText, isEdited: true } : m)
+        }));
+        await ChatAPI.editMessage(chatId, messageId, newText);
+    }, []);
+
+    const deleteMessage = useCallback(async (chatId, messageId, deleteType) => {
+        if (deleteType === 'for_me') {
+            setMessages(prev => ({
+                ...prev,
+                [chatId]: prev[chatId].filter(m => m.id !== messageId)
+            }));
+        } else {
+            // Delete for everyone (convert to system message)
+            setMessages(prev => ({
+                ...prev,
+                [chatId]: prev[chatId].map(m => m.id === messageId ? { 
+                    ...m, type: 'system', text: '🚫 This message was deleted', isDeleted: true, imageUri: null 
+                } : m)
+            }));
+        }
+        await ChatAPI.deleteMessage(chatId, messageId, deleteType);
+    }, []);
+
+    // ----------------------------------------
 
     const toggleReadStatus = useCallback((chatId) => {
         const chat = chats.find(c => c.id === chatId);
@@ -112,12 +180,12 @@ export const ChatProvider = ({ children }) => {
 
     const toggleMute = useCallback(async (chatId, currentState) => {
         const newState = !currentState;
-        updateChatInList(chatId, { isMuted: newState }); // Optimistic update
+        updateChatInList(chatId, { isMuted: newState });
         try {
             await ChatAPI.toggleMute(chatId, newState);
             return newState;
         } catch (e) {
-            updateChatInList(chatId, { isMuted: currentState }); // Revert
+            updateChatInList(chatId, { isMuted: currentState });
             throw e;
         }
     }, [updateChatInList]);
@@ -132,46 +200,36 @@ export const ChatProvider = ({ children }) => {
         await ChatAPI.reportUser(chatId, reason);
     }, []);
 
-    // --- NEW FUNCTIONS ---
     const leaveGroup = useCallback(async (chatId) => {
         const prevChats = chats;
-        setChats(prev => prev.filter(c => c.id !== chatId)); // Optimistic update
-        try {
-            await ChatAPI.leaveGroup(chatId);
-        } catch (e) {
-            setChats(prevChats); // Revert on failure
-            throw e;
-        }
+        setChats(prev => prev.filter(c => c.id !== chatId)); 
+        try { await ChatAPI.leaveGroup(chatId); } 
+        catch (e) { setChats(prevChats); throw e; }
     }, [chats]);
 
     const addMembersToGroup = useCallback(async (chatId, memberIds) => {
         try {
             const response = await ChatAPI.addMembersToGroup(chatId, memberIds);
             if (response.success) {
-                // Update the chat in the main list with new members
                 updateChatInList(chatId, { members: response.data });
                 return response.data;
             } else {
                 throw new Error('Failed to add members');
             }
-        } catch (e) {
-            console.error("ChatContext: Add Members Error", e);
-            throw e;
-        }
+        } catch (e) { throw e; }
     }, [updateChatInList]);
 
     const setDisappearingMessages = useCallback(async (chatId, newState) => {
         const currentChat = chats.find(c => c.id === chatId);
         const originalState = currentChat.disappearingMessages.enabled;
         
-        // Optimistic update
         updateChatInList(chatId, { disappearingMessages: { ...currentChat.disappearingMessages, enabled: newState }});
 
         try {
             await ChatAPI.updateChatSettings(chatId, { disappearingMessages: newState });
             return newState;
         } catch (e) {
-            updateChatInList(chatId, { disappearingMessages: { ...currentChat.disappearingMessages, enabled: originalState }}); // Revert
+            updateChatInList(chatId, { disappearingMessages: { ...currentChat.disappearingMessages, enabled: originalState }}); 
             throw e;
         }
     }, [chats, updateChatInList]);
@@ -193,7 +251,6 @@ export const ChatProvider = ({ children }) => {
         try {
             const response = await ChatAPI.removeMemberFromGroup(chatId, userId);
             if(response.success) {
-                // Update local chat list member count/array
                 updateChatInList(chatId, { members: response.data });
                 return true;
             }
@@ -202,8 +259,6 @@ export const ChatProvider = ({ children }) => {
     }, [updateChatInList]);
 
     const setNickname = useCallback(async (chatId, userId, nickname) => {
-        // Optimistic update would require deep state management of the member list
-        // For now we rely on the API call
         await ChatAPI.setMemberNickname(chatId, userId, nickname);
     }, []);
     
@@ -211,12 +266,14 @@ export const ChatProvider = ({ children }) => {
         chats, isLoadingChats, messages, isLoadingMessages, currentMessages,
         loadChats, pinChat, deleteChat, createGroupChat, loadMessages, sendMessage,
         toggleReadStatus, archiveChat, toggleMute, blockUser, reportUser, clearChatHistory,
-        leaveGroup, setDisappearingMessages,addMembersToGroup, updateGroupInfo, kickMember, setNickname // <-- Expose new functions
+        leaveGroup, setDisappearingMessages, addMembersToGroup, updateGroupInfo, kickMember, setNickname,
+        reactToMessage, editMessage, deleteMessage 
     }), [
         chats, isLoadingChats, messages, isLoadingMessages,
         loadChats, pinChat, deleteChat, createGroupChat, loadMessages, sendMessage,
         toggleReadStatus, archiveChat, toggleMute, blockUser, reportUser, clearChatHistory,
-        leaveGroup, setDisappearingMessages,addMembersToGroup, updateGroupInfo, kickMember, setNickname
+        leaveGroup, setDisappearingMessages, addMembersToGroup, updateGroupInfo, kickMember, setNickname,
+        reactToMessage, editMessage, deleteMessage
     ]);
 
     return (

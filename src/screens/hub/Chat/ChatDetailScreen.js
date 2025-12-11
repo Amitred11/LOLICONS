@@ -1,13 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { 
   View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, 
-  KeyboardAvoidingView, Platform, Alert, Animated, Keyboard, ActivityIndicator
+  KeyboardAvoidingView, Platform, Animated, Keyboard, ActivityIndicator, Modal, Image
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker'; 
 import * as DocumentPicker from 'expo-document-picker'; 
+import { useHeaderHeight } from '@react-navigation/elements'; // Import this
 
 import { Colors } from '@config/Colors';
 import ChatBubble from './components/ChatBubble';
@@ -21,11 +22,16 @@ const ChatDetailScreen = () => {
   const route = useRoute();
   const flatListRef = useRef();
   const { showToast } = useAlert();
+  const headerHeight = useHeaderHeight(); 
 
   const { user } = route.params || { user: { id: '0', name: 'Chat', type: 'direct' }};
   const isGroup = user.type === 'group';
 
-  const { loadMessages, currentMessages, isLoadingMessages, sendMessage } = useChat();
+  // Context Actions
+  const { 
+    loadMessages, currentMessages, isLoadingMessages, sendMessage, 
+    reactToMessage, editMessage, deleteMessage 
+  } = useChat();
 
   const [msg, setMsg] = useState('');
   const [showAttachments, setShowAttachments] = useState(false); 
@@ -35,12 +41,26 @@ const ChatDetailScreen = () => {
   const [isCalling, setIsCalling] = useState(false);
   const [callType, setCallType] = useState('voice'); 
 
-  const startCall = (type) => {
-      setCallType(type);
-      setIsCalling(true);
-  };
+  // New States for Features
+  const [selectedMessage, setSelectedMessage] = useState(null); // Long press menu
+  const [fullScreenImage, setFullScreenImage] = useState(null); // Image Viewer
+  const [editingMessageId, setEditingMessageId] = useState(null); // Edit Mode
+  
+  // State for Reactors Modal
+  const [reactorsModal, setReactorsModal] = useState({ visible: false, emoji: '', users: [] });
 
   const attachmentHeight = useRef(new Animated.Value(0)).current;
+
+  useLayoutEffect(() => {
+    navigation.getParent()?.setOptions({
+      tabBarStyle: { display: 'none' }
+    });
+    return () => {
+      navigation.getParent()?.setOptions({
+        tabBarStyle: undefined // Reset to default when leaving
+      });
+    };
+  }, [navigation]);
 
   useEffect(() => {
     loadMessages(user.id);
@@ -59,8 +79,22 @@ const ChatDetailScreen = () => {
     }).start();
   }, [showAttachments]);
 
+  const startCall = (type) => {
+      setCallType(type);
+      setIsCalling(true);
+  };
+
   const handleSend = async (content = msg, type = 'text', fileName = null) => {
     if (!content) return;
+
+    if (editingMessageId) {
+        await editMessage(user.id, editingMessageId, content);
+        setEditingMessageId(null);
+        setMsg('');
+        Keyboard.dismiss();
+        return;
+    }
+
     if(type === 'text') setMsg('');
     setShowAttachments(false);
     setShowEmojis(false);
@@ -72,6 +106,7 @@ const ChatDetailScreen = () => {
   };
 
   const handlePickImage = async () => {
+    Keyboard.dismiss();
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.8,
@@ -80,6 +115,7 @@ const ChatDetailScreen = () => {
   };
 
   const handleCamera = async () => {
+    Keyboard.dismiss();
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) return showToast("Permission", "Camera access needed.", 'info');
     
@@ -97,27 +133,63 @@ const ChatDetailScreen = () => {
     } catch (err) { console.log("Doc Picker Error", err); }
   };
 
-  const handleCallAgain = (type) => {
-    startCall(type);
-  };
-
   const handleCallEnded = async (callData) => {
       setIsCalling(false);
       if (!callData) return;
-
       const { duration, wasConnected, type } = callData;
-
       const callLogData = {
           callType: type, 
           duration: duration,
           status: wasConnected ? 'ended' : 'missed',
           timestamp: new Date().toISOString()
       };
-      try {
-          await sendMessage(user.id, JSON.stringify(callLogData), 'call_log'); 
-      } catch (e) {
-          console.error("Failed to log call", e);
+      await sendMessage(user.id, JSON.stringify(callLogData), 'call_log'); 
+  };
+
+  // --- LONG PRESS ACTIONS ---
+  const handleLongPress = (message) => { setSelectedMessage(message); };
+
+  const handleReaction = (emoji) => {
+      if (selectedMessage) {
+          reactToMessage(user.id, selectedMessage.id, emoji);
+          setSelectedMessage(null);
       }
+  };
+
+  const handleReactionPress = (messageId, emoji) => {
+      reactToMessage(user.id, messageId, emoji);
+  };
+
+  const handleReactionLongPress = (emoji, userIds) => {
+      const formattedUsers = Array.isArray(userIds) ? userIds.map(id => {
+          if (id === 'me') return { id, name: 'You', avatar: null };
+          if (id === 'jessica') return { id, name: 'Jessica Parker', avatar: null };
+          return { id, name: `User ${id}`, avatar: null };
+      }) : [];
+      setReactorsModal({ visible: true, emoji, users: formattedUsers });
+  };
+
+  const handleEditAction = () => {
+      if (selectedMessage?.type === 'text' && selectedMessage?.sender === 'me') {
+          setMsg(selectedMessage.text);
+          setEditingMessageId(selectedMessage.id);
+          setSelectedMessage(null);
+      } else {
+          showToast("Can't Edit", "Only your text messages can be edited.", "info");
+      }
+  };
+
+  const handleDeleteAction = (type) => { 
+      if (selectedMessage) {
+          deleteMessage(user.id, selectedMessage.id, type === 'everyone' ? 'everyone' : 'for_me');
+          setSelectedMessage(null);
+      }
+  };
+
+  const cancelEdit = () => {
+      setEditingMessageId(null);
+      setMsg('');
+      Keyboard.dismiss();
   };
 
   const toggleAttachments = () => { Keyboard.dismiss(); setShowEmojis(false); setShowAttachments(!showAttachments); };
@@ -126,7 +198,6 @@ const ChatDetailScreen = () => {
 
   const messages = currentMessages(user.id);
 
-  // Helper to render chat list (same as before)
   const renderContent = () => {
     if (isLoadingMessages) return <View style={styles.emptyListContainer}><ActivityIndicator color={Colors.primary} size="large" /></View>;
     if (messages.length === 0) {
@@ -144,30 +215,118 @@ const ChatDetailScreen = () => {
             inverted
             keyExtractor={item => item.id}
             contentContainerStyle={styles.listContentContainer}
-            renderItem={({ item }) => (
-                <ChatBubble 
-                    message={item} 
-                    isMe={item.sender === 'me'} 
-                    showSender={user.type === 'group'}
-                    // Pass the call again handler
-                    onCallAgain={handleCallAgain} 
-                />
-            )}
+            renderItem={({ item, index }) => {
+                const olderMessage = messages[index + 1];
+                const newerMessage = messages[index - 1];
+                const isFirstInChain = !olderMessage || olderMessage.sender !== item.sender || olderMessage.type === 'system';
+                const isLastInChain = !newerMessage || newerMessage.sender !== item.sender || newerMessage.type === 'system';
+
+                return (
+                    <ChatBubble 
+                        message={item} 
+                        isMe={item.sender === 'me'} 
+                        isFirstInChain={isFirstInChain} 
+                        isLastInChain={isLastInChain}
+                        onCallAgain={(type) => { setCallType(type); setIsCalling(true); }}
+                        onLongPress={handleLongPress}
+                        onImagePress={(uri) => setFullScreenImage(uri)}
+                        onReactionPress={handleReactionPress}
+                        onReactionLongPress={handleReactionLongPress} 
+                    />
+                );
+            }}
         />
     );
   };
 
   return (
     <View style={styles.container}>
-      <CallOverlay 
-        visible={isCalling} 
-        user={user} 
-        type={callType} 
-        onClose={handleCallEnded} 
-      />
+      <CallOverlay visible={isCalling} user={user} type={callType} onClose={handleCallEnded} />
+
+      {/* FULL SCREEN IMAGE VIEWER */}
+      <Modal visible={!!fullScreenImage} transparent={true} animationType="fade">
+        <View style={styles.fullScreenContainer}>
+            <TouchableOpacity style={styles.closeImageBtn} onPress={() => setFullScreenImage(null)}>
+                <Ionicons name="close-circle" size={40} color="#FFF" />
+            </TouchableOpacity>
+            {fullScreenImage && (
+                <Image source={{ uri: fullScreenImage }} style={styles.fullScreenImage} resizeMode="contain" />
+            )}
+        </View>
+      </Modal>
+
+      {/* REACTORS LIST MODAL */}
+      <Modal visible={reactorsModal.visible} transparent={true} animationType="fade">
+        <TouchableOpacity 
+            style={styles.modalOverlay} 
+            activeOpacity={1} 
+            onPress={() => setReactorsModal({ ...reactorsModal, visible: false })}
+        >
+            <View style={styles.reactorsPopup}>
+                <View style={styles.reactorsHeader}>
+                    <Text style={styles.reactorsTitle}>Reactions {reactorsModal.emoji}</Text>
+                    <TouchableOpacity onPress={() => setReactorsModal({ ...reactorsModal, visible: false })}>
+                        <Ionicons name="close-circle" size={24} color={Colors.textSecondary} />
+                    </TouchableOpacity>
+                </View>
+                <FlatList 
+                    data={reactorsModal.users}
+                    keyExtractor={item => item.id}
+                    style={{ maxHeight: 200 }}
+                    renderItem={({ item }) => (
+                        <View style={styles.reactorRow}>
+                            <View style={styles.reactorAvatar}>
+                                <Text style={{color:'#FFF', fontWeight:'bold'}}>{item.name[0]}</Text>
+                            </View>
+                            <Text style={styles.reactorName}>{item.name}</Text>
+                        </View>
+                    )}
+                />
+            </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* MESSAGE OPTIONS MODAL */}
+      <Modal visible={!!selectedMessage} transparent={true} animationType="fade">
+          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setSelectedMessage(null)}>
+              <View style={styles.contextMenu}>
+                   <View style={styles.reactionRow}>
+                       {['❤️','👍','😂','😮','😡','🙏'].map(emoji => (
+                           <TouchableOpacity key={emoji} onPress={() => handleReaction(emoji)} style={styles.emojiBtn}>
+                               <Text style={{fontSize:28}}>{emoji}</Text>
+                           </TouchableOpacity>
+                       ))}
+                   </View>
+
+                   <View style={styles.actionsList}>
+                       <TouchableOpacity style={styles.actionRow} onPress={() => setSelectedMessage(null)}>
+                           <Text style={styles.actionText}>Copy</Text>
+                           <Ionicons name="copy-outline" size={20} color={Colors.text} />
+                       </TouchableOpacity>
+                       {selectedMessage?.sender === 'me' && selectedMessage?.type === 'text' && (
+                           <TouchableOpacity style={styles.actionRow} onPress={handleEditAction}>
+                               <Text style={styles.actionText}>Edit</Text>
+                               <Ionicons name="pencil-outline" size={20} color={Colors.text} />
+                           </TouchableOpacity>
+                       )}
+                       <TouchableOpacity style={styles.actionRow} onPress={() => handleDeleteAction('me')}>
+                           <Text style={[styles.actionText, {color: '#FF453A'}]}>Delete for me</Text>
+                           <Ionicons name="trash-outline" size={20} color="#FF453A" />
+                       </TouchableOpacity>
+                       {selectedMessage?.sender === 'me' && (
+                            <TouchableOpacity style={styles.actionRow} onPress={() => handleDeleteAction('everyone')}>
+                                <Text style={[styles.actionText, {color: '#FF453A'}]}>Delete for everyone</Text>
+                                <Ionicons name="trash-bin-outline" size={20} color="#FF453A" />
+                            </TouchableOpacity>
+                       )}
+                   </View>
+              </View>
+          </TouchableOpacity>
+      </Modal>
 
       <View style={styles.bgGlow} />
 
+      {/* HEADER */}
       <View style={[styles.header, { marginTop: insets.top + 10 }]}>
         <View style={styles.headerLeft}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.glassBtn}>
@@ -183,7 +342,6 @@ const ChatDetailScreen = () => {
             </TouchableOpacity>
         </View>
 
-        {/* --- UPDATED CALL BUTTONS ("GREATER" / PROMINENT) --- */}
         <View style={styles.headerRight}>
             {isGroup && (
                 <TouchableOpacity onPress={() => startCall('group')} style={[styles.callBtn, { backgroundColor: '#5856D6' }]}>
@@ -203,10 +361,27 @@ const ChatDetailScreen = () => {
 
       <View style={{ flex: 1 }}>{renderContent()}</View>
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
-        <View style={{ marginBottom: insets.bottom }}>
+      {/* FIX 2: KEYBOARD AVOIDING VIEW ADJUSTMENTS */}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        // Important: Offset by header height to prevent keyboard covering input
+        keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
+        style={{ flexShrink: 0 }} // Ensures it doesn't expand unexpectedly
+      >
+        <View style={{ marginBottom: insets.bottom > 0 ? insets.bottom : 10 }}>
+            
+            {/* EDITING BAR */}
+            {editingMessageId && (
+                <View style={styles.editingBar}>
+                    <Text style={{color: Colors.text, flex: 1}}>Editing Message...</Text>
+                    <TouchableOpacity onPress={cancelEdit}>
+                        <Ionicons name="close" size={20} color={Colors.text} />
+                    </TouchableOpacity>
+                </View>
+            )}
+
             <View style={styles.inputWrapper}>
-                <View style={styles.glassInputContainer}>
+                <View style={[styles.glassInputContainer, editingMessageId && { borderColor: Colors.primary }]}>
                     <TouchableOpacity onPress={toggleAttachments} style={styles.attachBtn}>
                         <Animated.View style={{ transform: [{ rotate: showAttachments ? '45deg' : '0deg' }] }}>
                              <Ionicons name="add" size={28} color={Colors.text} />
@@ -214,14 +389,14 @@ const ChatDetailScreen = () => {
                     </TouchableOpacity>
                     <TextInput 
                         style={styles.input}
-                        placeholder="Message..."
+                        placeholder={editingMessageId ? "Edit your message..." : "Message..."}
                         placeholderTextColor={Colors.textSecondary}
                         value={msg}
                         onChangeText={setMsg}
                         multiline
                         onFocus={() => { setShowAttachments(false); setShowEmojis(false); }}
                     />
-                    {msg.length === 0 ? (
+                    {msg.length === 0 && !editingMessageId ? (
                         <View style={{ flexDirection: 'row' }}>
                             <TouchableOpacity onPress={handleCamera} style={styles.iconBtn}>
                                 <Ionicons name="camera-outline" size={24} color={Colors.textSecondary} />
@@ -232,7 +407,7 @@ const ChatDetailScreen = () => {
                         </View>
                     ) : (
                         <TouchableOpacity onPress={() => handleSend(msg, 'text')} style={styles.sendBtn}>
-                            <Ionicons name="arrow-up" size={20} color="#000" />
+                            <Ionicons name={editingMessageId ? "checkmark" : "arrow-up"} size={20} color="#000" />
                         </TouchableOpacity>
                     )}
                 </View>
@@ -286,7 +461,6 @@ const styles = StyleSheet.create({
   headerSub: { color: Colors.secondary, fontSize: 11, fontWeight: '500', marginTop: 2 },
   glassBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   
-  // New Header Right Styles
   callBtn: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
 
   listContentContainer: { flexGrow: 1, justifyContent: 'flex-end', paddingHorizontal: 20, paddingBottom: 20, paddingTop: 20 },
@@ -303,6 +477,70 @@ const styles = StyleSheet.create({
   attachIconBg: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
   attachLabel: { color: Colors.textSecondary, fontSize: 12 },
   emptyText: { fontSize: 18, fontWeight: '600', color: Colors.textSecondary, marginTop: 20 },
+
+  editingBar: { flexDirection: 'row', backgroundColor: '#2C2C2E', padding: 10, marginHorizontal: 15, borderTopLeftRadius: 10, borderTopRightRadius: 10 },
+  
+  fullScreenContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
+  fullScreenImage: { width: '100%', height: '80%' },
+  closeImageBtn: { position: 'absolute', top: 50, right: 20, zIndex: 10 },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  contextMenu: { backgroundColor: '#1C1C1E', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40 },
+  reactionRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, backgroundColor: '#2C2C2E', padding: 10, borderRadius: 15 },
+  emojiBtn: { padding: 5 },
+  actionsList: { backgroundColor: '#2C2C2E', borderRadius: 15, overflow: 'hidden' },
+  actionRow: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#3A3A3C' },
+  actionText: { color: '#FFF', fontSize: 16, fontWeight: '500' },
+
+  // NEW STYLES FOR REACTORS MODAL
+  reactorsPopup: {
+      backgroundColor: '#1C1C1E',
+      width: '80%',
+      alignSelf: 'center',
+      borderRadius: 16,
+      padding: 15,
+      marginBottom: 'auto', 
+      marginTop: 'auto',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.1)',
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.5,
+      shadowRadius: 10,
+      elevation: 10
+  },
+  reactorsHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 15,
+      borderBottomWidth: 1,
+      borderBottomColor: '#2C2C2E',
+      paddingBottom: 10
+  },
+  reactorsTitle: {
+      color: '#FFF',
+      fontSize: 18,
+      fontWeight: 'bold'
+  },
+  reactorRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12
+  },
+  reactorAvatar: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: Colors.primary || '#34C759',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 10
+  },
+  reactorName: {
+      color: Colors.text,
+      fontSize: 16
+  }
 });
 
 export default ChatDetailScreen;

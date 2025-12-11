@@ -1,5 +1,3 @@
-// api/MockChatService.js
-
 import { MOCK_ALL_USERS } from '@api/MockProfileService';
 
 /**
@@ -14,23 +12,42 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Mock Database
 let MOCK_CHATS = [
-  { id: '1', type: 'direct', name: 'Jessica Parker', lastMessage: 'See you at the event!', time: '2m', unread: 2, avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400', isOnline: true, isMuted: false },
+  { id: '1', type: 'direct', name: 'Jessica Parker', lastMessage: 'See you at the event!', time: '2m', unread: 2, avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400', isOnline: true, isMuted: false, disappearingMessages: { enabled: false } },
   { id: '2', type: 'group', name: 'Camping Trip 🏕️', lastMessage: 'David: I brought the tent', time: '1h', unread: 5, isOnline: false, isMuted: false, disappearingMessages: { enabled: false, duration: 86400 } }, 
-  { id: '3', type: 'community', name: 'React Native Devs', lastMessage: 'New version released!', time: '4h', unread: 0, isOnline: false, isMuted: true },
+  { id: '3', type: 'community', name: 'React Native Devs', lastMessage: 'New version released!', time: '4h', unread: 0, isOnline: false, isMuted: true, disappearingMessages: { enabled: false } },
   { id: '4', type: 'direct', name: 'Mike Ross', lastMessage: 'Sent an attachment', time: '1d', unread: 0, avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400', isOnline: true, isMuted: false, disappearingMessages: { enabled: true, duration: 86400 } },
 ];
 
+// Updated Message Structure to support Reactions (Array of IDs), Edits, and Deletion
 const MOCK_MESSAGES = {
   '1': [
-    { id: 'm1-1', text: 'See you at the event!', sender: 'them', type: 'text', time: '10:00 AM', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400', senderName: 'Jessica' },
-    { id: 'm1-2', text: 'Sounds good!', sender: 'me', type: 'text', time: '10:05 AM' },
+    { 
+      id: 'm1-1', 
+      text: 'See you at the event!', 
+      sender: 'them', 
+      type: 'text', 
+      time: '10:00 AM', 
+      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400', 
+      senderName: 'Jessica',
+      reactions: { '❤️': ['me', 'jessica'] }, // Changed to Array of IDs
+      isEdited: false 
+    },
+    { 
+      id: 'm1-2', 
+      text: 'Sounds good!', 
+      sender: 'me', 
+      type: 'text', 
+      time: '10:05 AM', 
+      reactions: {}, 
+      isEdited: false 
+    },
   ],
   '2': [
-    { id: 'm2-1', text: 'I brought the tent', sender: 'them', type: 'text', time: '1h ago', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400', senderName: 'David' },
-    { id: 'm2-2', text: 'Awesome, I have the marshmallows!', sender: 'me', type: 'text', time: '59m ago' },
+    { id: 'm2-1', text: 'I brought the tent', sender: 'them', type: 'text', time: '1h ago', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400', senderName: 'David', reactions: {} },
+    { id: 'm2-2', text: 'Awesome, I have the marshmallows!', sender: 'me', type: 'text', time: '59m ago', reactions: { '👍': ['user_3', 'user_4'] } },
   ],
   '4': [
-     { id: 'm4-1', text: 'Sent an attachment', sender: 'them', type: 'document', fileName: 'legal_brief.pdf', time: '1d ago', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400', senderName: 'Mike Ross'  }
+     { id: 'm4-1', text: 'Sent an attachment', sender: 'them', type: 'document', fileName: 'legal_brief.pdf', time: '1d ago', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400', senderName: 'Mike Ross', reactions: {}  }
   ]
 };
 
@@ -43,8 +60,7 @@ export const ChatAPI = {
 
   createGroup: async (groupName, memberIds) => {
     await delay(1200);
-    // Create members array from IDs
-    const allUsers = Object.values(MOCK_ALL_USERS);
+    const allUsers = Object.values(MOCK_ALL_USERS || {});
     const members = memberIds.map(id => {
         const u = allUsers.find(user => user.id === id);
         return u ? { ...u, avatar: u.avatarUrl } : { id, name: 'Unknown' };
@@ -64,7 +80,6 @@ export const ChatAPI = {
 
   archiveChat: async (chatId) => {
     await delay(500);
-    console.log(`[API] Archived Chat ${chatId}`);
     return { success: true };
   },
 
@@ -75,13 +90,13 @@ export const ChatAPI = {
   },
 
   fetchHistory: async (chatId) => {
-    await delay(1000); 
+    await delay(600); 
     const history = MOCK_MESSAGES[chatId] || [];
     return { success: true, data: history };
   },
 
   sendMessage: async (chatId, messageData) => {
-    await delay(600); 
+    await delay(400); 
     const { content, type, fileName } = messageData;
     const newMessage = {
       id: Date.now().toString(),
@@ -90,17 +105,93 @@ export const ChatAPI = {
       type: type,
       imageUri: type === 'image' ? content : null,
       fileName: type === 'document' ? fileName : null,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      reactions: {},
+      isEdited: false,
+      isDeleted: false
     };
     if (!MOCK_MESSAGES[chatId]) MOCK_MESSAGES[chatId] = [];
     MOCK_MESSAGES[chatId].unshift(newMessage);
     return { success: true, data: newMessage };
   },
 
+  // --- NEW FEATURES ---
+
+  reactToMessage: async (chatId, messageId, reaction) => {
+    await delay(200);
+    const msgs = MOCK_MESSAGES[chatId];
+    if (!msgs) return { success: false };
+
+    const msg = msgs.find(m => m.id === messageId);
+    if (msg) {
+        if (!msg.reactions) msg.reactions = {};
+        
+        // Ensure the reaction key holds an array
+        if (!Array.isArray(msg.reactions[reaction])) {
+            msg.reactions[reaction] = [];
+        }
+
+        const userId = 'me'; // Hardcoded current user ID
+        const index = msg.reactions[reaction].indexOf(userId);
+
+        if (index > -1) {
+            // User already reacted: REMOVE (Toggle Off)
+            msg.reactions[reaction].splice(index, 1);
+            // If array is empty, remove the key entirely
+            if (msg.reactions[reaction].length === 0) {
+                delete msg.reactions[reaction];
+            }
+        } else {
+            // User hasn't reacted: ADD (Toggle On)
+            msg.reactions[reaction].push(userId);
+        }
+
+        return { success: true, data: msg };
+    }
+    return { success: false };
+  },
+
+  editMessage: async (chatId, messageId, newText) => {
+    await delay(300);
+    const msgs = MOCK_MESSAGES[chatId];
+    if (!msgs) return { success: false };
+
+    const msg = msgs.find(m => m.id === messageId);
+    if (msg) {
+        msg.text = newText;
+        msg.isEdited = true;
+        return { success: true, data: msg };
+    }
+    return { success: false };
+  },
+
+  deleteMessage: async (chatId, messageId, deleteType) => {
+    await delay(300);
+    if (!MOCK_MESSAGES[chatId]) return { success: false };
+
+    if (deleteType === 'for_me') {
+        // Remove from array completely
+        MOCK_MESSAGES[chatId] = MOCK_MESSAGES[chatId].filter(m => m.id !== messageId);
+        return { success: true, action: 'removed' };
+    } else {
+        // Delete for everyone (Soft Delete)
+        const msg = MOCK_MESSAGES[chatId].find(m => m.id === messageId);
+        if (msg) {
+            msg.type = 'system'; 
+            msg.text = '🚫 This message was deleted';
+            msg.isDeleted = true;
+            // Clear media
+            msg.imageUri = null;
+            msg.fileName = null;
+            return { success: true, action: 'updated', data: msg };
+        }
+    }
+    return { success: false };
+  },
+
   clearHistory: async (chatId) => {
     await delay(800);
     MOCK_MESSAGES[chatId] = [];
-    console.log(`[API] Cleared history for Chat ${chatId}`);
     return { success: true };
   },
 
@@ -108,28 +199,23 @@ export const ChatAPI = {
     await delay(400);
     const chat = MOCK_CHATS.find(c => c.id === chatId);
     if(chat) chat.isMuted = isMuted;
-    console.log(`[API] Chat ${chatId} mute status set to: ${isMuted}`);
     return { success: true };
   },
 
   blockUser: async (userId) => {
     await delay(1000);
-    console.log(`[API] User ${userId} blocked`);
-    // In a real app, this would also remove any chats with this user
     MOCK_CHATS = MOCK_CHATS.filter(c => c.id !== userId);
     return { success: true };
   },
 
   reportUser: async (userId, reason) => {
     await delay(800);
-    console.log(`[API] Report sent for ${userId}: ${reason}`);
     return { success: true };
   },
   
   leaveGroup: async (chatId) => {
     await delay(1200);
     MOCK_CHATS = MOCK_CHATS.filter(c => c.id !== chatId);
-    console.log(`[API] User left group ${chatId}`);
     return { success: true };
   },
 
@@ -144,65 +230,43 @@ export const ChatAPI = {
         enabled: settings.disappearingMessages
       };
     }
-    console.log(`[API] Updated settings for chat ${chatId}:`, MOCK_CHATS[chatIndex]);
     return { success: true, data: MOCK_CHATS[chatIndex] };
   },
 
-  // --- NEW: Add Member Logic utilizing MOCK_ALL_USERS ---
-
   fetchFriends: async () => {
     await delay(600);
-    // Convert MOCK_ALL_USERS object to array
-    const users = Object.values(MOCK_ALL_USERS)
-        // Filter out the main user (assuming 'usr_a1b2c3d4e5f6g7h8' is me)
+    const users = Object.values(MOCK_ALL_USERS || {})
         .filter(u => u.id !== 'usr_a1b2c3d4e5f6g7h8')
-        // Map keys to match chat UI expectations (avatarUrl -> avatar)
-        .map(u => ({
-            ...u,
-            avatar: u.avatarUrl
-        }));
-    
+        .map(u => ({ ...u, avatar: u.avatarUrl }));
     return { success: true, data: users };
   },
 
   addMembersToGroup: async (chatId, newMemberIds) => {
     await delay(1000);
     const chat = MOCK_CHATS.find(c => c.id === chatId);
-    
     if (chat) {
-      const allUsers = Object.values(MOCK_ALL_USERS);
-      
-      // Look up full user objects based on IDs
+      const allUsers = Object.values(MOCK_ALL_USERS || {});
       const newMembers = newMemberIds.map(id => {
           const user = allUsers.find(u => u.id === id);
-          if (user) {
-              // Ensure shape matches chat UI expectations
-              return { ...user, avatar: user.avatarUrl };
-          }
-          return null;
+          return user ? { ...user, avatar: user.avatarUrl } : null;
       }).filter(Boolean);
       
-      // Initialize members array if it doesn't exist
       let currentMembers = chat.members || [];
-      
-      // Filter out members already in the group (avoid duplicates)
-      const currentMemberIds = currentMembers.map(m => m.id || m); // handle object or string legacy data
+      const currentMemberIds = currentMembers.map(m => m.id || m); 
       const uniqueNewMembers = newMembers.filter(m => !currentMemberIds.includes(m.id));
       
-      // Merge
       chat.members = [...currentMembers, ...uniqueNewMembers];
-      
-      console.log(`[API] Added members to ${chatId}:`, uniqueNewMembers.map(m => m.name));
       return { success: true, data: chat.members };
     }
     return { success: false, message: 'Chat not found' };
   },
+
   updateGroupProfile: async (chatId, updates) => {
     await delay(800);
     const chat = MOCK_CHATS.find(c => c.id === chatId);
     if (chat) {
         if (updates.name) chat.name = updates.name;
-        if (updates.avatar) chat.avatar = updates.avatar; // In real app, this is a URL
+        if (updates.avatar) chat.avatar = updates.avatar;
         return { success: true, data: chat };
     }
     return { success: false, message: 'Chat not found' };
@@ -212,7 +276,6 @@ export const ChatAPI = {
     await delay(1000);
     const chat = MOCK_CHATS.find(c => c.id === chatId);
     if (chat) {
-        // Handle object or string members
         chat.members = chat.members.filter(m => (m.id || m) !== userId);
         return { success: true, data: chat.members };
     }
@@ -221,14 +284,11 @@ export const ChatAPI = {
 
   setMemberNickname: async (chatId, userId, nickname) => {
     await delay(500);
-    // In a real backend, this would be stored in a "members" join table
     const chat = MOCK_CHATS.find(c => c.id === chatId);
     if(chat) {
-       // Mock implementation: attach nickname to the member object in the array
        const memberIndex = chat.members.findIndex(m => (m.id || m) === userId);
        if(memberIndex > -1) {
            if(typeof chat.members[memberIndex] === 'string') {
-               // Convert legacy string to object
                chat.members[memberIndex] = { id: chat.members[memberIndex], name: chat.members[memberIndex] };
            }
            chat.members[memberIndex].nickname = nickname;

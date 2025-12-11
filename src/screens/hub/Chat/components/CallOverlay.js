@@ -3,26 +3,22 @@ import {
   View,
   Text,
   StyleSheet,
-  // Modal, // <-- REMOVE THIS
   Image,
   TouchableOpacity,
-  SafeAreaView,
-  Alert,
   FlatList,
   Animated,
   PanResponder,
-  Dimensions,
-  Platform
+  Dimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Audio } from 'expo-av'; 
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // IMPORT THIS
 
 import { useAlert } from '@context/other/AlertContext';
 
 const { width, height } = Dimensions.get('window');
-
 
 // --- Helper Components ---
 const ControlButton = ({ onPress, icon, color = '#FFF', bg = 'rgba(255,255,255,0.15)', size = 50, isActive = false, activeColor = '#000', activeBg = '#FFF' }) => (
@@ -34,19 +30,19 @@ const ControlButton = ({ onPress, icon, color = '#FFF', bg = 'rgba(255,255,255,0
   </TouchableOpacity>
 );
 
-const SettingsModal = ({ visible, onClose }) => {
+const SettingsModal = ({ visible, onClose, insets }) => {
   const { showToast } = useAlert();
 
   if (!visible) return null;
 
   const handleSettingPress = (title, status) => {
-    // Now this WILL work because CallOverlay is no longer a native Modal
     showToast(title, status, 'info');
   };
 
   return (
     <TouchableOpacity activeOpacity={1} onPress={onClose} style={styles.settingsOverlay}>
-      <View style={styles.settingsSheet}>
+      {/* Apply bottom inset padding here to keep settings above home bar */}
+      <View style={[styles.settingsSheet, { paddingBottom: insets.bottom + 20 }]}>
         <Text style={styles.settingsTitle}>Audio Settings</Text>
         <TouchableOpacity style={styles.settingRow} onPress={() => handleSettingPress("Noise Cancellation", "Enabled")}>
             <Ionicons name="mic-outline" size={24} color="#FFF" />
@@ -69,7 +65,6 @@ const SettingsModal = ({ visible, onClose }) => {
 };
 
 // --- Sub-components (AudioCallUI, VideoCallUI, GroupCallUI) ---
-// (Kept exactly the same as your previous code for brevity)
 const AudioCallUI = ({ user, status, duration }) => (
   <View style={styles.centerContent}>
     <View style={styles.avatarContainer}>
@@ -81,7 +76,7 @@ const AudioCallUI = ({ user, status, duration }) => (
   </View>
 );
 
-const VideoCallUI = ({ facing, permission, onToggleCamera }) => {
+const VideoCallUI = ({ facing, permission, onToggleCamera, insets }) => {
   const pan = useRef(new Animated.ValueXY()).current;
   const panResponder = useRef(
     PanResponder.create({
@@ -94,7 +89,10 @@ const VideoCallUI = ({ facing, permission, onToggleCamera }) => {
   return (
     <>
       <CameraView style={StyleSheet.absoluteFill} facing={facing === 'front' ? 'back' : 'front'} />
-      <Animated.View {...panResponder.panHandlers} style={[styles.pipVideo, { transform: [{ translateX: pan.x }, { translateY: pan.y }] }]}>
+      <Animated.View 
+        {...panResponder.panHandlers} 
+        style={[styles.pipVideo, { transform: [{ translateX: pan.x }, { translateY: pan.y }], top: insets.top + 20 }]}
+      >
         {permission?.granted && <CameraView style={{ flex: 1 }} facing={facing} />}
         <TouchableOpacity style={styles.flipBtnSmall} onPress={onToggleCamera}>
           <Ionicons name="camera-reverse" size={16} color="#FFF" />
@@ -141,11 +139,11 @@ const CallOverlay = ({ visible, user, type, onClose }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [reactions, setReactions] = useState([]);
   
+  const insets = useSafeAreaInsets(); // GET INSETS HERE
   const { showToast } = useAlert();
   const [permission, requestPermission] = useCameraPermissions();
   const timerRef = useRef(null);
 
-  // Animation for the Overlay entering/exiting
   const slideAnim = useRef(new Animated.Value(height)).current;
 
   const [participants] = useState([
@@ -157,7 +155,6 @@ const CallOverlay = ({ visible, user, type, onClose }) => {
 
   useEffect(() => {
     if (visible) {
-        // Animate In
         Animated.spring(slideAnim, {
             toValue: 0,
             useNativeDriver: true,
@@ -165,7 +162,6 @@ const CallOverlay = ({ visible, user, type, onClose }) => {
         }).start();
         initializeCall();
     } else {
-        // Animate Out
         Animated.timing(slideAnim, {
             toValue: height,
             duration: 300,
@@ -227,14 +223,10 @@ const CallOverlay = ({ visible, user, type, onClose }) => {
   const stopTimer = () => { if (timerRef.current) clearInterval(timerRef.current); };
 
   const handleEndCall = () => {
-    // Capture state before resetting
     const finalDuration = duration;
     const wasConnected = status === 'connected' || duration > 0;
-    
     setStatus('ended');
     stopTimer();
-    
-    // Wait for the "End Call" animation/delay, then pass data back
     setTimeout(() => {
         onClose({
             duration: finalDuration,
@@ -263,37 +255,34 @@ const CallOverlay = ({ visible, user, type, onClose }) => {
     setTimeout(() => setReactions(p => p.filter(r => r.id !== newReaction.id)), 2500);
   };
 
-  // If not visible and animation is done, we could return null, 
-  // but Animated.View handles off-screen positioning via `slideAnim`.
-  // However, to prevent rendering overhead when closed:
   if (!visible && slideAnim._value === height) return null;
 
   return (
-    // REPLACED <Modal> with <Animated.View>
     <Animated.View 
       style={[
         styles.container, 
-        StyleSheet.absoluteFill, // Covers entire screen
-        { transform: [{ translateY: slideAnim }] } // Slide animation
+        StyleSheet.absoluteFill, 
+        { transform: [{ translateY: slideAnim }] } 
       ]}
     >
-        {/* Background */}
         {(type === 'video' && permission?.granted) ? null : (
           <LinearGradient colors={['#1c1c1e', '#000000']} style={StyleSheet.absoluteFill} />
         )}
         
-        <SafeAreaView style={styles.safeArea}>
+        {/* REPLACED SafeAreaView with standard View + padding */}
+        <View style={[styles.safeArea, { paddingTop: insets.top }]}>
             <View style={styles.contentContainer}>
                 {type === 'group' ? (
                     <GroupCallUI participants={participants} />
                 ) : type === 'video' && status === 'connected' ? (
-                    <VideoCallUI facing={facing} permission={permission} onToggleCamera={() => setFacing(p => p === 'back' ? 'front' : 'back')} />
+                    <VideoCallUI facing={facing} permission={permission} onToggleCamera={() => setFacing(p => p === 'back' ? 'front' : 'back')} insets={insets} />
                 ) : (
                     <AudioCallUI user={user} status={status} duration={duration} />
                 )}
             </View>
 
-            <View style={styles.bottomControls}>
+            {/* Added explicit bottom padding for controls */}
+            <View style={[styles.bottomControls, { paddingBottom: insets.bottom + 20 }]}>
                 {status === 'connected' && (
                     <View style={styles.reactionRow}>
                         {['❤️','👍','😂','👋'].map(e => (
@@ -316,9 +305,9 @@ const CallOverlay = ({ visible, user, type, onClose }) => {
                     )}
                 </View>
             </View>
-        </SafeAreaView>
+        </View>
         
-        <SettingsModal visible={showSettings} onClose={() => setShowSettings(false)} />
+        <SettingsModal visible={showSettings} onClose={() => setShowSettings(false)} insets={insets} />
         {reactions.map(r => <AnimatedReaction key={r.id} emoji={r.emoji} />)}
     </Animated.View>
   );
@@ -342,11 +331,10 @@ const AnimatedReaction = ({ emoji }) => {
 };
 
 const styles = StyleSheet.create({
-  // UPDATED CONTAINER STYLE
   container: { 
     flex: 1, 
     backgroundColor: '#000', 
-    zIndex: 1000, // High, but lower than Toast (2000)
+    zIndex: 1000, 
     elevation: 1000, 
   },
   safeArea: { flex: 1 },
@@ -357,7 +345,7 @@ const styles = StyleSheet.create({
   pulsingRing: { position: 'absolute', width: 156, height: 156, borderRadius: 78, borderWidth: 2, opacity: 0.5 },
   callName: { fontSize: 28, fontWeight: '700', color: '#FFF', marginBottom: 8 },
   callStatus: { fontSize: 16, color: 'rgba(255,255,255,0.6)', letterSpacing: 0.5 },
-  pipVideo: { position: 'absolute', top: 20, right: 20, width: 100, height: 150, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', backgroundColor: '#333' },
+  pipVideo: { position: 'absolute', right: 20, width: 100, height: 150, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', backgroundColor: '#333' },
   flipBtnSmall: { position: 'absolute', bottom: 5, right: 5, padding: 5, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
   gridContainer: { flex: 1, paddingTop: 40 },
   gridContent: { alignItems: 'center' },
@@ -365,13 +353,13 @@ const styles = StyleSheet.create({
   gridAvatar: { width: '100%', height: '100%' },
   gridOverlay: { position: 'absolute', bottom: 0, width: '100%', padding: 10, flexDirection: 'row', justifyContent: 'space-between' },
   gridName: { color: '#FFF', fontWeight: 'bold' },
-  bottomControls: { paddingBottom: 20, width: '100%' },
+  bottomControls: { width: '100%' }, // Removed fixed padding here, handled in JSX with insets
   reactionRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
   reactionBtn: { marginHorizontal: 15, padding: 5, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20 },
   controlRow: { flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', paddingHorizontal: 10 },
   controlBtn: { justifyContent: 'center', alignItems: 'center' },
-  settingsOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', zIndex: 1100 }, // Higher than container
-  settingsSheet: { backgroundColor: '#1C1C1E', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40 },
+  settingsOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', zIndex: 1100 },
+  settingsSheet: { backgroundColor: '#1C1C1E', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
   settingsTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
   settingRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
   settingText: { flex: 1, color: '#FFF', fontSize: 16, marginLeft: 15 },
