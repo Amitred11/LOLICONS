@@ -9,11 +9,62 @@ export const useChat = () => {
     return context;
 };
 
+const formatCallDuration = (totalSeconds) => {
+    if (isNaN(totalSeconds) || totalSeconds === 0) return '0s';
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    if (mins > 0) {
+        return `${mins}m ${secs}s`;
+    }
+    return `${secs}s`;
+};
+
 export const ChatProvider = ({ children }) => {
     const [chats, setChats] = useState([]);
     const [isLoadingChats, setIsLoadingChats] = useState(true);
     const [messages, setMessages] = useState({});
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+    const [callableFriends, setCallableFriends] = useState([]);
+    const [isLoadingFriends, setIsLoadingFriends] = useState(false);
+    const [inCallMessages, setInCallMessages] = useState([]);
+    
+    // --- NEW: STATE FOR GROUP CALL PARTICIPANTS ---
+    const [groupCallParticipants, setGroupCallParticipants] = useState([]);
+    // ---------------------------------------------
+
+    const loadCallableFriends = useCallback(async (chatId) => {
+        setIsLoadingFriends(true);
+        try {
+            const response = await ChatAPI.fetchFriendsForCall(chatId);
+            if (response.success) {
+                setCallableFriends(response.data);
+            }
+        } catch (error) {
+            console.error("ChatContext: Load Callable Friends Error", error);
+        } finally {
+            setIsLoadingFriends(false);
+        }
+    }, []);
+
+    const addParticipantsToCall = useCallback(async (chatId, newUserIds) => {
+        // Optimistic update
+        const newParticipants = newUserIds.map(id => {
+            const friend = callableFriends.find(f => f.id === id);
+            return { ...friend, isMuted: true, isCameraOn: false };
+        });
+        setGroupCallParticipants(prev => [...prev, ...newParticipants]);
+
+        try {
+            const response = await ChatAPI.addParticipantsToGroupCall(chatId, newUserIds);
+            if (response.success) {
+                // Replace with server data if needed, but optimistic is fine for this mock
+                setGroupCallParticipants(response.data);
+            }
+        } catch (error) {
+            console.error("ChatContext: Add Participants Error", error);
+            // Revert optimistic update on error if necessary
+        }
+    }, [callableFriends]);
 
     const updateChatInList = useCallback((chatId, updates) => {
         setChats(prev => prev.map(c => c.id === chatId ? { ...c, ...updates } : c));
@@ -77,6 +128,7 @@ export const ChatProvider = ({ children }) => {
         const tempId = `temp_msg_${Date.now()}`;
         const newMessage = { 
             id: tempId, text: content, sender: 'me', type, time: 'sending...', 
+            senderName: 'You',
             imageUri: type === 'image' ? content : null, fileName,
             reactions: {}, isEdited: false
         };
@@ -85,31 +137,65 @@ export const ChatProvider = ({ children }) => {
             const response = await ChatAPI.sendMessage(chatId, { content, type, fileName });
             if (response.success) {
                  setMessages(prev => ({ ...prev, [chatId]: prev[chatId].map(m => m.id === tempId ? response.data : m) }));
-                 const lastMessageText = type === 'image' ? 'Sent an image' : type === 'document' ? fileName : content;
+
+                 let lastMessageText;
+                 switch (type) {
+                    case 'image':
+                        lastMessageText = 'sent an image';
+                        break;
+                    case 'document':
+                        lastMessageText = `📄 ${fileName || 'Document'}`;
+                        break;
+                    case 'call_log':
+                        try {
+                            const callData = JSON.parse(content);
+                            const callStatus = callData.status === 'missed' 
+                                ? `Missed ${callData.callType} call`
+                                : `called, ${formatCallDuration(callData.duration)}`;
+                            lastMessageText = `${callStatus}`;
+                        } catch (e) {
+                            lastMessageText = '📞 Call log';
+                        }
+                        break;
+                    default: // 'text'
+                        lastMessageText = content.length > 40 ? content.substring(0, 37) + '...' : content;
+                        break;
+                 }
                  updateChatInList(chatId, { lastMessage: lastMessageText, time: response.data.time });
             } else { throw new Error('API Error'); }
         } catch(e) {
              setMessages(prev => ({ ...prev, [chatId]: prev[chatId].map(m => m.id === tempId ? {...m, time: 'failed'} : m) }));
         }
     }, [updateChatInList]);
-
-    // --- NEW ACTIONS: React, Edit, Delete ---
+    
+    // --- NEW: FUNCTION TO LOAD GROUP CALL PARTICIPANTS ---
+    const loadGroupCallParticipants = useCallback(async (chatId) => {
+        try {
+            const response = await ChatAPI.fetchGroupCallParticipants(chatId);
+            if(response.success) {
+                setGroupCallParticipants(response.data);
+            } else {
+                setGroupCallParticipants([]);
+            }
+        } catch (error) {
+            console.error("ChatContext: Load Participants Error", error);
+            setGroupCallParticipants([]);
+        }
+    }, []);
+    // ----------------------------------------------------
 
     const reactToMessage = useCallback(async (chatId, messageId, reaction) => {
-        // Optimistic Update with Toggle Logic
         setMessages(prev => ({
             ...prev,
             [chatId]: prev[chatId].map(m => {
                 if (m.id === messageId) {
                     const currentReactions = m.reactions?.[reaction] || [];
-                    const userId = 'me'; // Current user
+                    const userId = 'me'; 
                     
                     let newReactionList;
                     if (currentReactions.includes(userId)) {
-                        // User already reacted: Remove them (Toggle Off)
                         newReactionList = currentReactions.filter(id => id !== userId);
                     } else {
-                        // User hasn't reacted: Add them (Toggle On)
                         newReactionList = [...currentReactions, userId];
                     }
 
@@ -118,7 +204,6 @@ export const ChatProvider = ({ children }) => {
                     if (newReactionList.length > 0) {
                         newReactionsObj[reaction] = newReactionList;
                     } else {
-                        // If no one is left reacting, remove the key
                         delete newReactionsObj[reaction];
                     }
 
@@ -145,7 +230,6 @@ export const ChatProvider = ({ children }) => {
                 [chatId]: prev[chatId].filter(m => m.id !== messageId)
             }));
         } else {
-            // Delete for everyone (convert to system message)
             setMessages(prev => ({
                 ...prev,
                 [chatId]: prev[chatId].map(m => m.id === messageId ? { 
@@ -155,8 +239,6 @@ export const ChatProvider = ({ children }) => {
         }
         await ChatAPI.deleteMessage(chatId, messageId, deleteType);
     }, []);
-
-    // ----------------------------------------
 
     const toggleReadStatus = useCallback((chatId) => {
         const chat = chats.find(c => c.id === chatId);
@@ -261,19 +343,65 @@ export const ChatProvider = ({ children }) => {
     const setNickname = useCallback(async (chatId, userId, nickname) => {
         await ChatAPI.setMemberNickname(chatId, userId, nickname);
     }, []);
+
+    const sendInCallMessage = useCallback(async (text) => {
+        // Optimistic update
+        const tempMsg = {
+            id: `temp_${Date.now()}`,
+            text,
+            sender: 'me',
+            senderName: 'You',
+            time: 'now'
+        };
+        setInCallMessages(prev => [tempMsg, ...prev]);
+
+        try {
+            const response = await ChatAPI.sendInCallMessage(text);
+            if (response.success) {
+                setInCallMessages(prev => prev.map(m => m.id === tempMsg.id ? response.data : m));
+            }
+        } catch (error) {
+            console.error("Failed to send in-call message");
+        }
+    }, []);
+
+    const clearInCallSession = useCallback(() => {
+        setInCallMessages([]);
+        ChatAPI.clearInCallMessages();
+    }, []);
     
     const value = useMemo(() => ({
         chats, isLoadingChats, messages, isLoadingMessages, currentMessages,
         loadChats, pinChat, deleteChat, createGroupChat, loadMessages, sendMessage,
         toggleReadStatus, archiveChat, toggleMute, blockUser, reportUser, clearChatHistory,
         leaveGroup, setDisappearingMessages, addMembersToGroup, updateGroupInfo, kickMember, setNickname,
-        reactToMessage, editMessage, deleteMessage 
+        reactToMessage, editMessage, deleteMessage,
+        // --- NEW: EXPORTING STATE AND FUNCTION ---
+        groupCallParticipants,
+        loadGroupCallParticipants,
+        callableFriends,
+        isLoadingFriends,
+        loadCallableFriends,
+        addParticipantsToCall,
+        inCallMessages,
+        sendInCallMessage,
+        clearInCallSession,
     }), [
         chats, isLoadingChats, messages, isLoadingMessages,
         loadChats, pinChat, deleteChat, createGroupChat, loadMessages, sendMessage,
         toggleReadStatus, archiveChat, toggleMute, blockUser, reportUser, clearChatHistory,
         leaveGroup, setDisappearingMessages, addMembersToGroup, updateGroupInfo, kickMember, setNickname,
-        reactToMessage, editMessage, deleteMessage
+        reactToMessage, editMessage, deleteMessage,
+        // --- NEW: ADDING DEPENDENCIES ---
+        groupCallParticipants,
+        loadGroupCallParticipants,
+        callableFriends,
+        isLoadingFriends,
+        loadCallableFriends,
+        addParticipantsToCall,
+        inCallMessages,
+        sendInCallMessage,
+        clearInCallSession,
     ]);
 
     return (

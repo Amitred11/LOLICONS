@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Image,
   TouchableOpacity,
-  FlatList,
   Animated,
   PanResponder,
   Dimensions
@@ -14,8 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Audio } from 'expo-av'; 
-import { useSafeAreaInsets } from 'react-native-safe-area-context'; // IMPORT THIS
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAlert } from '@context/other/AlertContext';
 
 const { width, height } = Dimensions.get('window');
@@ -41,7 +39,6 @@ const SettingsModal = ({ visible, onClose, insets }) => {
 
   return (
     <TouchableOpacity activeOpacity={1} onPress={onClose} style={styles.settingsOverlay}>
-      {/* Apply bottom inset padding here to keep settings above home bar */}
       <View style={[styles.settingsSheet, { paddingBottom: insets.bottom + 20 }]}>
         <Text style={styles.settingsTitle}>Audio Settings</Text>
         <TouchableOpacity style={styles.settingRow} onPress={() => handleSettingPress("Noise Cancellation", "Enabled")}>
@@ -64,7 +61,7 @@ const SettingsModal = ({ visible, onClose, insets }) => {
   );
 };
 
-// --- Sub-components (AudioCallUI, VideoCallUI, GroupCallUI) ---
+// --- Sub-components (AudioCallUI, VideoCallUI) ---
 const AudioCallUI = ({ user, status, duration }) => (
   <View style={styles.centerContent}>
     <View style={styles.avatarContainer}>
@@ -93,7 +90,13 @@ const VideoCallUI = ({ facing, permission, onToggleCamera, insets }) => {
         {...panResponder.panHandlers} 
         style={[styles.pipVideo, { transform: [{ translateX: pan.x }, { translateY: pan.y }], top: insets.top + 20 }]}
       >
-        {permission?.granted && <CameraView style={{ flex: 1 }} facing={facing} />}
+        {permission?.granted ? (
+            <CameraView style={{ flex: 1 }} facing={facing} />
+        ) : (
+            <View style={styles.pipNoPermission}>
+                <Ionicons name="camera-off" size={24} color="#FFF" />
+            </View>
+        )}
         <TouchableOpacity style={styles.flipBtnSmall} onPress={onToggleCamera}>
           <Ionicons name="camera-reverse" size={16} color="#FFF" />
         </TouchableOpacity>
@@ -102,26 +105,6 @@ const VideoCallUI = ({ facing, permission, onToggleCamera, insets }) => {
   );
 };
 
-const GroupCallUI = ({ participants }) => (
-  <View style={styles.gridContainer}>
-      <FlatList
-        data={participants}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        contentContainerStyle={styles.gridContent}
-        renderItem={({ item }) => (
-        <View style={styles.gridItem}>
-            <Image source={{ uri: item.avatar }} style={styles.gridAvatar} />
-            <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.gridOverlay}>
-                <Text style={styles.gridName}>{item.name}</Text>
-                {item.isMuted && <Ionicons name="mic-off" size={16} color="#FF453A" />}
-            </LinearGradient>
-        </View>
-        )}
-      />
-  </View>
-);
-
 const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -129,7 +112,6 @@ const formatTime = (seconds) => {
 };
 
 // --- Main Component ---
-
 const CallOverlay = ({ visible, user, type, onClose }) => {
   const [status, setStatus] = useState('initializing');
   const [duration, setDuration] = useState(0);
@@ -137,24 +119,20 @@ const CallOverlay = ({ visible, user, type, onClose }) => {
   const [isSpeaker, setIsSpeaker] = useState(false);
   const [facing, setFacing] = useState('front');
   const [showSettings, setShowSettings] = useState(false);
-  const [reactions, setReactions] = useState([]);
+  const [reactions, setReactions] = useState([]); // FIX: Added missing state for reactions
   
-  const insets = useSafeAreaInsets(); // GET INSETS HERE
+  // State to manage if the video view is active
+  const [isCameraView, setIsCameraView] = useState(type === 'video');
+
+  const insets = useSafeAreaInsets();
   const { showToast } = useAlert();
   const [permission, requestPermission] = useCameraPermissions();
   const timerRef = useRef(null);
-
   const slideAnim = useRef(new Animated.Value(height)).current;
-
-  const [participants] = useState([
-    { id: '1', name: 'You', avatar: 'https://i.pravatar.cc/150?u=1', isMuted: true },
-    { id: '2', name: 'Jane', avatar: 'https://i.pravatar.cc/150?u=2', isMuted: false },
-    { id: '3', name: 'John', avatar: 'https://i.pravatar.cc/150?u=3', isMuted: false },
-    { id: '4', name: 'Emily', avatar: 'https://i.pravatar.cc/150?u=4', isMuted: true },
-  ]);
 
   useEffect(() => {
     if (visible) {
+        setIsCameraView(type === 'video'); // Reset view based on initial call type
         Animated.spring(slideAnim, {
             toValue: 0,
             useNativeDriver: true,
@@ -168,18 +146,19 @@ const CallOverlay = ({ visible, user, type, onClose }) => {
             useNativeDriver: true
         }).start(() => cleanupCall());
     }
-  }, [visible]);
+  }, [visible, type]);
 
   const initializeCall = async () => {
     setStatus('initializing');
     const camStatus = await requestPermission();
     const audioStatus = await Audio.requestPermissionsAsync();
 
-    if (!camStatus.granted || audioStatus.status !== 'granted') {
-      showToast("Permission Required", "Camera and Microphone access are needed.");
+    if (audioStatus.status !== 'granted') {
+      showToast("Permission Required", "Microphone access is needed for calls.", "error");
       onClose();
       return;
     }
+    // Note: Camera permission is not required to START a call, only to switch to video.
 
     try {
         await Audio.setAudioModeAsync({
@@ -213,7 +192,7 @@ const CallOverlay = ({ visible, user, type, onClose }) => {
                 playsInSilentModeIOS: false,
             });
         }
-    } catch(e) {}
+    } catch(e) { /* Fails silently */ }
   };
   
   const startTimer = () => {
@@ -231,7 +210,7 @@ const CallOverlay = ({ visible, user, type, onClose }) => {
         onClose({
             duration: finalDuration,
             wasConnected: wasConnected,
-            type: type
+            type: isCameraView ? 'video' : 'voice' // Report final call type
         });
     }, 500);
   };
@@ -247,6 +226,15 @@ const CallOverlay = ({ visible, user, type, onClose }) => {
     } catch (error) {
         showToast("Error", "Could not toggle speaker", "error");
     }
+  };
+  
+  // Toggles the camera view between audio and video
+  const toggleCameraView = () => {
+      if (!permission?.granted) {
+          showToast("Camera Permission", "Camera access is required for video.", "info");
+          return;
+      }
+      setIsCameraView(prev => !prev);
   };
 
   const sendReaction = (emoji) => {
@@ -265,23 +253,26 @@ const CallOverlay = ({ visible, user, type, onClose }) => {
         { transform: [{ translateY: slideAnim }] } 
       ]}
     >
-        {(type === 'video' && permission?.granted) ? null : (
+        {/* Background is always dark unless video is active and permission is granted */}
+        {(isCameraView && permission?.granted) ? null : (
           <LinearGradient colors={['#1c1c1e', '#000000']} style={StyleSheet.absoluteFill} />
         )}
         
-        {/* REPLACED SafeAreaView with standard View + padding */}
         <View style={[styles.safeArea, { paddingTop: insets.top }]}>
             <View style={styles.contentContainer}>
-                {type === 'group' ? (
-                    <GroupCallUI participants={participants} />
-                ) : type === 'video' && status === 'connected' ? (
-                    <VideoCallUI facing={facing} permission={permission} onToggleCamera={() => setFacing(p => p === 'back' ? 'front' : 'back')} insets={insets} />
+                {/* REFACTORED: UI now depends on isCameraView state, not the initial 'type' prop */}
+                {isCameraView && status === 'connected' ? (
+                    <VideoCallUI 
+                        facing={facing} 
+                        permission={permission} 
+                        onToggleCamera={() => setFacing(p => p === 'back' ? 'front' : 'back')} 
+                        insets={insets} 
+                    />
                 ) : (
                     <AudioCallUI user={user} status={status} duration={duration} />
                 )}
             </View>
 
-            {/* Added explicit bottom padding for controls */}
             <View style={[styles.bottomControls, { paddingBottom: insets.bottom + 20 }]}>
                 {status === 'connected' && (
                     <View style={styles.reactionRow}>
@@ -298,11 +289,13 @@ const CallOverlay = ({ visible, user, type, onClose }) => {
                     <ControlButton icon={isMuted ? "mic-off" : "mic"} isActive={isMuted} onPress={() => setIsMuted(!isMuted)} />
                     <ControlButton icon="call" color="#FFF" bg="#FF3B30" size={64} onPress={handleEndCall} />
                     <ControlButton icon={isSpeaker ? "volume-high" : "volume-low"} isActive={isSpeaker} onPress={toggleSpeaker} />
-                    {type === 'video' ? (
-                        <ControlButton icon="camera-reverse" onPress={() => setFacing(p => p === 'back' ? 'front' : 'back')} />
-                    ) : (
-                        <ControlButton icon="videocam" onPress={() => showToast("Switching", "Video request sent...", "info")} />
-                    )}
+                    
+                    {/* REFACTORED: This button now toggles the camera view on/off */}
+                    <ControlButton 
+                        icon={isCameraView ? "videocam" : "videocam-off"}
+                        isActive={!isCameraView} // Active when camera is OFF
+                        onPress={toggleCameraView}
+                    />
                 </View>
             </View>
         </View>
@@ -346,13 +339,8 @@ const styles = StyleSheet.create({
   callName: { fontSize: 28, fontWeight: '700', color: '#FFF', marginBottom: 8 },
   callStatus: { fontSize: 16, color: 'rgba(255,255,255,0.6)', letterSpacing: 0.5 },
   pipVideo: { position: 'absolute', right: 20, width: 100, height: 150, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', backgroundColor: '#333' },
+  pipNoPermission: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#222' },
   flipBtnSmall: { position: 'absolute', bottom: 5, right: 5, padding: 5, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
-  gridContainer: { flex: 1, paddingTop: 40 },
-  gridContent: { alignItems: 'center' },
-  gridItem: { width: width * 0.45, height: width * 0.55, margin: 5, borderRadius: 15, overflow: 'hidden', backgroundColor: '#333' },
-  gridAvatar: { width: '100%', height: '100%' },
-  gridOverlay: { position: 'absolute', bottom: 0, width: '100%', padding: 10, flexDirection: 'row', justifyContent: 'space-between' },
-  gridName: { color: '#FFF', fontWeight: 'bold' },
   bottomControls: { width: '100%' },
   reactionRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
   reactionBtn: { marginHorizontal: 15, padding: 5, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20 },

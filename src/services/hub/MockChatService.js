@@ -13,7 +13,24 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 // Mock Database
 let MOCK_CHATS = [
   { id: '1', type: 'direct', name: 'Jessica Parker', lastMessage: 'See you at the event!', time: '2m', unread: 2, avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400', isOnline: true, isMuted: false, disappearingMessages: { enabled: false } },
-  { id: '2', type: 'group', name: 'Camping Trip 🏕️', lastMessage: 'David: I brought the tent', time: '1h', unread: 5, isOnline: false, isMuted: false, disappearingMessages: { enabled: false, duration: 86400 } }, 
+  { 
+    id: '2', 
+    type: 'group', 
+    name: 'Camping Trip 🏕️', 
+    lastMessage: 'David: I brought the tent', 
+    time: '1h', 
+    unread: 5, 
+    isOnline: false, 
+    isMuted: false, 
+    disappearingMessages: { enabled: false, duration: 86400 },
+    // --- NEW: ADDED MEMBERS FOR GROUP CALL ---
+    members: [
+        { id: '1', name: 'You', avatar: 'https://i.pravatar.cc/150?u=1', isMuted: true, isCameraOn: true },
+        { id: '2', name: 'Jane', avatar: 'https://i.pravatar.cc/150?u=2', isMuted: false, isCameraOn: false },
+        { id: '3', name: 'John', avatar: 'https://i.pravatar.cc/150?u=3', isMuted: false, isCameraOn: true },
+        { id: '4', name: 'Emily', avatar: 'https://i.pravatar.cc/150?u=4', isMuted: true, isCameraOn: false },
+    ]
+  }, 
   { id: '3', type: 'community', name: 'React Native Devs', lastMessage: 'New version released!', time: '4h', unread: 0, isOnline: false, isMuted: true, disappearingMessages: { enabled: false } },
   { id: '4', type: 'direct', name: 'Mike Ross', lastMessage: 'Sent an attachment', time: '1d', unread: 0, avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400', isOnline: true, isMuted: false, disappearingMessages: { enabled: true, duration: 86400 } },
 ];
@@ -29,7 +46,7 @@ const MOCK_MESSAGES = {
       time: '10:00 AM', 
       avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400', 
       senderName: 'Jessica',
-      reactions: { '❤️': ['me', 'jessica'] }, // Changed to Array of IDs
+      reactions: { '❤️': ['me', 'jessica'] }, 
       isEdited: false 
     },
     { 
@@ -50,6 +67,9 @@ const MOCK_MESSAGES = {
      { id: 'm4-1', text: 'Sent an attachment', sender: 'them', type: 'document', fileName: 'legal_brief.pdf', time: '1d ago', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400', senderName: 'Mike Ross', reactions: {}  }
   ]
 };
+
+let MOCK_IN_CALL_MESSAGES = [];
+
 
 export const ChatAPI = {
   
@@ -115,8 +135,6 @@ export const ChatAPI = {
     return { success: true, data: newMessage };
   },
 
-  // --- NEW FEATURES ---
-
   reactToMessage: async (chatId, messageId, reaction) => {
     await delay(200);
     const msgs = MOCK_MESSAGES[chatId];
@@ -126,23 +144,19 @@ export const ChatAPI = {
     if (msg) {
         if (!msg.reactions) msg.reactions = {};
         
-        // Ensure the reaction key holds an array
         if (!Array.isArray(msg.reactions[reaction])) {
             msg.reactions[reaction] = [];
         }
 
-        const userId = 'me'; // Hardcoded current user ID
+        const userId = 'me';
         const index = msg.reactions[reaction].indexOf(userId);
 
         if (index > -1) {
-            // User already reacted: REMOVE (Toggle Off)
             msg.reactions[reaction].splice(index, 1);
-            // If array is empty, remove the key entirely
             if (msg.reactions[reaction].length === 0) {
                 delete msg.reactions[reaction];
             }
         } else {
-            // User hasn't reacted: ADD (Toggle On)
             msg.reactions[reaction].push(userId);
         }
 
@@ -170,17 +184,14 @@ export const ChatAPI = {
     if (!MOCK_MESSAGES[chatId]) return { success: false };
 
     if (deleteType === 'for_me') {
-        // Remove from array completely
         MOCK_MESSAGES[chatId] = MOCK_MESSAGES[chatId].filter(m => m.id !== messageId);
         return { success: true, action: 'removed' };
     } else {
-        // Delete for everyone (Soft Delete)
         const msg = MOCK_MESSAGES[chatId].find(m => m.id === messageId);
         if (msg) {
             msg.type = 'system'; 
             msg.text = '🚫 This message was deleted';
             msg.isDeleted = true;
-            // Clear media
             msg.imageUri = null;
             msg.fileName = null;
             return { success: true, action: 'updated', data: msg };
@@ -188,6 +199,79 @@ export const ChatAPI = {
     }
     return { success: false };
   },
+  
+  // --- NEW FUNCTION: FETCH GROUP CALL PARTICIPANTS ---
+  fetchGroupCallParticipants: async (chatId) => {
+      await delay(700);
+      const chat = MOCK_CHATS.find(c => c.id === chatId);
+      if (chat && chat.type === 'group' && chat.members) {
+          return { success: true, data: chat.members };
+      }
+      return { success: false, message: 'Group not found or no members' };
+  },
+
+  fetchFriendsForCall: async (chatId) => {
+    await delay(500);
+    const chat = MOCK_CHATS.find(c => c.id === chatId);
+    // If we are in a call, we need the current list of people IN the call
+    // For this mock, we assume chat.members ARE the people in the call
+    const currentMemberIds = chat ? chat.members.map(m => m.id) : [];
+    
+    // Also exclude 'me' (id: '1') explicitly if not already in the list
+    const excludeIds = [...currentMemberIds, '1'];
+
+    const availableFriends = Object.values(MOCK_ALL_USERS)
+        .filter(u => !excludeIds.includes(u.id)) 
+        .map(u => ({ id: u.id, name: u.name, avatar: u.avatarUrl }));
+        
+    return { success: true, data: availableFriends };
+  },
+
+  addParticipantsToGroupCall: async (chatId, newUserIds) => {
+    await delay(800);
+    const chat = MOCK_CHATS.find(c => c.id === chatId);
+    if (!chat) return { success: false };
+
+    const newMembers = newUserIds.map(id => {
+        const user = MOCK_ALL_USERS[id]; // Assuming MOCK_ALL_USERS is accessible
+        return {
+            id: user.id,
+            name: user.name,
+            avatar: user.avatarUrl,
+            isMuted: true,
+            isCameraOn: false 
+        };
+    });
+    
+    // Add to local mock state so subsequent fetches see them
+    chat.members.push(...newMembers);
+    
+    return { success: true, data: chat.members };
+  },
+
+  // --- NEW: Ephemeral In-Call Chat Functions ---
+  sendInCallMessage: async (text) => {
+      await delay(200);
+      const newMsg = {
+          id: `incall_${Date.now()}`,
+          text,
+          sender: 'me',
+          senderName: 'You',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      MOCK_IN_CALL_MESSAGES.push(newMsg);
+      return { success: true, data: newMsg };
+  },
+
+  // In a real app, you might use a socket. This mock just returns the array.
+  getInCallMessages: () => {
+      return MOCK_IN_CALL_MESSAGES;
+  },
+
+  clearInCallMessages: () => {
+      MOCK_IN_CALL_MESSAGES = [];
+  },
+  // ---------------------------------------------------
 
   clearHistory: async (chatId) => {
     await delay(800);

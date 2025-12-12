@@ -150,11 +150,11 @@ const ChatBubble = ({
       styles.bubble,
       isMe ? styles.bubbleRight : styles.bubbleLeft,
       // If NOT first in chain, flatten top corners
-      !isFirstInChain && isMe && { borderTopRightRadius: 4 },
-      !isFirstInChain && !isMe && { borderTopLeftRadius: 4 },
+      !isFirstInChain && isMe && { borderTopRightRadius: 3 },
+      !isFirstInChain && !isMe && { borderTopLeftRadius: 3 },
       // If NOT last in chain, flatten bottom corners
-      !isLastInChain && isMe && { borderBottomRightRadius: 4 },
-      !isLastInChain && !isMe && { borderBottomLeftRadius: 4 },
+      !isLastInChain && isMe && { borderBottomRightRadius: 3 },
+      !isLastInChain && !isMe && { borderBottomLeftRadius: 3 },
       
       message.type === 'image' && styles.bubbleImage
   ];

@@ -13,6 +13,7 @@ import { useHeaderHeight } from '@react-navigation/elements'; // Import this
 import { Colors } from '@config/Colors';
 import ChatBubble from './components/ChatBubble';
 import CallOverlay from './components/CallOverlay'; 
+import GroupCallOverlay from './components/GroupCallOverlay';
 import { useChat } from '@context/hub/ChatContext';
 import { useAlert } from '@context/other/AlertContext';
 
@@ -241,7 +242,21 @@ const ChatDetailScreen = () => {
 
   return (
     <View style={styles.container}>
-      <CallOverlay visible={isCalling} user={user} type={callType} onClose={handleCallEnded} />
+      {/* CONDITIONAL RENDERING FOR CALL OVERLAYS */}
+      {isGroup ? (
+          <GroupCallOverlay 
+              visible={isCalling} 
+              user={user} 
+              onClose={handleCallEnded} 
+          />
+      ) : (
+          <CallOverlay 
+              visible={isCalling} 
+              user={user} 
+              type={callType} 
+              onClose={handleCallEnded} 
+          />
+      )}
 
       {/* FULL SCREEN IMAGE VIEWER */}
       <Modal visible={!!fullScreenImage} transparent={true} animationType="fade">
@@ -343,12 +358,6 @@ const ChatDetailScreen = () => {
         </View>
 
         <View style={styles.headerRight}>
-            {isGroup && (
-                <TouchableOpacity onPress={() => startCall('group')} style={[styles.callBtn, { backgroundColor: '#5856D6' }]}>
-                    <Ionicons name="people" size={18} color="#FFF" />
-                </TouchableOpacity>
-            )}
-
             <TouchableOpacity onPress={() => startCall('voice')} style={[styles.callBtn, { backgroundColor: 'rgba(52, 199, 89, 0.2)', borderWidth: 1, borderColor: '#34C759' }]}>
                 <Ionicons name="call" size={18} color="#34C759" />
             </TouchableOpacity>
