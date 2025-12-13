@@ -125,7 +125,7 @@ export const AlertProvider = ({ children }) => {
   }, []);
 
   return (
-    <AlertContext.Provider value={{ showAlert, hideAlert, showToast, showAlertPrompt }}> {/* Add showAlertPrompt to context */}
+    <AlertContext.Provider value={{ showAlert, hideAlert, showToast, showAlertPrompt, toasts, removeToast: handleHideToast  }}> {/* Add showAlertPrompt to context */}
       {children}
       <CustomAlert {...alertState} />
       <CustomPrompt {...promptState} /> {/* Render the CustomPrompt */}

@@ -135,17 +135,21 @@ const ChatDetailScreen = () => {
   };
 
   const handleCallEnded = async (callData) => {
-      setIsCalling(false);
-      if (!callData) return;
-      const { duration, wasConnected, type } = callData;
-      const callLogData = {
-          callType: type, 
-          duration: duration,
-          status: wasConnected ? 'ended' : 'missed',
-          timestamp: new Date().toISOString()
-      };
-      await sendMessage(user.id, JSON.stringify(callLogData), 'call_log'); 
-  };
+    setIsCalling(false); 
+    if (!callData) return;
+    const { duration, wasConnected, type } = callData;
+    const callLogData = {
+        callType: type, 
+        duration: duration,
+        status: wasConnected ? 'ended' : 'missed',
+        timestamp: new Date().toISOString()
+    };
+    try {
+        await sendMessage(user.id, JSON.stringify(callLogData), 'call_log'); 
+    } catch (error) {
+        console.error("Failed to send call log", error);
+    }
+};
 
   // --- LONG PRESS ACTIONS ---
   const handleLongPress = (message) => { setSelectedMessage(message); };
@@ -243,20 +247,30 @@ const ChatDetailScreen = () => {
   return (
     <View style={styles.container}>
       {/* CONDITIONAL RENDERING FOR CALL OVERLAYS */}
-      {isGroup ? (
-          <GroupCallOverlay 
-              visible={isCalling} 
-              user={user} 
-              onClose={handleCallEnded} 
-          />
-      ) : (
-          <CallOverlay 
-              visible={isCalling} 
-              user={user} 
-              type={callType} 
-              onClose={handleCallEnded} 
-          />
-      )}
+      <Modal 
+        visible={isCalling} 
+        transparent={true} 
+        animationType="fade"
+        onRequestClose={() => {}} // Handle Android Back button
+        hardwareAccelerated
+      >
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+            {isGroup ? (
+                <GroupCallOverlay 
+                    visible={isCalling} 
+                    user={user} 
+                    onClose={handleCallEnded} 
+                />
+            ) : (
+                <CallOverlay 
+                    visible={isCalling} 
+                    user={user} 
+                    type={callType} 
+                    onClose={handleCallEnded} 
+                />
+            )}
+        </View>
+      </Modal>
 
       {/* FULL SCREEN IMAGE VIEWER */}
       <Modal visible={!!fullScreenImage} transparent={true} animationType="fade">

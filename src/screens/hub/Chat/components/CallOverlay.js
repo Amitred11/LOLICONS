@@ -15,6 +15,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Audio } from 'expo-av'; 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAlert } from '@context/other/AlertContext';
+import ToastContainer from '@components/alerts/ToastContainer';
 
 const { width, height } = Dimensions.get('window');
 
@@ -125,7 +126,7 @@ const CallOverlay = ({ visible, user, type, onClose }) => {
   const [isCameraView, setIsCameraView] = useState(type === 'video');
 
   const insets = useSafeAreaInsets();
-  const { showToast } = useAlert();
+  const { showToast, toasts, removeToast } = useAlert(); 
   const [permission, requestPermission] = useCameraPermissions();
   const timerRef = useRef(null);
   const slideAnim = useRef(new Animated.Value(height)).current;
@@ -302,6 +303,9 @@ const CallOverlay = ({ visible, user, type, onClose }) => {
         
         <SettingsModal visible={showSettings} onClose={() => setShowSettings(false)} insets={insets} />
         {reactions.map(r => <AnimatedReaction key={r.id} emoji={r.emoji} />)}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9999, elevation: 9999 }} pointerEvents="box-none">
+            <ToastContainer toasts={toasts} onHide={removeToast} />
+        </View>
     </Animated.View>
   );
 };

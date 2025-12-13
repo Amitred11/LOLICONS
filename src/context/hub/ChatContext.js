@@ -125,47 +125,79 @@ export const ChatProvider = ({ children }) => {
     }, []);
 
     const sendMessage = useCallback(async (chatId, content, type, fileName) => {
-        const tempId = `temp_msg_${Date.now()}`;
+       const tempId = `temp_msg_${Date.now()}`;
+    
+    // 1. Create the optimistic message object
         const newMessage = { 
-            id: tempId, text: content, sender: 'me', type, time: 'sending...', 
-            senderName: 'You',
-            imageUri: type === 'image' ? content : null, fileName,
-            reactions: {}, isEdited: false
+           id: tempId, 
+           text: content, // Keep raw content (JSON for calls) for the bubble component
+           sender: 'me', 
+           type, 
+           time: 'sending...', 
+           senderName: 'You',
+           imageUri: type === 'image' ? content : null, 
+           fileName,
+           reactions: {}, 
+           isEdited: false
         };
-        setMessages(prev => ({ ...prev, [chatId]: [newMessage, ...(prev[chatId] || [])] }));
+
+    // 2. Update Messages State (Optimistic)
+        setMessages(prev => ({ 
+             ...prev, 
+            [chatId]: [newMessage, ...(prev[chatId] || [])] 
+        }));
+
         try {
             const response = await ChatAPI.sendMessage(chatId, { content, type, fileName });
+        
             if (response.success) {
-                 setMessages(prev => ({ ...prev, [chatId]: prev[chatId].map(m => m.id === tempId ? response.data : m) }));
+                 // 3. Update the specific message with server data (e.g., correct time/ID)
+                 setMessages(prev => ({ 
+                     ...prev, 
+                     [chatId]: prev[chatId].map(m => m.id === tempId ? response.data : m) 
+                 }));
 
-                 let lastMessageText;
-                 switch (type) {
+             // 4. Determine what to show in the Chat List (Last Message Preview)
+                let lastMessageText;
+                switch (type) {
                     case 'image':
-                        lastMessageText = 'sent an image';
-                        break;
+                        lastMessageText = '📷 Sent an image';
+                     break;
                     case 'document':
                         lastMessageText = `📄 ${fileName || 'Document'}`;
-                        break;
+                    break;
                     case 'call_log':
-                        try {
-                            const callData = JSON.parse(content);
-                            const callStatus = callData.status === 'missed' 
-                                ? `Missed ${callData.callType} call`
-                                : `called, ${formatCallDuration(callData.duration)}`;
-                            lastMessageText = `${callStatus}`;
-                        } catch (e) {
-                            lastMessageText = '📞 Call log';
+                      try {
+                        const callData = JSON.parse(content);
+                        const durationStr = formatCallDuration(callData.duration);
+                        const capitalizeType = callData.callType.charAt(0).toUpperCase() + callData.callType.slice(1);
+                        
+                        if (callData.status === 'missed') {
+                            lastMessageText = `📞 Missed ${capitalizeType} Call`;
+                        } else {
+                            lastMessageText = `📞 ${capitalizeType} Call (${durationStr})`;
                         }
-                        break;
-                    default: // 'text'
-                        lastMessageText = content.length > 40 ? content.substring(0, 37) + '...' : content;
-                        break;
-                 }
-                 updateChatInList(chatId, { lastMessage: lastMessageText, time: response.data.time });
-            } else { throw new Error('API Error'); }
-        } catch(e) {
-             setMessages(prev => ({ ...prev, [chatId]: prev[chatId].map(m => m.id === tempId ? {...m, time: 'failed'} : m) }));
+                      } catch (e) {
+                        lastMessageText = '📞 Call log';
+                     }
+                    break;
+                default: // 'text'
+                    lastMessageText = content.length > 40 ? content.substring(0, 37) + '...' : content;
+                    break;
+             }
+
+             // 5. Update the Chat List UI
+             updateChatInList(chatId, { lastMessage: lastMessageText, time: response.data.time });
+        } else { 
+            throw new Error('API Error'); 
         }
+    } catch(e) {
+         // Error Handling: Mark message as failed
+         setMessages(prev => ({ 
+             ...prev, 
+             [chatId]: prev[chatId].map(m => m.id === tempId ? {...m, time: 'failed'} : m) 
+         }));
+    }
     }, [updateChatInList]);
     
     // --- NEW: FUNCTION TO LOAD GROUP CALL PARTICIPANTS ---
