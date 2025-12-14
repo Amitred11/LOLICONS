@@ -315,10 +315,10 @@ const styles = StyleSheet.create({
   
   searchResultHeader: { color: Colors.primary, fontSize: 13, fontWeight: '700', marginBottom: 10, paddingLeft: 5 },
   
-  tabContainer: { gap: 10, paddingBottom: 5 },
-  tabChip: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  tabContainer: { gap: 9, paddingBottom: 5 },
+  tabChip: { paddingHorizontal: 20, paddingVertical: 9, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   tabChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  tabText: { color: Colors.textSecondary, fontWeight: '600', fontSize: 13 },
+  tabText: { color: Colors.textSecondary, fontWeight: '600', fontSize: 12 },
   tabTextActive: { color: '#FFF', fontWeight: '700' },
   
   menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.2)' },

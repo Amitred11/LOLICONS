@@ -16,6 +16,75 @@ const ChatBubble = ({
   onReactionPress,
   onReactionLongPress 
 }) => {  
+  
+  // Check if message has reactions to adjust spacing
+  const hasReactions = message.reactions && Object.keys(message.reactions).length > 0;
+
+  // --- HELPER FUNCTIONS ---
+
+  const renderHeader = () => {
+      if (!isFirstInChain) return null;
+
+      const displayName = isMe 
+        ? (message.senderName || 'You') 
+        : (message.senderName || 'User');
+
+      return (
+          <View style={[
+              styles.headerRow, 
+              isMe ? { justifyContent: 'flex-end', marginRight: 10 } : { justifyContent: 'flex-start', marginLeft: 12 }
+          ]}>
+              <Text numberOfLines={1}>
+                  <Text style={styles.senderName}>{displayName}</Text>
+                  {message.isEdited && <Text> </Text>}
+                  {message.isEdited && <Text style={styles.editedLabel}>(edited)</Text>}
+              </Text>
+          </View>
+      );
+  };
+
+  const renderReactions = () => {
+      if (!message.reactions || Object.keys(message.reactions).length === 0) return null;
+      
+      const reactionsEntries = Object.entries(message.reactions);
+      const chunkedReactions = [];
+      for (let i = 0; i < reactionsEntries.length; i += 3) {
+          chunkedReactions.push(reactionsEntries.slice(i, i + 3));
+      }
+
+      return (
+          <View style={[
+              styles.reactionContainer, 
+              isMe ? { right: 0, alignItems: 'flex-end' } : { left: 0, alignItems: 'flex-start' }
+          ]}>
+              {chunkedReactions.map((row, rowIndex) => (
+                  <View key={rowIndex} style={styles.reactionRow}>
+                      {row.map(([emoji, userIds]) => {
+                          const count = Array.isArray(userIds) ? userIds.length : 0;
+                          const iReacted = Array.isArray(userIds) && userIds.includes('me');
+                          return (
+                            <TouchableOpacity 
+                                key={emoji} 
+                                activeOpacity={0.7}
+                                style={[
+                                    styles.reactionBadge, 
+                                    iReacted ? styles.reactionBadgeActive : styles.reactionBadgeInactive
+                                ]}
+                                onPress={() => onReactionPress && onReactionPress(message.id, emoji)}
+                                onLongPress={() => onReactionLongPress && onReactionLongPress(emoji, userIds)}
+                            >
+                                <Text style={styles.reactionText}>{emoji}{count > 1 ? ` ${count}` : ''}</Text>
+                            </TouchableOpacity>
+                          );
+                      })}
+                  </View>
+              ))}
+          </View>
+      );
+  };
+
+  // --- RENDER LOGIC ---
+
   // 1. Handle Deleted Messages
   if (message.isDeleted || message.type === 'system') {
     return (
@@ -29,7 +98,7 @@ const ChatBubble = ({
     );
   }
 
-  // 2. Handle Call Logs
+  // 2. Handle Call Logs (MODERN REFACTOR)
   if (message.type === 'call_log') {
     let callData = {};
     try {
@@ -39,123 +108,74 @@ const ChatBubble = ({
     }
 
     const { callType, duration, status } = callData;
+    const isMissed = status === 'missed';
     const isVideo = callType === 'video';
-    const isGroup = callType === 'group';
-    const iconName = isVideo ? 'videocam' : isGroup ? 'people' : 'call';
-    const statusText = status === 'missed' ? 'Call cancelled' : 'Call ended';
-    const statusColor = status === 'missed' ? '#FF453A' : Colors.textSecondary;
     
+    // Config based on status
+    const accentColor = isMissed ? '#FF453A' : (isVideo ? '#007AFF' : '#34C759');
+    const bgTint = isMissed ? 'rgba(255, 69, 58, 0.15)' : (isVideo ? 'rgba(0, 122, 255, 0.15)' : 'rgba(52, 199, 89, 0.15)');
+    const iconName = isVideo ? 'videocam' : 'call';
+    const titleText = isMissed ? 'Missed Call' : (isVideo ? 'Video Call' : 'Voice Call');
+    
+    // Formatting duration
     const mins = Math.floor(duration / 60);
     const secs = duration % 60;
-    const durationText = status === 'missed' ? '' : `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    const durationText = isMissed ? '' : `${mins}m ${secs}s`;
 
     return (
       <TouchableOpacity 
-        style={[styles.container, isMe ? styles.rightContainer : styles.leftContainer]}
+        style={[
+            styles.container, 
+            isMe ? styles.rightContainer : styles.leftContainer,
+            hasReactions && { marginBottom: 20 }
+        ]}
         onLongPress={() => onLongPress && onLongPress(message)}
         delayLongPress={300}
         activeOpacity={0.9}
       >
-        <View style={[styles.callLogCard, { borderColor: isMe ? 'rgba(52, 199, 89, 0.3)' : 'rgba(255,255,255,0.1)' }]}>
-            <View style={styles.callLogHeader}>
-                <View style={[styles.iconCircle, { backgroundColor: status === 'missed' ? 'rgba(255, 69, 58, 0.2)' : 'rgba(255,255,255,0.1)' }]}>
-                    <Ionicons name={iconName} size={20} color={status === 'missed' ? '#FF453A' : Colors.text} />
+        <View style={[styles.modernCallCard, { borderColor: isMe ? 'rgba(255,255,255,0.15)' : 'transparent' }]}>
+            
+            {/* Top Section: Info */}
+            <View style={styles.cardContent}>
+                <View style={[styles.callIconSquircle, { backgroundColor: bgTint }]}>
+                    <Ionicons name={isMissed ? (isVideo ? "videocam-off" : "call") : iconName} size={20} color={accentColor} />
                 </View>
-                <View style={{marginLeft: 10}}>
-                    <Text style={styles.callTitle}>
-                        {isVideo ? 'Video Call' : isGroup ? 'Group Call' : 'Voice Call'}
-                    </Text>
-                    <Text style={[styles.callSubtitle, { color: statusColor }]}>
-                        {statusText} {duration > 0 && `• ${durationText}`}
+                <View style={styles.cardTextContent}>
+                    <Text style={styles.callTitle}>{titleText}</Text>
+                    <Text style={styles.callSubtitle}>
+                        {isMissed ? 'No answer' : durationText}
                     </Text>
                 </View>
             </View>
 
+            {/* Separator */}
+            <View style={styles.cardSeparator} />
+
+            {/* Bottom Section: Action */}
             <TouchableOpacity 
-                style={styles.callAgainBtn} 
+                style={styles.cardAction} 
+                activeOpacity={0.7}
                 onPress={() => onCallAgain && onCallAgain(callType)}
             >
-                <Text style={styles.callAgainText}>Call Again</Text>
+                <Text style={styles.callActionText}>Call Again</Text>
+                <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
             </TouchableOpacity>
         </View>
+
         <Text style={[styles.timeText, isMe ? styles.timeRight : styles.timeLeft]}>{message.time}</Text>
+        {renderReactions()}
       </TouchableOpacity>
     );
   }
 
-  // 3. Helper for Reactions & Header (Name + Edited)
-  const renderHeader = () => {
-      // Only show header if it's the first message in a continuous chain
-      if (!isFirstInChain) return null;
-
-      // Logic: If isMe, use senderName (nickname) if available, otherwise 'You'.
-      // If not me, use senderName or 'User'.
-      const displayName = isMe 
-        ? (message.senderName || 'You') 
-        : (message.senderName || 'User');
-
-      return (
-          <View style={[
-              styles.headerRow, 
-              // Align header right for 'me', left for others
-              isMe ? { justifyContent: 'flex-end', marginRight: 10 } : { justifyContent: 'flex-start', marginLeft: 12 }
-          ]}>
-              <Text numberOfLines={1}>
-                  <Text style={styles.senderName}>
-                      {displayName}
-                  </Text>
-                  
-                  {/* Space if edited */}
-                  {message.isEdited && <Text> </Text>}
-
-                  {/* Edited Label (Beside name) */}
-                  {message.isEdited && (
-                      <Text style={styles.editedLabel}>(edited)</Text>
-                  )}
-              </Text>
-          </View>
-      );
-  };
-
-  const renderReactions = () => {
-      if (!message.reactions || Object.keys(message.reactions).length === 0) return null;
-      return (
-          <View style={[styles.reactionContainer, isMe ? { right: 0 } : { left: 0 }]}>
-              {Object.entries(message.reactions).map(([emoji, userIds], index) => {
-                  const count = Array.isArray(userIds) ? userIds.length : 0;
-                  const iReacted = Array.isArray(userIds) && userIds.includes('me');
-
-                  return (
-                    <TouchableOpacity 
-                        key={index} 
-                        style={[
-                            styles.reactionBadge,
-                            iReacted ? styles.reactionBadgeActive : styles.reactionBadgeInactive
-                        ]}
-                        onPress={() => onReactionPress && onReactionPress(message.id, emoji)}
-                        onLongPress={() => onReactionLongPress && onReactionLongPress(emoji, userIds)}
-                        delayLongPress={300}
-                    >
-                        <Text style={styles.reactionText}>
-                            {emoji} <Text style={styles.reactionCount}>{count > 1 ? count : ''}</Text>
-                        </Text>
-                    </TouchableOpacity>
-                  );
-              })}
-          </View>
-      );
-  };
-
+  // 3. Normal Message Render
   const bubbleStyle = [
       styles.bubble,
       isMe ? styles.bubbleRight : styles.bubbleLeft,
-      // If NOT first in chain, flatten top corners
       !isFirstInChain && isMe && { borderTopRightRadius: 3 },
       !isFirstInChain && !isMe && { borderTopLeftRadius: 3 },
-      // If NOT last in chain, flatten bottom corners
       !isLastInChain && isMe && { borderBottomRightRadius: 3 },
       !isLastInChain && !isMe && { borderBottomLeftRadius: 3 },
-      
       message.type === 'image' && styles.bubbleImage
   ];
 
@@ -163,13 +183,12 @@ const ChatBubble = ({
     <View style={[
         styles.container, 
         isMe ? styles.rightContainer : styles.leftContainer,
-        { marginBottom: isLastInChain ? 15 : 2 } 
+        { marginBottom: isLastInChain ? 15 : 2 },
+        hasReactions && { marginBottom: 25 }
     ]}>
       
-      {/* 1. Header: Name (You/Other) + Edited */}
       {renderHeader()}
 
-      {/* 2. Body: Message Bubble */}
       <TouchableOpacity 
         onLongPress={() => onLongPress && onLongPress(message)}
         delayLongPress={300}
@@ -198,7 +217,6 @@ const ChatBubble = ({
                 </View>
             )}
 
-            {/* Timestamp inside bubble, bottom right */}
             <View style={styles.timeContainer}>
                  <Text style={[styles.timeText, { color: isMe ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.6)' }]}>
                      {message.time}
@@ -207,7 +225,6 @@ const ChatBubble = ({
           </View>
       </TouchableOpacity>
 
-      {/* 3. Footer: Reactions */}
       {renderReactions()}
 
     </View>
@@ -222,101 +239,99 @@ const styles = StyleSheet.create({
   leftContainer: { alignSelf: 'flex-start', marginLeft: 10 },
   rightContainer: { alignSelf: 'flex-end', marginRight: 10 },
   
-  // Header
   headerRow: {
       flexDirection: 'row',
       alignItems: 'flex-end',
       marginBottom: 4,
   },
-  senderName: { 
-      color: Colors.textSecondary, 
-      fontSize: 12, 
-      fontWeight: '700', // Bold name
-  },
-  editedLabel: {
-      color: Colors.textSecondary,
-      fontSize: 10,
-      fontStyle: 'italic',
-      opacity: 0.8
-  },
+  senderName: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
+  editedLabel: { color: Colors.textSecondary, fontSize: 10, fontStyle: 'italic', opacity: 0.8 },
 
-  // Bubbles
   bubble: { 
-      padding: 10, 
-      borderRadius: 18, 
-      minWidth: 80, 
+      paddingTop: 12, paddingBottom: 12, paddingHorizontal: 12, paddingVertical: 10,
+      borderRadius: 18, minWidth: 80, 
   },
   bubbleLeft: { backgroundColor: Colors.surface },
   bubbleRight: { backgroundColor: Colors.primary },
   bubbleImage: { padding: 0, overflow: 'hidden' },
 
-  // Text Content
-  textContainer: {
-      marginBottom: 10,
-  },
+  textContainer: { marginBottom: 10 },
   textLeft: { color: Colors.text, fontSize: 16, lineHeight: 22 },
   textRight: { color: '#000', fontSize: 16, lineHeight: 22 },
 
-  // Time
-  timeContainer: {
-      position: 'absolute',
-      bottom: 6,
-      right: 15,
-  },
-  timeText: { 
-      fontSize: 10, 
-  },
+  timeContainer: { position: 'absolute', bottom: 6, right: 10 },
+  timeText: { fontSize: 10 },
   
   image: { width: 220, height: 220 },
   docContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   docText: { textDecorationLine: 'underline', maxWidth: 180 },
 
-  // Reactions
-  reactionContainer: {
-      flexDirection: 'row',
-      marginTop: 4,
-      flexWrap: 'wrap',
-      zIndex: 10,
+  reactionContainer: { position: 'absolute', top: '100%', marginTop: 5, zIndex: 10, marginBottom: 10 },
+  reactionRow: { flexDirection: 'row', gap: 5, marginBottom: 2 },
+  reactionBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, borderWidth: 1, marginRight: 4, marginTop: 2, flexDirection: 'row', alignItems: 'center', shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1, elevation: 2 },
+  reactionBadgeInactive: { backgroundColor: '#2C2C2E', borderColor: Colors.background },
+  reactionBadgeActive: { backgroundColor: 'rgba(52, 199, 89, 0.3)', borderColor: '#34C759' },
+  reactionText: { fontSize: 10, color: '#FFFFFF', fontWeight: '600' },
+
+  // --- MODERN CALL LOG STYLES ---
+  modernCallCard: {
+    backgroundColor: '#1C1C1E', // Dark card background
+    borderRadius: 20,
+    width: 220,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 4,
   },
-  reactionBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 12,
-      borderWidth: 1,
-      marginRight: 4,
-      marginTop: 2,
-      flexDirection: 'row',
-      alignItems: 'center',
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.2,
-      shadowRadius: 1,
-      elevation: 2,
+  cardContent: {
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  reactionBadgeInactive: {
-      backgroundColor: '#2C2C2E', 
-      borderColor: Colors.background, 
+  callIconSquircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  reactionBadgeActive: {
-      backgroundColor: 'rgba(52, 199, 89, 0.3)', 
-      borderColor: '#34C759', 
+  cardTextContent: {
+    marginLeft: 12,
+    flex: 1,
   },
-  reactionText: {
-      fontSize: 12,
-      color: '#FFFFFF', 
-      fontWeight: '600'
+  callTitle: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 16,
+    marginBottom: 2,
   },
-  reactionCount: {
-      color: '#FFFFFF', 
-      fontSize: 11
+  callSubtitle: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+    fontWeight: '500',
   },
-  
-  // Call Log
-  callLogCard: { backgroundColor: '#1C1C1E', borderRadius: 16, padding: 12, borderWidth: 1, minWidth: 200 },
-  callLogHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  callTitle: { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
-  callAgainBtn: { backgroundColor: 'rgba(255,255,255,0.1)', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  callAgainText: { color: Colors.primary || '#34C759', fontWeight: '600', fontSize: 14 }
+  cardSeparator: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    width: '100%',
+  },
+  cardAction: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.02)', // Slightly lighter bottom
+  },
+  callActionText: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });
 
 export default ChatBubble;

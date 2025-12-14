@@ -41,6 +41,8 @@ const ChatDetailScreen = () => {
   // Call State
   const [isCalling, setIsCalling] = useState(false);
   const [callType, setCallType] = useState('voice'); 
+  const [isCallMinimized, setIsCallMinimized] = useState(false); // NEW STATE
+
 
   // New States for Features
   const [selectedMessage, setSelectedMessage] = useState(null); // Long press menu
@@ -82,6 +84,7 @@ const ChatDetailScreen = () => {
 
   const startCall = (type) => {
       setCallType(type);
+      setIsCallMinimized(false); // Reset minimize state
       setIsCalling(true);
   };
 
@@ -135,7 +138,8 @@ const ChatDetailScreen = () => {
   };
 
   const handleCallEnded = async (callData) => {
-    setIsCalling(false); 
+    setIsCalling(false);
+    setIsCallMinimized(false); 
     if (!callData) return;
     const { duration, wasConnected, type } = callData;
     const callLogData = {
@@ -150,6 +154,14 @@ const ChatDetailScreen = () => {
         console.error("Failed to send call log", error);
     }
 };
+
+   const handleMinimizeCall = () => {
+    setIsCallMinimized(true);
+  };
+  
+  const handleReturnToCall = () => {
+    setIsCallMinimized(false);
+  };
 
   // --- LONG PRESS ACTIONS ---
   const handleLongPress = (message) => { setSelectedMessage(message); };
@@ -246,29 +258,28 @@ const ChatDetailScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* CONDITIONAL RENDERING FOR CALL OVERLAYS */}
-      <Modal 
-        visible={isCalling} 
-        transparent={true} 
-        animationType="fade"
-        onRequestClose={() => {}} // Handle Android Back button
-        hardwareAccelerated
-      >
+      {/* 
+         CHANGED: Replaced Modal with Conditional Rendering using View.
+         We keep CallOverlay mounted if isCalling is true, but pass isMinimized prop.
+         The component sits on top of everything via zIndex.
+      */}
+      {isCalling && !isGroup && (
+        <View style={[StyleSheet.absoluteFill, { zIndex: 999 }]} pointerEvents="box-none">
+           <CallOverlay 
+              visible={isCalling} 
+              user={user} 
+              type={callType} 
+              onClose={handleCallEnded} 
+              isMinimized={isCallMinimized}
+              onMinimize={handleMinimizeCall} 
+            />
+        </View>
+      )}
+
+      {/* Group Call Overlay (keep as Modal for now) */}
+      <Modal visible={isCalling && isGroup} transparent={true} animationType="fade">
         <View style={{ flex: 1, backgroundColor: '#000' }}>
-            {isGroup ? (
-                <GroupCallOverlay 
-                    visible={isCalling} 
-                    user={user} 
-                    onClose={handleCallEnded} 
-                />
-            ) : (
-                <CallOverlay 
-                    visible={isCalling} 
-                    user={user} 
-                    type={callType} 
-                    onClose={handleCallEnded} 
-                />
-            )}
+            <GroupCallOverlay visible={isCalling} user={user} onClose={handleCallEnded} />
         </View>
       </Modal>
 
@@ -381,6 +392,23 @@ const ChatDetailScreen = () => {
             </TouchableOpacity>
         </View>
       </View>
+
+      {isCalling && isCallMinimized && (
+          <TouchableOpacity onPress={handleReturnToCall} activeOpacity={0.9}>
+              <Animated.View style={styles.activeCallBanner}>
+                  <View style={styles.bannerContent}>
+                      <View style={[styles.bannerIcon, { backgroundColor: callType === 'video' ? '#007AFF' : '#34C759' }]}>
+                          <Ionicons name={callType === 'video' ? "videocam" : "call"} size={14} color="#FFF" />
+                      </View>
+                      <View>
+                          <Text style={styles.bannerTitle}>Tap to return to call</Text>
+                          <Text style={styles.bannerSub}>Call in progress • {user.name}</Text>
+                      </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+              </Animated.View>
+          </TouchableOpacity>
+      )}
 
       <View style={{ flex: 1 }}>{renderContent()}</View>
 
@@ -563,6 +591,44 @@ const styles = StyleSheet.create({
   reactorName: {
       color: Colors.text,
       fontSize: 16
+  },
+  activeCallBanner: {
+      backgroundColor: '#1C1C1E',
+      marginHorizontal: 15,
+      marginBottom: 10,
+      padding: 10,
+      borderRadius: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderWidth: 1,
+      borderColor: '#34C759', // Or dynamic based on call type
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      elevation: 5,
+  },
+  bannerContent: {
+      flexDirection: 'row',
+      alignItems: 'center'
+  },
+  bannerIcon: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 10
+  },
+  bannerTitle: {
+      color: '#FFF',
+      fontSize: 14,
+      fontWeight: '600'
+  },
+  bannerSub: {
+      color: Colors.textSecondary,
+      fontSize: 11
   }
 });
 

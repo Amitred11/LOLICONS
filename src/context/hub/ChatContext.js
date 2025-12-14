@@ -159,35 +159,40 @@ export const ChatProvider = ({ children }) => {
 
              // 4. Determine what to show in the Chat List (Last Message Preview)
                 let lastMessageText;
-                switch (type) {
+                  switch (type) {
                     case 'image':
-                        lastMessageText = '📷 Sent an image';
-                     break;
+                    lastMessageText = '📷 Photo';
+                    break;
+                    case 'video':
+                    lastMessageText = '📹 Video';
+                    break;
+                    case 'audio':
+                     lastMessageText = '🎤 Audio';
+                    break;
                     case 'document':
-                        lastMessageText = `📄 ${fileName || 'Document'}`;
+                    lastMessageText = `📄 ${fileName || 'File'}`;
                     break;
-                    case 'call_log':
-                      try {
-                        const callData = JSON.parse(content);
-                        const durationStr = formatCallDuration(callData.duration);
-                        const capitalizeType = callData.callType.charAt(0).toUpperCase() + callData.callType.slice(1);
-                        
-                        if (callData.status === 'missed') {
-                            lastMessageText = `📞 Missed ${capitalizeType} Call`;
-                        } else {
-                            lastMessageText = `📞 ${capitalizeType} Call (${durationStr})`;
-                        }
-                      } catch (e) {
-                        lastMessageText = '📞 Call log';
-                     }
-                    break;
-                default: // 'text'
-                    lastMessageText = content.length > 40 ? content.substring(0, 37) + '...' : content;
-                    break;
-             }
+                     case 'call_log':
+                try {
+                    const callData = JSON.parse(content);
+                    const isVideo = callData.callType === 'video';
+                    if (callData.status === 'missed') {
+                        lastMessageText = isVideo ? '📹 Missed video call' : '📞 Missed call';
+                    } else {
+                        lastMessageText = isVideo ? '📹 Video call' : '📞 Voice call';
+                    }
+                } catch (e) {
+                    lastMessageText = '📞 Call info';
+                }
+                break;
+            default: // 'text'
+                // Truncate text cleanly
+                lastMessageText = content.length > 35 ? content.substring(0, 35) + '...' : content;
+                break;
+        }
 
-             // 5. Update the Chat List UI
-             updateChatInList(chatId, { lastMessage: lastMessageText, time: response.data.time });
+        // 5. Update the Chat List UI
+        updateChatInList(chatId, { lastMessage: lastMessageText, time: response.data.time });
         } else { 
             throw new Error('API Error'); 
         }
