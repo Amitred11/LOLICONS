@@ -1,9 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Dimensions, LayoutAnimation, Platform, UIManager } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@config/Colors'; // Ensure this path is correct in your project
-
-const { width } = Dimensions.get('window');
+import { Colors } from '@config/Colors';
 
 const ChatBubble = ({ 
   message, 
@@ -15,28 +13,31 @@ const ChatBubble = ({
   onImagePress,
   onReactionPress,
   onReactionLongPress,
-  onVote,
-  onViewVoters, 
-  onAddOption,
-  currentUserId = 'me' // Default to 'me', but ideally pass real ID prop
+  onViewPoll, 
+  onVote, 
+  currentUserId = 'me' 
 }) => {  
-  
-  const [pollExpanded, setPollExpanded] = useState(false);
+
   const hasReactions = message.reactions && Object.keys(message.reactions).length > 0;
 
-  // --- TOGGLE ANIMATION ---
-  const togglePollActions = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setPollExpanded(!pollExpanded);
-  };
-
-  // --- HELPER: PIN HEADER (Inside Bubble) ---
-  const renderPinStatus = () => {
+  // --- HELPER: PIN HEADER ---
+  // Updated to accept a 'variant' to style Polls differently
+  const renderPinStatus = (variant = 'default') => {
       if (!message.isPinned) return null;
-      
+
+      // 1. POLL SPECIFIC PIN STYLE
+      if (variant === 'poll') {
+        return (
+            <View style={styles.pollPinContainer}>
+                <Ionicons name="push" size={12} color="#FFD700" style={{ marginRight: 6 }} />
+                <Text style={styles.pollPinText}>Pinned Poll</Text>
+            </View>
+        );
+      }
+
+      // 2. STANDARD BUBBLE PIN STYLE
       const pinColor = isMe ? 'rgba(255,255,255,0.9)' : Colors.primary;
       const borderBottom = isMe ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.05)';
-
       return (
           <View style={[styles.pinContainer, { borderBottomColor: borderBottom }]}>
               <Ionicons name="push" size={11} color={pinColor} style={{ marginRight: 4 }} />
@@ -45,63 +46,37 @@ const ChatBubble = ({
       );
   };
 
-  // --- HELPER: SENDER NAME (Outside Bubble) ---
+  // --- HELPER: SENDER NAME ---
   const renderSenderName = () => {
       if (!isFirstInChain) return null;
       const displayName = isMe ? 'You' : (message.senderName || 'User');
-
       return (
-          <View style={[
-              styles.headerRow, 
-              isMe ? { justifyContent: 'flex-end', marginRight: 10 } : { justifyContent: 'flex-start', marginLeft: 12 }
-          ]}>
+          <View style={[styles.headerRow, isMe ? { justifyContent: 'flex-end', marginRight: 10 } : { justifyContent: 'flex-start', marginLeft: 12 }]}>
               <Text numberOfLines={1}>
                   <Text style={styles.senderName}>{displayName}</Text>
-                  {message.isEdited && <Text style={styles.editedLabel}> (edited)</Text>}
+                  {message.isEdited && !message.isDeleted && <Text style={styles.editedLabel}> (edited)</Text>}
               </Text>
           </View>
       );
   };
 
-  // --- HELPER: REACTIONS (FIXED) ---
+  // --- HELPER: REACTIONS ---
   const renderReactions = () => {
-      // Safety check for empty or missing reactions
-      if (!message.reactions || Object.keys(message.reactions).length === 0) return null;
-      
-      const reactionsEntries = Object.entries(message.reactions);
-
+      if (message.isDeleted || !message.reactions || Object.keys(message.reactions).length === 0) return null;
       return (
-          <View style={[
-              styles.reactionContainer, 
-              // Align reactions to the right if it's my message, left if it's theirs
-              isMe ? { justifyContent: 'flex-end' } : { justifyContent: 'flex-start' }
-          ]}>
-              {reactionsEntries.map(([emoji, userIds]) => {
-                  // Safely handle userIds array
+          <View style={[styles.reactionContainer, isMe ? { justifyContent: 'flex-end' } : { justifyContent: 'flex-start' }]}>
+              {Object.entries(message.reactions).map(([emoji, userIds]) => {
                   const safeUserIds = Array.isArray(userIds) ? userIds : [];
                   const count = safeUserIds.length;
-                  
-                  // specific check using the passed currentUserId prop
                   const iReacted = safeUserIds.includes(currentUserId);
-
                   return (
                     <TouchableOpacity 
-                        key={emoji} 
-                        activeOpacity={0.7}
-                        style={[
-                            styles.reactionBadge, 
-                            iReacted ? styles.reactionBadgeActive : styles.reactionBadgeInactive
-                        ]}
-                        // Pass event up
+                        key={emoji} activeOpacity={0.7}
+                        style={[styles.reactionBadge, iReacted ? styles.reactionBadgeActive : styles.reactionBadgeInactive]}
                         onPress={() => onReactionPress && onReactionPress(message.id, emoji)}
                         onLongPress={() => onReactionLongPress && onReactionLongPress(emoji, safeUserIds)}
                     >
-                        <Text style={[
-                            styles.reactionText, 
-                            iReacted && styles.reactionTextActive // Optional: change text color if active
-                        ]}>
-                            {emoji}{count > 1 ? ` ${count}` : ''}
-                        </Text>
+                        <Text style={[styles.reactionText, iReacted && styles.reactionTextActive]}>{emoji}{count > 1 ? ` ${count}` : ''}</Text>
                     </TouchableOpacity>
                   );
               })}
@@ -109,27 +84,106 @@ const ChatBubble = ({
       );
   };
 
-  // --- RENDERERS ---
-
+  // ==========================================
+  // --- DELETED MESSAGE RENDERER ---
+  // ==========================================
   if (message.isDeleted) {
     return (
-        <View style={[styles.container, { alignSelf: 'center', marginVertical: 10 }]}>
-            <View style={styles.deletedBubble}>
-                <Ionicons name="ban-outline" size={14} color={Colors.textSecondary} style={{ marginRight: 6 }} />
-                <Text style={styles.deletedText}>{isMe ? "You deleted this message" : "This message was deleted"}</Text>
+        <View style={[styles.container, isMe ? styles.rightContainer : styles.leftContainer, { marginBottom: isLastInChain ? 15 : 5 }]}>
+            {renderSenderName()}
+            <View style={[
+                styles.deletedBubble, 
+                isMe ? { alignItems: 'flex-end' } : { alignItems: 'flex-start' }
+            ]}>
+                <View style={styles.deletedContent}>
+                    <Ionicons name="trash-bin-outline" size={14} color="rgba(255,255,255,0.4)" style={{ marginRight: 6 }} />
+                    <Text style={styles.deletedText}>Message deleted</Text>
+                </View>
+                <Text style={styles.deletedTimestamp}>{message.time}</Text>
             </View>
         </View>
     );
   }
 
-  if (message.type === 'system') {
-     return (
-        <View style={{ alignSelf: 'center', marginVertical: 8, paddingHorizontal: 20 }}>
-            <Text style={{ color: Colors.textSecondary, fontSize: 11, textAlign: 'center' }}>{message.text}</Text>
+  // ==========================================
+  // --- POLL RENDERER ---
+  // ==========================================
+  if (message.type === 'poll') {
+    const pollData = message.poll || { question: 'Poll', options: [], totalVotes: 0 };
+    const topOptions = pollData.options.slice(0, 3); 
+    const remainingCount = pollData.options.length - 3;
+
+    return (
+        <View style={[styles.container, isMe ? styles.rightContainer : styles.leftContainer, { marginBottom: 15 }]}>
+            {renderSenderName()}
+            
+            <View style={[styles.pollCard, isMe ? { borderTopRightRadius: 4 } : { borderTopLeftRadius: 4 }]}>
+                
+                {/* Use the new 'poll' variant here */}
+                {renderPinStatus('poll')}
+
+                <TouchableOpacity 
+                    activeOpacity={0.7} 
+                    onPress={() => onViewPoll && onViewPoll(message)}
+                    onLongPress={() => onLongPress && onLongPress(message)}
+                    style={styles.pollHeader}
+                >
+                    <View style={styles.pollIconCircle}>
+                        <Ionicons name="stats-chart" size={14} color="#000" />
+                    </View>
+                    <Text style={styles.pollQuestion} numberOfLines={2}>{pollData.question}</Text>
+                </TouchableOpacity>
+
+                <View style={styles.pollPreviewList}>
+                    {topOptions.map((option) => {
+                        const percentage = pollData.totalVotes > 0 ? (option.votes / pollData.totalVotes) * 100 : 0;
+                        const isVotedByMe = option.voters && option.voters.some(v => v.id === currentUserId);
+                        
+                        return (
+                            <TouchableOpacity 
+                                key={option.id} 
+                                style={styles.pollPreviewRow}
+                                activeOpacity={0.7}
+                                onPress={() => onVote && onVote(message.id, option.id)}
+                            >
+                                <View style={[
+                                    styles.pollPreviewBar, 
+                                    { width: `${percentage}%` },
+                                    isVotedByMe && { backgroundColor: 'rgba(52, 199, 89, 0.5)' } 
+                                ]} />
+                                <View style={styles.pollPreviewContent}>
+                                    <Text style={[styles.pollPreviewText, isVotedByMe && {fontWeight:'bold', color:'#FFF'}]} numberOfLines={1}>
+                                        {option.text}
+                                    </Text>
+                                    <View style={{flexDirection:'row', alignItems:'center'}}>
+                                        {isVotedByMe && <Ionicons name="checkmark" size={12} color="#FFF" style={{marginRight:4}} />}
+                                        <Text style={styles.pollPreviewPercent}>{Math.round(percentage)}%</Text>
+                                    </View>
+                                </View>
+                            </TouchableOpacity>
+                        );
+                    })}
+                    {remainingCount > 0 && (
+                        <TouchableOpacity onPress={() => onViewPoll && onViewPoll(message)}>
+                            <Text style={styles.pollMoreText}>+ {remainingCount} more options</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                <TouchableOpacity 
+                    style={styles.pollFooter} 
+                    onPress={() => onViewPoll && onViewPoll(message)}
+                    activeOpacity={0.7}
+                >
+                    <Text style={styles.pollTotalVotes}>{pollData.totalVotes} vote{pollData.totalVotes !== 1 ? 's' : ''}</Text>
+                </TouchableOpacity>
+            </View>
+            {renderReactions()}
         </View>
-     );
+    );
   }
 
+  // --- CALL LOG RENDERER ---
   if (message.type === 'call_log') {
     let callData = {};
     try { callData = JSON.parse(message.text); } catch (e) { callData = { status: 'ended', callType: 'voice', duration: 0 }; }
@@ -173,125 +227,7 @@ const ChatBubble = ({
     );
   }
 
-  // --- POLL RENDERER ---
-  if (message.type === 'poll') {
-    const pollData = message.poll || { question: 'Poll', options: [], totalVotes: 0 };
-    
-    return (
-        <View style={[styles.container, isMe ? styles.rightContainer : styles.leftContainer, { marginBottom: 15 }]}>
-            {renderSenderName()}
-            
-            <View style={[styles.pollCard, isMe ? { borderTopRightRadius: 4 } : { borderTopLeftRadius: 4 }]}>
-                
-                {message.isPinned && (
-                    <View style={{paddingHorizontal: 14, paddingTop: 10}}>
-                         {renderPinStatus()}
-                    </View>
-                )}
-
-                <TouchableOpacity 
-                    activeOpacity={1} 
-                    onLongPress={() => onLongPress && onLongPress(message)}
-                    style={styles.pollHeader}
-                >
-                    <View style={styles.pollIconCircle}>
-                        <Ionicons name="stats-chart" size={16} color="#FFF" />
-                    </View>
-                    <Text style={styles.pollQuestion}>{pollData.question}</Text>
-                </TouchableOpacity>
-                
-                <View style={styles.pollOptionsList}>
-                    {pollData.options.map((option) => {
-                        const percentage = pollData.totalVotes > 0 ? (option.votes / pollData.totalVotes) * 100 : 0;
-                        const isVotedByMe = option.voters && option.voters.some(v => v.id === currentUserId);
-                        
-                        return (
-                            <View key={option.id} style={styles.pollOptionWrapper}>
-                                <TouchableOpacity 
-                                    style={[
-                                        styles.pollOptionRow, 
-                                        isVotedByMe && styles.pollOptionRowSelected
-                                    ]}
-                                    onPress={() => onVote && onVote(message.id, option.id)}
-                                    disabled={pollData.hasEnded}
-                                    activeOpacity={0.7}
-                                >
-                                    <View style={[
-                                        styles.pollProgressBar, 
-                                        { width: `${percentage}%` },
-                                        isVotedByMe && { backgroundColor: 'rgba(52, 199, 89, 0.2)' }
-                                    ]} />
-                                    
-                                    <View style={styles.pollOptionContent}>
-                                        <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
-                                            {isVotedByMe ? (
-                                                 <Ionicons name="checkmark-circle" size={18} color={Colors.primary} style={{ marginRight: 8 }} />
-                                            ) : (
-                                                 <View style={styles.pollEmptyCircle} />
-                                            )}
-                                            <Text style={[styles.pollOptionText, isVotedByMe && { color: Colors.primary, fontWeight: '700' }]} numberOfLines={1}>
-                                                {option.text}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity 
-                                    style={styles.pollPercentageBtn} 
-                                    onPress={() => onViewVoters && onViewVoters(option.text, option.voters)}
-                                    activeOpacity={0.6}
-                                >
-                                    <Text style={styles.pollPercentageText}>{Math.round(percentage)}%</Text>
-                                    <Ionicons name="people-circle-outline" size={14} color={Colors.textSecondary} style={{marginLeft: 2}} />
-                                </TouchableOpacity>
-                            </View>
-                        );
-                    })}
-                </View>
-
-                <View style={styles.pollFooterContainer}>
-                    <TouchableOpacity 
-                        style={styles.pollFooterToggle}
-                        activeOpacity={0.7}
-                        onPress={togglePollActions}
-                    >
-                         <Text style={styles.pollTotalVotes}>
-                            {pollData.totalVotes} vote{pollData.totalVotes !== 1 ? 's' : ''} • {message.time}
-                        </Text>
-                        <View style={styles.pollExpandBtn}>
-                            <Text style={styles.pollExpandText}>{pollExpanded ? "Close" : "More"}</Text>
-                            <Ionicons name={pollExpanded ? "chevron-up" : "chevron-down"} size={14} color={Colors.primary} />
-                        </View>
-                    </TouchableOpacity>
-
-                    {pollExpanded && (
-                        <View style={styles.pollExpandedContent}>
-                             <View style={styles.pollHintContainer}>
-                                <Ionicons name="information-circle-outline" size={14} color={Colors.textSecondary} />
-                                <Text style={styles.pollHintText}>Tap percentage buttons to view voters.</Text>
-                            </View>
-
-                            {onAddOption && (
-                                <TouchableOpacity 
-                                    style={styles.pollAddOptionBtn}
-                                    onPress={onAddOption}
-                                    activeOpacity={0.7}
-                                >
-                                    <Ionicons name="add" size={18} color={Colors.primary} />
-                                    <Text style={styles.pollAddOptionText}>Add Option</Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    )}
-                </View>
-            </View>
-
-            {renderReactions()}
-        </View>
-    );
-  }
-
-  // --- STANDARD MESSAGE ---
+  // --- STANDARD MESSAGES ---
   const bubbleStyle = [
       styles.bubble,
       isMe ? styles.bubbleRight : styles.bubbleLeft,
@@ -303,45 +239,24 @@ const ChatBubble = ({
   ];
 
   return (
-    <View style={[
-        styles.container, 
-        isMe ? styles.rightContainer : styles.leftContainer,
-        { marginBottom: isLastInChain ? 15 : 2 },
-        hasReactions && { marginBottom: 25 }
-    ]}>
+    <View style={[styles.container, isMe ? styles.rightContainer : styles.leftContainer, { marginBottom: isLastInChain ? 15 : 2 }, hasReactions && { marginBottom: 25 }]}>
       {renderSenderName()}
       <TouchableOpacity 
         onLongPress={() => onLongPress && onLongPress(message)} 
         delayLongPress={300}
         activeOpacity={0.9}
-        style={{ position: 'relative' }} 
       >
           <View style={bubbleStyle}>
             {renderPinStatus()}
-
-            {message.type === 'text' && (
-              <View style={styles.textContainer}>
-                  <Text style={isMe ? styles.textRight : styles.textLeft}>{message.text}</Text>
-              </View>
-            )}
-            {message.type === 'image' && (
-              <TouchableOpacity onPress={() => onImagePress && onImagePress(message.imageUri)} onLongPress={() => onLongPress(message)}>
-                  <Image source={{ uri: message.imageUri }} style={styles.image} resizeMode="cover" />
-              </TouchableOpacity>
-            )}
+            {message.type === 'text' && <View style={styles.textContainer}><Text style={isMe ? styles.textRight : styles.textLeft}>{message.text}</Text></View>}
+            {message.type === 'image' && <TouchableOpacity onPress={() => onImagePress && onImagePress(message.imageUri)}><Image source={{ uri: message.imageUri }} style={styles.image} resizeMode="cover" /></TouchableOpacity>}
             {message.type === 'document' && (
                 <View style={styles.docContainer}>
                     <Ionicons name="document-text" size={24} color={isMe ? '#FFF' : Colors.text} />
-                    <Text style={[styles.docText, { color: isMe ? '#FFF' : Colors.text }]}>
-                        {message.fileName || 'Attachment'}
-                    </Text>
+                    <Text style={[styles.docText, { color: isMe ? '#FFF' : Colors.text }]}>{message.fileName || 'Attachment'}</Text>
                 </View>
             )}
-            <View style={styles.timeContainer}>
-                 <Text style={[styles.timeText, { color: isMe ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.6)' }]}>
-                     {message.time}
-                 </Text>
-            </View>
+            <View style={styles.timeContainer}><Text style={[styles.timeText, { color: isMe ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.6)' }]}>{message.time}</Text></View>
           </View>
       </TouchableOpacity>
       {renderReactions()}
@@ -353,33 +268,36 @@ const styles = StyleSheet.create({
   container: { maxWidth: '75%', minWidth: '20%' },
   leftContainer: { alignSelf: 'flex-start', marginLeft: 10, alignItems: 'flex-start' },
   rightContainer: { alignSelf: 'flex-end', marginRight: 10, alignItems: 'flex-end' },
-  
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   senderName: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
   editedLabel: { color: Colors.textSecondary, fontSize: 10, fontStyle: 'italic', opacity: 0.8 },
+  
+  // Standard Pin Styles
+  pinContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingBottom: 4, borderBottomWidth: 1 },
+  pinText: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase' },
 
-  pinContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 6,
-      paddingBottom: 4,
-      borderBottomWidth: 1,
+  // --- NEW POLL PIN STYLES ---
+  pollPinContainer: {
+    backgroundColor: 'rgba(255, 215, 0, 0.15)', // Subtle gold background
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 215, 0, 0.2)'
   },
-  pinText: {
-      fontSize: 10,
-      fontWeight: '600',
-      textTransform: 'uppercase',
-      letterSpacing: 0.5
+  pollPinText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFD700', // Gold color text
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
   },
-
-  deletedBubble: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.2)' },
-  deletedText: { fontStyle: 'italic', color: Colors.textSecondary, fontSize: 12 },
 
   bubble: { paddingTop: 12, paddingBottom: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 18, minWidth: 80 },
   bubbleLeft: { backgroundColor: Colors.surface },
   bubbleRight: { backgroundColor: Colors.primary },
   bubbleImage: { padding: 0, overflow: 'hidden' },
-
   textContainer: { marginBottom: 10 },
   textLeft: { color: Colors.text, fontSize: 16, lineHeight: 22 },
   textRight: { color: '#000', fontSize: 16, lineHeight: 22 },
@@ -389,199 +307,58 @@ const styles = StyleSheet.create({
   docContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   docText: { textDecorationLine: 'underline', maxWidth: 180 },
 
-  // --- POLL STYLES ---
-  pollCard: {
-      backgroundColor: '#1C1C1E',
-      borderRadius: 18,
-      width: 260,
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.1)',
-      overflow: 'hidden',
+  // --- DELETED MESSAGES ---
+  deletedBubble: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginTop: 2,
+    maxWidth: 200,
   },
-  pollHeader: {
-      padding: 14,
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: 'rgba(255,255,255,0.05)',
-      backgroundColor: 'rgba(255,255,255,0.02)'
+  deletedContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderStyle: 'dashed',
+    backgroundColor: 'rgba(255,255,255,0.03)',
   },
-  pollIconCircle: {
-      width: 28, 
-      height: 28, 
-      borderRadius: 14, 
-      backgroundColor: Colors.primary, 
-      justifyContent: 'center', 
-      alignItems: 'center'
+  deletedText: {
+    fontStyle: 'italic',
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 14,
   },
-  pollQuestion: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: '#FFF',
-      flex: 1,
-      lineHeight: 22
-  },
-  pollOptionsList: {
-      padding: 10,
-      gap: 8
-  },
-  pollOptionWrapper: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6
-  },
-  pollOptionRow: {
-      flex: 1,
-      height: 44,
-      borderRadius: 12,
-      backgroundColor: 'rgba(255,255,255,0.05)',
-      overflow: 'hidden',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: 'transparent'
-  },
-  pollOptionRowSelected: {
-      borderColor: Colors.primary,
-      backgroundColor: 'rgba(255,255,255,0.02)'
-  },
-  pollProgressBar: {
-      position: 'absolute',
-      left: 0, 
-      top: 0, 
-      bottom: 0,
-      backgroundColor: 'rgba(255,255,255,0.1)',
-      borderRadius: 0
-  },
-  pollOptionContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 12,
-      zIndex: 1
-  },
-  pollEmptyCircle: {
-      width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', marginRight: 8
-  },
-  pollOptionText: {
-      color: '#EEE',
-      fontSize: 14,
-      fontWeight: '500',
-      flex: 1
-  },
-  pollPercentageBtn: {
-      minWidth: 45,
-      height: 44,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderRadius: 8,
-      backgroundColor: 'rgba(0,0,0,0.2)'
-  },
-  pollPercentageText: {
-      color: Colors.textSecondary,
-      fontSize: 11,
-      fontWeight: '600'
-  },
-  
-  // --- POLL FOOTER ---
-  pollFooterContainer: {
-      backgroundColor: 'rgba(0,0,0,0.1)',
-      borderTopWidth: 1,
-      borderTopColor: 'rgba(255,255,255,0.05)',
-  },
-  pollFooterToggle: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: 12,
-  },
-  pollExpandBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4
-  },
-  pollExpandText: {
-      color: Colors.primary,
-      fontSize: 12,
-      fontWeight: '600'
-  },
-  pollTotalVotes: {
-      color: Colors.textSecondary,
-      fontSize: 11
-  },
-  pollExpandedContent: {
-      paddingHorizontal: 12,
-      paddingBottom: 12,
-      gap: 10
-  },
-  pollHintContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      marginBottom: 4,
-      opacity: 0.7
-  },
-  pollHintText: {
-      color: Colors.textSecondary,
-      fontSize: 11,
-      fontStyle: 'italic'
-  },
-  pollAddOptionBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 12,
-      backgroundColor: 'rgba(255,255,255,0.05)',
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.1)',
-      borderStyle: 'dashed'
-  },
-  pollAddOptionText: {
-      color: Colors.primary,
-      fontSize: 14,
-      fontWeight: '600',
-      marginLeft: 6
+  deletedTimestamp: {
+    fontSize: 9,
+    color: 'rgba(255,255,255,0.2)',
+    marginTop: 4,
+    marginRight: 4,
   },
 
+  // --- POLL STYLES ---
+  pollCard: { backgroundColor: '#1C1C1E', borderRadius: 16, width: 250, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' },
+  pollHeader: { padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  pollIconCircle: { width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
+  pollQuestion: { fontSize: 15, fontWeight: '700', color: '#FFF', flex: 1 },
+  pollPreviewList: { padding: 12, gap: 8 },
+  pollPreviewRow: { height: 32, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, overflow: 'hidden' },
+  pollPreviewBar: { position: 'absolute', top: 0, left: 0, bottom: 0, backgroundColor: 'rgba(52, 199, 89, 0.3)' },
+  pollPreviewContent: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 10 },
+  pollPreviewText: { fontSize: 13, color: '#DDD', fontWeight:'500' },
+  pollPreviewPercent: { fontSize: 11, color: '#AAA' },
+  pollMoreText: { fontSize: 11, color: Colors.textSecondary, textAlign: 'center', marginTop: 4 },
+  pollFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, backgroundColor: 'rgba(0,0,0,0.2)' },
+  pollTotalVotes: { fontSize: 11, color: Colors.textSecondary },
+
   // --- REACTIONS ---
-  reactionContainer: { 
-      marginTop: -10, // Pulls the reactions up into the bubble slightly
-      zIndex: 10, 
-      flexDirection: 'row', 
-      flexWrap: 'wrap', // This replaces the need for "chunkedReactions"
-      gap: 4, 
-      maxWidth: '100%',
-  },
-  reactionBadge: { 
-      paddingHorizontal: 6, 
-      paddingVertical: 4, 
-      borderRadius: 12, 
-      borderWidth: 1.5, // Slightly thicker border for better visibility against bubble
-      flexDirection: 'row', 
-      alignItems: 'center', 
-      backgroundColor: '#2C2C2E', 
-      borderColor: Colors.background, // Creates a "cutout" effect against the bubble
-      minWidth: 28,
-      justifyContent: 'center',
-      marginBottom: 2 // Adds space if they wrap to a new line
-  },
-  reactionBadgeActive: { 
-      backgroundColor: 'rgba(52, 199, 89, 0.15)', 
-      borderColor: '#34C759' 
-  },
-  reactionBadgeInactive: {
-      borderColor: Colors.background 
-  },
-  reactionText: { 
-      fontSize: 11, 
-      color: '#FFFFFF', 
-      fontWeight: '500' 
-  },
-  reactionTextActive: {
-      color: '#34C759', // Green text when selected
-      fontWeight: '700'
-  },
+  reactionContainer: { marginTop: -5, zIndex: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 4, maxWidth: '100%' },
+  reactionBadge: { paddingHorizontal: 6, paddingVertical: 4, borderRadius: 12, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', backgroundColor: '#2C2C2E', borderColor: Colors.background, minWidth: 28, justifyContent: 'center', marginBottom: 2 },
+  reactionBadgeActive: { backgroundColor: 'rgba(0, 131, 33, 0.51)', borderColor: '#34C759' },
+  reactionBadgeInactive: { borderColor: Colors.background },
+  reactionText: { fontSize: 11, color: '#FFFFFF', fontWeight: '500' },
+  reactionTextActive: { color: '#34C759', fontWeight: '700' },
 
   // --- CALL LOG ---
   modernCallCard: { backgroundColor: '#1C1C1E', borderRadius: 20, width: 220, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', elevation: 4 },

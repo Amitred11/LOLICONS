@@ -39,7 +39,6 @@ export const ChatProvider = ({ children }) => {
     }, []);
 
     const pinChat = useCallback((chatId) => {
-        // Pins the chat conversation in the main list
         const chat = chats.find(c => c.id === chatId);
         if (!chat) return;
         const isPinned = !chat.pinned;
@@ -86,106 +85,44 @@ export const ChatProvider = ({ children }) => {
 
     const sendMessage = useCallback(async (chatId, content, type, fileName) => {
        const tempId = `temp_msg_${Date.now()}`;
-    
-       // Optimistic Message
-        const newMessage = { 
-           id: tempId, 
-           text: content, 
-           sender: 'me', 
-           type, 
-           time: 'sending...', 
-           senderName: 'You',
-           imageUri: type === 'image' ? content : null, 
-           fileName,
-           reactions: {}, 
-           isEdited: false,
-           isPinned: false 
-        };
-
-        setMessages(prev => ({ 
-             ...prev, 
-            [chatId]: [newMessage, ...(prev[chatId] || [])] 
-        }));
+        const newMessage = { id: tempId, text: content, sender: 'me', type, time: 'sending...', senderName: 'You', imageUri: type === 'image' ? content : null, fileName, reactions: {}, isEdited: false, isPinned: false };
+        setMessages(prev => ({ ...prev, [chatId]: [newMessage, ...(prev[chatId] || [])] }));
 
         try {
             const response = await ChatAPI.sendMessage(chatId, { content, type, fileName });
             if (response.success) {
-                 setMessages(prev => ({ 
-                     ...prev, 
-                     [chatId]: prev[chatId].map(m => m.id === tempId ? response.data : m) 
-                 }));
-
-                // Update Last Message Preview
+                 setMessages(prev => ({ ...prev, [chatId]: prev[chatId].map(m => m.id === tempId ? response.data : m) }));
                 let lastMessageText;
                 switch (type) {
                     case 'image': lastMessageText = '📷 Photo'; break;
-                    case 'video': lastMessageText = '📹 Video'; break;
-                    case 'audio': lastMessageText = '🎤 Audio'; break;
                     case 'document': lastMessageText = `📄 ${fileName || 'File'}`; break;
                     case 'poll': lastMessageText = '📊 Poll'; break;
-                    case 'call_log':
-                        try {
-                            const callData = JSON.parse(content);
-                            lastMessageText = (callData.status === 'missed') ? 'Missed call' : 'Call ended';
-                        } catch (e) { lastMessageText = '📞 Call info'; }
-                        break;
+                    case 'call_log': lastMessageText = '📞 Call info'; break;
                     default: lastMessageText = content.length > 35 ? content.substring(0, 35) + '...' : content;
                 }
                 updateChatInList(chatId, { lastMessage: lastMessageText, time: response.data.time });
             }
         } catch(e) {
-             setMessages(prev => ({ 
-                 ...prev, 
-                 [chatId]: prev[chatId].map(m => m.id === tempId ? {...m, time: 'failed'} : m) 
-             }));
+             setMessages(prev => ({ ...prev, [chatId]: prev[chatId].map(m => m.id === tempId ? {...m, time: 'failed'} : m) }));
         }
     }, [updateChatInList]);
 
-    // --- NEW: CREATE POLL ---
     const createPollMessage = useCallback(async (chatId, question, options) => {
         const tempId = `temp_poll_${Date.now()}`;
-        
-        // Construct Poll Object
-        const pollData = {
-            question,
-            options: options.map((opt, index) => ({ id: index, text: opt, votes: 0, voters: [] })),
-            totalVotes: 0,
-            hasEnded: false
-        };
-
-        const newMessage = {
-            id: tempId,
-            type: 'poll',
-            sender: 'me',
-            senderName: 'You',
-            time: 'sending...',
-            poll: pollData,
-            reactions: {}
-        };
-
-        setMessages(prev => ({ 
-            ...prev, 
-           [chatId]: [newMessage, ...(prev[chatId] || [])] 
-       }));
-
+        const pollData = { question, options: options.map((opt, index) => ({ id: index, text: opt, votes: 0, voters: [] })), totalVotes: 0, hasEnded: false };
+        const newMessage = { id: tempId, type: 'poll', sender: 'me', senderName: 'You', time: 'sending...', poll: pollData, reactions: {} };
+        setMessages(prev => ({ ...prev, [chatId]: [newMessage, ...(prev[chatId] || [])] }));
        try {
            const response = await ChatAPI.createPoll(chatId, { question, options });
            if(response.success) {
-               setMessages(prev => ({ 
-                   ...prev, 
-                   [chatId]: prev[chatId].map(m => m.id === tempId ? response.data : m) 
-               }));
-               updateChatInList(chatId, { lastMessage: '📊 Poll', time: response.data.time });
+               setMessages(prev => ({ ...prev, [chatId]: prev[chatId].map(m => m.id === tempId ? response.data : m) }));
+               updateChatInList(chatId, { lastMessage: `📊 Poll: ${question}`, time: response.data.time });
            }
-       } catch (e) {
-           console.error("Failed to create poll", e);
-       }
+       } catch (e) { console.error("Failed to create poll", e); }
     }, [updateChatInList]);
 
-    // --- REACTION LOGIC (SINGLE EMOJI ENFORCEMENT) ---
     const reactToMessage = useCallback(async (chatId, messageId, newEmoji) => {
         const userId = 'me';
-
         setMessages(prev => {
             const chatMessages = prev[chatId] || [];
             return {
@@ -193,68 +130,47 @@ export const ChatProvider = ({ children }) => {
                 [chatId]: chatMessages.map(m => {
                     if (m.id !== messageId) return m;
 
-                    const currentReactions = { ...m.reactions };
-                    
-                    // 1. Remove 'me' from ALL reaction arrays (enforce single reaction)
-                    Object.keys(currentReactions).forEach(emojiKey => {
-                        if (Array.isArray(currentReactions[emojiKey])) {
-                            currentReactions[emojiKey] = currentReactions[emojiKey].filter(id => id !== userId);
-                            // Cleanup empty keys
-                            if (currentReactions[emojiKey].length === 0) delete currentReactions[emojiKey];
-                        }
-                    });
+                    let reactions = { ...(m.reactions || {}) };
+                    const myExistingReaction = Object.keys(reactions).find(emoji => reactions[emoji].includes(userId));
 
-                    // 2. Add 'me' to the NEW emoji array (unless it was a toggle-off scenario handled by UI logic)
-                    // Note: If the UI detects a click on the *same* emoji, it might pass null or handle it.
-                    // Here we assume if 'newEmoji' is passed, we want to add it.
-                    // If you want toggle logic here: pass `currentEmoji` as a separate arg to check.
-                    
-                    if (newEmoji) {
-                        const existingUsers = currentReactions[newEmoji] || [];
-                        currentReactions[newEmoji] = [...existingUsers, userId];
+                    if (myExistingReaction) {
+                        reactions[myExistingReaction] = reactions[myExistingReaction].filter(id => id !== userId);
+                        if (reactions[myExistingReaction].length === 0) {
+                            delete reactions[myExistingReaction];
+                        }
                     }
 
-                    return { ...m, reactions: currentReactions };
+                    if (myExistingReaction !== newEmoji) {
+                        reactions[newEmoji] = [...(reactions[newEmoji] || []), userId];
+                    }
+
+                    return { ...m, reactions };
                 })
             };
         });
-
-        // Fire and forget API
         await ChatAPI.reactToMessage(chatId, messageId, newEmoji);
     }, []);
 
     const addNewPollOption = useCallback(async (chatId, messageId, optionText) => {
-        // Optimistic UI Update
-        setMessages(prev => {
-            const chatMsgs = prev[chatId] || [];
-            return {
-                ...prev,
-                [chatId]: chatMsgs.map(m => {
-                    if (m.id === messageId && m.type === 'poll') {
-                        const newOpt = {
-                            id: m.poll.options.length, // Temporary ID logic
-                            text: optionText,
-                            votes: 0,
-                            voters: []
-                        };
-                        return { ...m, poll: { ...m.poll, options: [...m.poll.options, newOpt] } };
-                    }
-                    return m;
-                })
-            };
-        });
-
+        setMessages(prev => ({
+            ...prev,
+            [chatId]: (prev[chatId] || []).map(m => {
+                if (m.id === messageId && m.type === 'poll') {
+                    const newOpt = { id: m.poll.options.length, text: optionText, votes: 0, voters: [] };
+                    return { ...m, poll: { ...m.poll, options: [...m.poll.options, newOpt] } };
+                }
+                return m;
+            })
+        }));
         try {
-            const response = await ChatAPI.addPollOption(chatId, messageId, optionText);
-            if (!response.success) loadMessages(chatId); // Revert if failed (by reloading)
-        } catch (e) {
-            console.error("Failed to add option", e);
-            loadMessages(chatId);
-        }
+            await ChatAPI.addPollOption(chatId, messageId, optionText);
+        } catch (e) { console.error("Failed to add option", e); loadMessages(chatId); }
     }, [loadMessages]);
 
-    // --- NEW: POLL VOTING ---
     const votePoll = useCallback(async (chatId, messageId, optionId) => {
+        const userId = 'me';
+        const userDetails = { id: 'me', name: 'You', avatar: null };
+
         setMessages(prev => {
             const chatMessages = prev[chatId] || [];
             return {
@@ -263,35 +179,17 @@ export const ChatProvider = ({ children }) => {
                     if (m.id !== messageId || m.type !== 'poll') return m;
 
                     const poll = { ...m.poll };
-                    const userId = 'me';
+                    const myCurrentVoteOption = poll.options.find(opt => opt.voters && opt.voters.some(v => v.id === userId));
 
-                    // Update options
                     poll.options = poll.options.map(opt => {
-                        const voters = opt.voters || [];
-                        const hasVoted = voters.includes(userId);
-
-                        // If clicking the same option, remove vote (toggle)
-                        // If clicking different option, logic depends on 'allowMultiple'. 
-                        // Assuming single choice for now:
-                        
-                        if (opt.id === optionId) {
-                            if (hasVoted) {
-                                return { ...opt, voters: voters.filter(v => v !== userId), votes: opt.votes - 1 };
-                            } else {
-                                return { ...opt, voters: [...voters, userId], votes: opt.votes + 1 };
-                            }
-                        } else {
-                            // If enforcing single choice, remove user from other options
-                            if (voters.includes(userId)) {
-                                return { ...opt, voters: voters.filter(v => v !== userId), votes: opt.votes - 1 };
-                            }
+                        let voters = (opt.voters || []).filter(v => v.id !== userId);
+                        if (opt.id === optionId && (!myCurrentVoteOption || myCurrentVoteOption.id !== optionId)) {
+                            voters.push(userDetails);
                         }
-                        return opt;
+                        return { ...opt, voters, votes: voters.length };
                     });
 
-                    // Recalculate total
                     poll.totalVotes = poll.options.reduce((acc, curr) => acc + curr.votes, 0);
-
                     return { ...m, poll };
                 })
             };
@@ -299,29 +197,18 @@ export const ChatProvider = ({ children }) => {
         await ChatAPI.votePoll(chatId, messageId, optionId);
     }, []);
 
-    // --- NEW: PIN MESSAGE ---
     const pinMessage = useCallback(async (chatId, messageId) => {
         setMessages(prev => ({
             ...prev,
-            [chatId]: prev[chatId].map(m => 
-                m.id === messageId ? { ...m, isPinned: !m.isPinned } : m
-            )
+            [chatId]: prev[chatId].map(m => m.id === messageId ? { ...m, isPinned: !m.isPinned } : m)
         }));
         await ChatAPI.pinMessage(chatId, messageId);
     }, []);
 
-    // --- NEW: REPORT MESSAGE ---
     const reportMessage = useCallback(async (chatId, messageId, reason) => {
-        // Usually doesn't change UI immediately, just sends report
-        try {
-            await ChatAPI.reportMessage(chatId, messageId, reason);
-            // Optional: Show toast or alert
-        } catch (error) {
-            console.error("Report failed", error);
-        }
+        try { await ChatAPI.reportMessage(chatId, messageId, reason); } 
+        catch (error) { console.error("Report failed", error); }
     }, []);
-
-    // --- STANDARD ACTIONS ---
 
     const editMessage = useCallback(async (chatId, messageId, newText) => {
         setMessages(prev => ({
@@ -332,7 +219,6 @@ export const ChatProvider = ({ children }) => {
     }, []);
 
     const deleteMessage = useCallback(async (chatId, messageId, deleteType) => {
-        // deleteType: 'for_me' or 'everyone'
         if (deleteType === 'for_me') {
             setMessages(prev => ({
                 ...prev,
@@ -341,14 +227,20 @@ export const ChatProvider = ({ children }) => {
         } else {
             setMessages(prev => ({
                 ...prev,
-                [chatId]: prev[chatId].map(m => m.id === messageId ? { 
-                    ...m, 
-                    type: 'system', // Change type so ChatBubble renders system UI
-                    text: m.sender === 'me' ? 'You deleted this message' : 'This message was deleted', 
-                    isDeleted: true, 
-                    imageUri: null,
-                    poll: null 
-                } : m)
+                [chatId]: prev[chatId].map(m => {
+                    if (m.id === messageId) {
+                        return { 
+                            ...m, 
+                            type: 'system',
+                            isDeleted: true,
+                            text: m.sender === 'me' ? "You deleted this message" : "This message was deleted", 
+                            imageUri: null,
+                            poll: null,
+                            reactions: {}
+                        };
+                    }
+                    return m;
+                })
             }));
         }
         await ChatAPI.deleteMessage(chatId, messageId, deleteType);
