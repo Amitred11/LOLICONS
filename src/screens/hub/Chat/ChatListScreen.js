@@ -1,96 +1,96 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { 
-  View, Text, StyleSheet, FlatList, Image, TouchableOpacity, 
-  StatusBar, TextInput, Modal, LayoutAnimation, Platform, 
-  ActivityIndicator, RefreshControl, Animated, Dimensions, ScrollView
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, StatusBar, TextInput, Modal, LayoutAnimation, Platform, ActivityIndicator, RefreshControl, Animated, Dimensions, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '@config/Colors'; 
+import { Colors } from '@config/Colors';
 import { useAlert } from '@context/other/AlertContext';
-import { useChat } from '@context/hub/ChatContext'; 
+import { useChat } from '@context/hub/ChatContext';
 
 const { width } = Dimensions.get('window');
 const CATEGORIES = ['All', 'Direct', 'Group', 'Community'];
 
 // --- Helper: Animated Item ---
 const AnimatedChatItem = ({ index, children }) => {
-    const animatedValue = useRef(new Animated.Value(0)).current;
-    useEffect(() => {
-        Animated.timing(animatedValue, { 
-            toValue: 1, 
-            duration: 500, 
-            delay: index * 60, 
-            useNativeDriver: true 
-        }).start();
-    }, []);
-    
-    const translateY = animatedValue.interpolate({
-        inputRange: [0, 1],
-        outputRange: [20, 0]
-    });
+  const animatedValue = useRef(new Animated.Value(0)).current;
 
-    return (
-        <Animated.View style={{ opacity: animatedValue, transform: [{ translateY }] }}>
-            {children}
-        </Animated.View>
-    );
+  useEffect(() => {
+    Animated.timing(animatedValue, {
+      toValue: 1,
+      duration: 500,
+      delay: index * 60,
+      useNativeDriver: true
+    }).start();
+  }, []);
+
+  const translateY = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [20, 0]
+  });
+
+  return (
+    <Animated.View style={{ opacity: animatedValue, transform: [{ translateY }] }}>
+      {children}
+    </Animated.View>
+  );
 };
 
 // --- Helper: Horizontal Favorites Component ---
 const FavoritesRail = ({ chats, onSelect }) => {
-    // Filter online or pinned chats for this rail
-    const favorites = chats.filter(c => c.pinned || c.isOnline).slice(0, 5);
-    
-    if (favorites.length === 0) return null;
+  // Filter online or pinned chats for this rail
+  const favorites = chats.filter(c => c.pinned || c.isOnline).slice(0, 5);
 
-    return (
-        <View style={styles.railContainer}>
-            <Text style={styles.sectionTitle}>Favorites</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
-                {favorites.map((item, index) => (
-                    <TouchableOpacity 
-                        key={item.id} 
-                        style={styles.favItem}
-                        onPress={() => onSelect(item)}
-                        activeOpacity={0.8}
-                    >
-                        <View style={styles.favAvatarContainer}>
-                            {item.avatar ? (
-                                <Image source={{ uri: item.avatar }} style={styles.favAvatar} />
-                            ) : (
-                                <LinearGradient colors={[Colors.primary, '#8E2DE2']} style={styles.favPlaceholder}>
-                                    <Text style={styles.favInitials}>{item.name.charAt(0)}</Text>
-                                </LinearGradient>
-                            )}
-                            {item.isOnline && <View style={styles.favOnlineBadge} />}
-                        </View>
-                        <Text style={styles.favName} numberOfLines={1}>{item.name.split(' ')[0]}</Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
-        </View>
-    );
+  if (favorites.length === 0) return null;
+
+  return (
+    <View style={styles.railContainer}>
+      <Text style={styles.sectionTitle}>Favorites</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
+        {favorites.map((item, index) => (
+          <TouchableOpacity 
+            key={item.id} 
+            style={styles.favItem} 
+            onPress={() => onSelect(item)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.favAvatarContainer}>
+              {item.avatar ? (
+                 <Image source={{ uri: item.avatar }} style={styles.favAvatar} />
+              ) : (
+                <LinearGradient colors={[Colors.primary, '#8E2DE2']} style={styles.favPlaceholder}>
+                    <Text style={styles.favInitials}>{item.name.charAt(0)}</Text>
+                </LinearGradient>
+              )}
+              {item.isOnline && <View style={styles.favOnlineBadge} />}
+            </View>
+            <Text style={styles.favName} numberOfLines={1}>{item.name.split(' ')[0]}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
 };
 
 const ChatListScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { showToast } = useAlert();
-  
   const { 
-      chats, isLoadingChats, loadChats, pinChat, toggleReadStatus, toggleMute, archiveChat, deleteChat 
+    chats, isLoadingChats, loadChats, 
+    pinChat, toggleReadStatus, toggleMute, archiveChat, deleteChat 
   } = useChat();
-  
+
   const [refreshing, setRefreshing] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('All'); 
+  const [activeFilter, setActiveFilter] = useState('All');
   const [searchText, setSearchText] = useState('');
+  
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedChat, setSelectedChat] = useState(null);
 
-  useEffect(() => { loadChats(); }, []);
+  useEffect(() => {
+    loadChats();
+  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -100,32 +100,34 @@ const ChatListScreen = () => {
 
   const processedChats = useMemo(() => {
     let result = chats.filter(chat => {
-      const matchesCategory = activeFilter === 'All' || chat.type.toLowerCase() === activeFilter.toLowerCase();
-      const matchesSearch = chat.name.toLowerCase().includes(searchText.toLowerCase()) || 
-                            chat.lastMessage.toLowerCase().includes(searchText.toLowerCase());
-      return matchesCategory && matchesSearch;
+       const matchesCategory = activeFilter === 'All' || chat.type.toLowerCase() === activeFilter.toLowerCase();
+       const matchesSearch = chat.name.toLowerCase().includes(searchText.toLowerCase()) || chat.lastMessage.toLowerCase().includes(searchText.toLowerCase());
+       return matchesCategory && matchesSearch;
     });
     return result.sort((a, b) => (b.pinned === a.pinned ? 0 : b.pinned ? 1 : -1));
   }, [activeFilter, searchText, chats]);
 
   const handleLongPress = (item) => {
-    setSelectedChat(item);
-    setModalVisible(true);
+      setSelectedChat(item);
+      setModalVisible(true);
   };
 
   const performAction = (action) => {
-    setModalVisible(false);
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    switch (action) {
-      case 'pin': pinChat(selectedChat.id); break;
-      case 'read': toggleReadStatus(selectedChat.id); break;
-      case 'mute': 
-        toggleMute(selectedChat.id, false); 
-        showToast("Notifications silenced", 'success');
-        break;
-      case 'archive': archiveChat(selectedChat.id); break;
-      case 'delete': deleteChat(selectedChat.id); break;
-    }
+      setModalVisible(false);
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      switch (action) {
+          case 'pin': pinChat(selectedChat.id); break;
+          case 'read': toggleReadStatus(selectedChat.id); break;
+          case 'mute': 
+            toggleMute(selectedChat.id, false); 
+            showToast("Notifications silenced", 'success');
+            break;
+          case 'archive': 
+            archiveChat(selectedChat.id); 
+            showToast("Chat archived", 'success');
+            break;
+          case 'delete': deleteChat(selectedChat.id); break;
+      }
   };
 
   const renderChat = ({ item, index }) => (
@@ -167,10 +169,8 @@ const ChatListScreen = () => {
                         style={[styles.chatPreview, item.unread > 0 ? styles.chatPreviewUnread : null]} 
                         numberOfLines={1}
                     >
-                        {item.type === 'group' && !item.lastMessage.includes(':') 
-                            ? <Text style={{color: Colors.textSecondary}}>{item.lastMessage.split(':')[0]}: </Text> 
-                            : null}
-                        {item.lastMessage}
+                         {item.type === 'group' && !item.lastMessage.includes(':') ? <Text style={{color: Colors.textSecondary}}>{item.lastMessage.split(':')[0]}: </Text> : null}
+                         {item.lastMessage}
                     </Text>
                     
                     <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
@@ -198,17 +198,12 @@ const ChatListScreen = () => {
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => navigation.goBack()}
-        >
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <Ionicons name="chevron-back" size={24} color="#FFF" />
         </TouchableOpacity>
-        
         <Text style={styles.headerTitle}>Messages</Text>
-        
         <TouchableOpacity style={styles.newChatBtn} onPress={() => navigation.navigate('Friends')}>
-             <Ionicons name="add" size={26} color="#FFF" />
+            <Ionicons name="add" size={26} color="#FFF" />
         </TouchableOpacity>
       </View>
 
@@ -217,8 +212,8 @@ const ChatListScreen = () => {
         <View style={styles.searchBar}>
             <Ionicons name="search" size={18} color="#666" />
             <TextInput 
-                placeholder="Search conversations..."
-                placeholderTextColor="#666"
+                placeholder="Search conversations..." 
+                placeholderTextColor="#666" 
                 style={styles.searchInput}
                 value={searchText}
                 onChangeText={setSearchText}
@@ -229,38 +224,35 @@ const ChatListScreen = () => {
       {/* Categories */}
       <View style={styles.categoriesSection}>
         <FlatList 
-          horizontal
-          data={CATEGORIES}
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={item => item}
-          contentContainerStyle={{ gap: 10, paddingHorizontal: 20 }}
-          renderItem={({ item }) => (
-            <TouchableOpacity 
-              onPress={() => setActiveFilter(item)}
-              style={[styles.filterPill, activeFilter === item && styles.filterPillActive]}
-            >
-                {activeFilter === item && (
-                    <LinearGradient colors={[Colors.primary, '#00C6FF']} style={StyleSheet.absoluteFill} start={{x:0, y:0}} end={{x:1, y:1}} />
-                )}
-              <Text style={[styles.filterText, activeFilter === item && styles.filterTextActive]}>{item}</Text>
-            </TouchableOpacity>
-          )}
+            horizontal
+            data={CATEGORIES}
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={item => item}
+            contentContainerStyle={{ gap: 10, paddingHorizontal: 20 }}
+            renderItem={({ item }) => (
+                <TouchableOpacity 
+                    onPress={() => setActiveFilter(item)}
+                    style={[styles.filterPill, activeFilter === item && styles.filterPillActive]}
+                >
+                    {activeFilter === item && (
+                        <LinearGradient colors={[Colors.primary, '#00C6FF']} style={StyleSheet.absoluteFill} start={{x:0, y:0}} end={{x:1, y:1}} />
+                    )}
+                    <Text style={[styles.filterText, activeFilter === item && styles.filterTextActive]}>{item}</Text>
+                </TouchableOpacity>
+            )}
         />
       </View>
 
       {/* Chat List */}
       {isLoadingChats && !refreshing ? (
-        <View style={styles.centerContainer}><ActivityIndicator size="large" color={Colors.primary} /></View>
+          <View style={styles.centerContainer}><ActivityIndicator size="large" color={Colors.primary} /></View>
       ) : (
-        <FlatList
+          <FlatList 
             data={processedChats}
             keyExtractor={item => item.id}
             renderItem={renderChat}
             ListHeaderComponent={
-                <FavoritesRail 
-                    chats={chats} 
-                    onSelect={(chat) => navigation.navigate('ChatDetail', { user: chat })} 
-                />
+                <FavoritesRail chats={chats} onSelect={(chat) => navigation.navigate('ChatDetail', { user: chat })} />
             }
             contentContainerStyle={{ paddingBottom: 100 }}
             showsVerticalScrollIndicator={false}
@@ -270,32 +262,44 @@ const ChatListScreen = () => {
                     <Text style={styles.emptyText}>No chats found</Text>
                 </View>
             }
-        />
+          />
       )}
 
       {/* Modern Action Modal */}
-      <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
+      <Modal animationType="fade" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalVisible(false)}>
             <View style={styles.modalContent}>
                 <View style={styles.modalHandle} />
                 <Text style={styles.modalTitle}>{selectedChat?.name}</Text>
+                
                 <View style={styles.modalGrid}>
-                     <TouchableOpacity style={styles.modalGridItem} onPress={() => performAction('pin')}>
+                    <TouchableOpacity style={styles.modalGridItem} onPress={() => performAction('pin')}>
                         <View style={styles.modalIconBg}><Ionicons name="pin" size={22} color="#FFF" /></View>
                         <Text style={styles.modalGridText}>{selectedChat?.pinned ? "Unpin" : "Pin"}</Text>
-                     </TouchableOpacity>
-                     <TouchableOpacity style={styles.modalGridItem} onPress={() => performAction('read')}>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.modalGridItem} onPress={() => performAction('read')}>
                         <View style={styles.modalIconBg}><Ionicons name="mail-open" size={22} color="#FFF" /></View>
                         <Text style={styles.modalGridText}>{selectedChat?.unread > 0 ? "Read" : "Unread"}</Text>
-                     </TouchableOpacity>
-                     <TouchableOpacity style={styles.modalGridItem} onPress={() => performAction('mute')}>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity style={styles.modalGridItem} onPress={() => performAction('mute')}>
                         <View style={styles.modalIconBg}><Ionicons name="volume-mute" size={22} color="#FFF" /></View>
                         <Text style={styles.modalGridText}>Mute</Text>
-                     </TouchableOpacity>
-                     <TouchableOpacity style={styles.modalGridItem} onPress={() => performAction('delete')}>
-                        <View style={[styles.modalIconBg, {backgroundColor: 'rgba(255,59,48,0.2)'}]}><Ionicons name="trash" size={22} color="#FF3B30" /></View>
+                    </TouchableOpacity>
+
+                    {/* NEW: Archive Button */}
+                    <TouchableOpacity style={styles.modalGridItem} onPress={() => performAction('archive')}>
+                        <View style={styles.modalIconBg}><Ionicons name="archive-outline" size={22} color="#FFF" /></View>
+                        <Text style={styles.modalGridText}>Archive</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity style={styles.modalGridItem} onPress={() => performAction('delete')}>
+                        <View style={[styles.modalIconBg, {backgroundColor: 'rgba(255,59,48,0.2)'}]}>
+                            <Ionicons name="trash" size={22} color="#FF3B30" />
+                        </View>
                         <Text style={[styles.modalGridText, {color: '#FF3B30'}]}>Delete</Text>
-                     </TouchableOpacity>
+                    </TouchableOpacity>
                 </View>
             </View>
         </TouchableOpacity>
@@ -307,7 +311,7 @@ const ChatListScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#09090b' }, // Very Deep Dark Gray
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  
+
   // Ambient Background
   ambientGlowTop: { position: 'absolute', top: -100, left: -50, width: width, height: 400, backgroundColor: Colors.primary, opacity: 0.08, borderRadius: width, blurRadius: 100 },
   ambientGlowBottom: { position: 'absolute', bottom: -100, right: -50, width: width, height: 400, backgroundColor: '#00C6FF', opacity: 0.05, borderRadius: width, blurRadius: 100 },
@@ -326,7 +330,7 @@ const styles = StyleSheet.create({
   // Categories
   categoriesSection: { marginBottom: 20 },
   filterPill: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', marginRight: 0, overflow: 'hidden' },
-  filterPillActive: { backgroundColor: 'transparent' }, 
+  filterPillActive: { backgroundColor: 'transparent' },
   filterText: { color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '600' },
   filterTextActive: { color: '#FFF', fontWeight: '800' },
 
@@ -359,14 +363,11 @@ const styles = StyleSheet.create({
   chatNameUnread: { fontWeight: '800', fontSize: 17 },
   chatTime: { color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '500' },
   chatTimeUnread: { color: Colors.primary, fontWeight: '700' },
-  
   chatBottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   chatPreview: { color: 'rgba(255,255,255,0.5)', fontSize: 14, flex: 1, marginRight: 10 },
   chatPreviewUnread: { color: '#FFF', fontWeight: '600' },
-  
   unreadBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, minWidth: 20, justifyContent: 'center', alignItems: 'center' },
   unreadText: { color: '#FFF', fontSize: 11, fontWeight: 'bold' },
-
   emptyContainer: { alignItems: 'center', marginTop: 100 },
   emptyText: { color: '#666', fontSize: 16 },
 
@@ -375,8 +376,10 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: '#18181b', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 25, paddingBottom: 40 },
   modalHandle: { width: 40, height: 5, backgroundColor: '#333', borderRadius: 2.5, alignSelf: 'center', marginBottom: 20 },
   modalTitle: { color: '#FFF', fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 30 },
-  modalGrid: { flexDirection: 'row', justifyContent: 'space-between' },
-  modalGridItem: { alignItems: 'center', width: width / 5 },
+  
+  // Updated Modal Grid Styles to handle 5 items (wrapping)
+  modalGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start', gap: 5},
+  modalGridItem: { alignItems: 'center', width: (width - 70) / 4, marginBottom: 15 }, // Width calculated to fit 4 items per row (accounting for padding + gap)
   modalIconBg: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
   modalGridText: { color: '#FFF', fontSize: 12, fontWeight: '500' },
 });
