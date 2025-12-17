@@ -1,44 +1,18 @@
 import React, { useState } from 'react';
-import { 
-    View, Text, StyleSheet, TouchableOpacity, StatusBar, 
-    TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Keyboard 
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@config/Colors'; 
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAlert } from '@context/other/AlertContext'; 
 import { useProfile } from '@context/main/ProfileContext';
-
-const PasswordInput = ({ label, value, onChangeText, placeholder, isSecure, onToggleSecurity }) => (
-    <View style={styles.inputGroup}>
-        <Text style={styles.label}>{label}</Text>
-        <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color={Colors.textSecondary} style={styles.inputIcon} />
-            <TextInput
-                style={styles.input}
-                value={value}
-                onChangeText={onChangeText}
-                placeholder={placeholder}
-                placeholderTextColor={Colors.textSecondary + '80'}
-                secureTextEntry={isSecure}
-                autoCapitalize="none"
-            />
-            <TouchableOpacity onPress={onToggleSecurity} style={styles.eyeIcon}>
-                <Ionicons 
-                    name={isSecure ? "eye-off-outline" : "eye-outline"} 
-                    size={20} 
-                    color={Colors.textSecondary} 
-                />
-            </TouchableOpacity>
-        </View>
-    </View>
-);
+// IMPORT
+import { PasswordInput } from '../../components/settings/SecurityComponents';
 
 const ChangePasswordScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
     const { showAlert, showToast } = useAlert();
-    const { changePassword } = useProfile(); // Context Bridge
+    const { changePassword } = useProfile(); 
 
     const [form, setForm] = useState({ current: '', new: '', confirm: '' });
     const [visibility, setVisibility] = useState({ current: true, new: true, confirm: true });
@@ -68,54 +42,20 @@ const ChangePasswordScreen = ({ navigation }) => {
     return (
         <LinearGradient colors={[Colors.background, '#1a1a2e']} style={styles.container}>
             <StatusBar barStyle="light-content" />
-            
-            {/* Header */}
             <View style={[styles.header, { paddingTop: insets.top }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
-                    <Ionicons name="arrow-back" size={24} color={Colors.text} />
-                </TouchableOpacity>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}><Ionicons name="arrow-back" size={24} color={Colors.text} /></TouchableOpacity>
                 <Text style={styles.headerTitle}>Change Password</Text>
                 <View style={styles.headerButton} />
             </View>
 
-            <KeyboardAvoidingView 
-                behavior={Platform.OS === "ios" ? "padding" : "height"} 
-                style={{ flex: 1 }}
-            >
+            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-                    
-                    <Text style={styles.instructionText}>
-                        Your new password must be different from previously used passwords.
-                    </Text>
+                    <Text style={styles.instructionText}>Your new password must be different from previously used passwords.</Text>
 
-                    <PasswordInput 
-                        label="Current Password"
-                        placeholder="Enter current password"
-                        value={form.current}
-                        onChangeText={(text) => setForm(prev => ({...prev, current: text}))}
-                        isSecure={visibility.current}
-                        onToggleSecurity={() => toggleVisibility('current')}
-                    />
+                    <PasswordInput label="Current Password" placeholder="Enter current password" value={form.current} onChangeText={(text) => setForm(prev => ({...prev, current: text}))} isSecure={visibility.current} onToggleSecurity={() => toggleVisibility('current')} />
+                    <PasswordInput label="New Password" placeholder="Enter new password" value={form.new} onChangeText={(text) => setForm(prev => ({...prev, new: text}))} isSecure={visibility.new} onToggleSecurity={() => toggleVisibility('new')} />
+                    <PasswordInput label="Confirm New Password" placeholder="Re-enter new password" value={form.confirm} onChangeText={(text) => setForm(prev => ({...prev, confirm: text}))} isSecure={visibility.confirm} onToggleSecurity={() => toggleVisibility('confirm')} />
 
-                    <PasswordInput 
-                        label="New Password"
-                        placeholder="Enter new password"
-                        value={form.new}
-                        onChangeText={(text) => setForm(prev => ({...prev, new: text}))}
-                        isSecure={visibility.new}
-                        onToggleSecurity={() => toggleVisibility('new')}
-                    />
-
-                    <PasswordInput 
-                        label="Confirm New Password"
-                        placeholder="Re-enter new password"
-                        value={form.confirm}
-                        onChangeText={(text) => setForm(prev => ({...prev, confirm: text}))}
-                        isSecure={visibility.confirm}
-                        onToggleSecurity={() => toggleVisibility('confirm')}
-                    />
-
-                    {/* Requirements / Hints */}
                     <View style={styles.requirementsContainer}>
                         <Text style={styles.reqTitle}>Password requirements:</Text>
                         <View style={styles.reqItem}>
@@ -128,57 +68,28 @@ const ChangePasswordScreen = ({ navigation }) => {
                         </View>
                     </View>
 
-                    <TouchableOpacity 
-                        style={[styles.updateBtn, isLoading && { opacity: 0.7 }]} 
-                        onPress={handleUpdate}
-                        disabled={isLoading}
-                    >
-                        {isLoading ? (
-                            <ActivityIndicator color="#FFF" />
-                        ) : (
-                            <Text style={styles.updateBtnText}>Update Password</Text>
-                        )}
+                    <TouchableOpacity style={[styles.updateBtn, isLoading && { opacity: 0.7 }]} onPress={handleUpdate} disabled={isLoading}>
+                        {isLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.updateBtnText}>Update Password</Text>}
                     </TouchableOpacity>
-
                 </ScrollView>
             </KeyboardAvoidingView>
         </LinearGradient>
     );
 };
-// ... styles (same as provided)
+
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },
     headerTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 18 },
     headerButton: { padding: 10, minWidth: 40, alignItems: 'center' },
-    
     scrollContainer: { padding: 25 },
     instructionText: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, marginBottom: 25, lineHeight: 22 },
-
-    inputGroup: { marginBottom: 20 },
-    label: { fontFamily: 'Poppins_500Medium', color: Colors.text, marginBottom: 8, fontSize: 14 },
-    inputContainer: { 
-        flexDirection: 'row', alignItems: 'center', 
-        backgroundColor: 'rgba(255,255,255,0.05)', 
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', 
-        borderRadius: 12, paddingHorizontal: 15, height: 50 
-    },
-    inputIcon: { marginRight: 10 },
-    input: { flex: 1, color: Colors.text, fontFamily: 'Poppins_400Regular', height: '100%' },
-    eyeIcon: { padding: 5 },
-
     requirementsContainer: { marginTop: 0, marginBottom: 30, padding: 15, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 10 },
     reqTitle: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 12, marginBottom: 10 },
     reqItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 5, gap: 8 },
     reqText: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 12 },
     reqTextActive: { color: Colors.text },
-
-    updateBtn: { 
-        backgroundColor: Colors.primary || '#6200EE', 
-        height: 55, borderRadius: 16, 
-        justifyContent: 'center', alignItems: 'center',
-        shadowColor: Colors.primary, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5
-    },
+    updateBtn: { backgroundColor: Colors.primary || '#6200EE', height: 55, borderRadius: 16, justifyContent: 'center', alignItems: 'center', shadowColor: Colors.primary, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 },
     updateBtnText: { fontFamily: 'Poppins_600SemiBold', color: '#FFF', fontSize: 16 }
 });
 

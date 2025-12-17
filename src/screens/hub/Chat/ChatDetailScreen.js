@@ -19,6 +19,10 @@ import { useAlert } from '@context/other/AlertContext';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
+import { 
+    AttachmentItem, EmojiPicker 
+} from './components/ChatComponents';
+
 const ChatDetailScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -640,31 +644,6 @@ const ChatDetailScreen = () => {
     </View>
   );
 };
-
-// --- SUB COMPONENTS ---
-
-const EmojiPicker = ({ onSelect }) => {
-    const emojis = ['😀','😂','😍','🔥','👍','🎉','❤️','😭','😡','👻','👽','🤖','💩','💀','👀','🧠','👋','🙏'];
-    return (
-      <View style={{ height: 50, backgroundColor: '#111' }}>
-        <FlatList data={emojis} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 10 }}
-          renderItem={({ item }) => (
-            <TouchableOpacity onPress={() => onSelect(item)} style={{ padding: 10 }}>
-              <Text style={{ fontSize: 24 }}>{item}</Text>
-            </TouchableOpacity>
-          )} keyExtractor={(item) => item} />
-      </View>
-    );
-};
-
-const AttachmentItem = ({ icon, color, label, onPress }) => (
-    <TouchableOpacity style={styles.attachItem} onPress={onPress}>
-        <View style={[styles.attachIconBg, { backgroundColor: color }]}>
-            <Ionicons name={icon} size={24} color="#FFF" />
-        </View>
-        <Text style={styles.attachLabel}>{label}</Text>
-    </TouchableOpacity>
-);
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },

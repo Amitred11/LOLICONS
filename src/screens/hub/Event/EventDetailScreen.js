@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
     View, Text, StyleSheet, ImageBackground, TouchableOpacity, ScrollView, 
-    ActivityIndicator, Alert, Share, Linking, Modal, Platform 
+    ActivityIndicator, Alert, Share, Linking, Platform 
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -10,98 +10,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors';
 import { useEvents } from '@context/hub/EventsContext';
 import { useAlert } from '@context/other/AlertContext';
+import { PaymentModal } from './components/EventComponents'; // IMPORT HERE
 
-// --- PAYMENT MODAL COMPONENT ---
-const PaymentModal = ({ visible, onClose, event, onConfirm }) => {
-    const [step, setStep] = useState(1); // 1: Method, 2: Gateway, 3: Processing
-    const [method, setMethod] = useState('gcash');
-
-    const handlePay = () => {
-        setStep(3);
-        // Pass payment details back
-        onConfirm({ method, amount: event.price });
-    };
-
-    const reset = () => { setStep(1); onClose(); };
-
-    return (
-        <Modal visible={visible} transparent animationType="slide" onRequestClose={reset}>
-            <View style={styles.modalOverlay}>
-                <View style={styles.modalContainer}>
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Secure Checkout</Text>
-                        <TouchableOpacity onPress={reset}><Ionicons name="close" size={24} color="#000" /></TouchableOpacity>
-                    </View>
-                    
-                    <View style={styles.summaryBox}>
-                        <Text style={styles.summaryTitle}>{event?.title}</Text>
-                        <Text style={styles.summaryPrice}>Total: ₱{event?.price?.toLocaleString()}</Text>
-                    </View>
-
-                    {step === 1 && (
-                        <View style={{ width: '100%' }}>
-                            <Text style={styles.sectionLabel}>Select Payment Method</Text>
-                            <TouchableOpacity style={[styles.payMethod, method === 'gcash' && styles.payMethodActive]} onPress={() => setMethod('gcash')}>
-                                <View style={{flexDirection:'row', alignItems:'center'}}>
-                                    <View style={[styles.iconBox, {backgroundColor:'#007AFF'}]}><Ionicons name="phone-portrait-outline" size={20} color="#fff" /></View>
-                                    <Text style={styles.payText}>GCash / E-Wallet</Text>
-                                </View>
-                                {method === 'gcash' && <Ionicons name="checkmark-circle" size={22} color="#007AFF" />}
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.payMethod, method === 'card' && styles.payMethodActive]} onPress={() => setMethod('card')}>
-                                <View style={{flexDirection:'row', alignItems:'center'}}>
-                                    <View style={[styles.iconBox, {backgroundColor:'#FF9500'}]}><Ionicons name="card-outline" size={20} color="#fff" /></View>
-                                    <Text style={styles.payText}>Credit/Debit Card</Text>
-                                </View>
-                                {method === 'card' && <Ionicons name="checkmark-circle" size={22} color="#FF9500" />}
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.payBtnMain} onPress={() => setStep(2)}>
-                                <Text style={styles.payBtnText}>Next</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-
-                    {step === 2 && (
-                        <View style={{ alignItems: 'center', width: '100%' }}>
-                            {method === 'gcash' ? (
-                                <>
-                                    <Text style={styles.gatewayTitle}>Scan to Pay</Text>
-                                    <View style={styles.qrContainer}>
-                                        <Ionicons name="qr-code" size={140} color="#000" />
-                                    </View>
-                                    <Text style={styles.qrNumber}>0917-123-4567</Text>
-                                    <Text style={styles.qrNote}>Please attach reference no. automatically.</Text>
-                                </>
-                            ) : (
-                                <View style={styles.cardForm}>
-                                    <Ionicons name="card" size={40} color="#666" style={{marginBottom:10}}/>
-                                    <Text>Card Payment Simulator</Text>
-                                    <Text style={{color:'#999', fontSize:12}}>Ending in **** 4242</Text>
-                                </View>
-                            )}
-                            <TouchableOpacity style={styles.payBtnMain} onPress={handlePay}>
-                                <Text style={styles.payBtnText}>Confirm Payment ₱{event?.price}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => setStep(1)} style={{marginTop: 15}}>
-                                <Text style={{color:'#666'}}>Back</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-
-                    {step === 3 && (
-                        <View style={{ alignItems: 'center', padding: 40 }}>
-                            <ActivityIndicator size="large" color={Colors.primary} />
-                            <Text style={{ marginTop: 20, fontWeight: '600' }}>Processing Transaction...</Text>
-                            <Text style={{ color:'#999', fontSize:12 }}>Please do not close this window.</Text>
-                        </View>
-                    )}
-                </View>
-            </View>
-        </Modal>
-    );
-};
-
-// --- MAIN SCREEN ---
 const EventDetailScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
@@ -117,8 +27,6 @@ const EventDetailScreen = () => {
     const userHasTicket = hasTicket(eventData?.id);
     const isPaidEvent = eventData?.price && eventData?.price > 0;
 
-    // --- ACTIONS ---
-
     const handleShare = async () => {
         try {
             await Share.share({
@@ -131,12 +39,9 @@ const EventDetailScreen = () => {
     };
 
     const handleOpenMap = () => {
-        // Use coordinates if available, otherwise query
         const query = eventData.coordinates 
             ? `${eventData.coordinates.lat},${eventData.coordinates.lng}` 
             : eventData.location;
-        const scheme = Platform.select({ ios: 'maps:0,0?q=', android: 'geo:0,0?q=' });
-        const latLng = Platform.select({ ios: `${eventData.title}@${query}`, android: query });
         const url = Platform.select({
             ios: `maps:0,0?q=${eventData.title}@${eventData.coordinates.lat},${eventData.coordinates.lng}`,
             android: `geo:${eventData.coordinates.lat},${eventData.coordinates.lng}?q=${eventData.coordinates.lat},${eventData.coordinates.lng}(${eventData.title})`
@@ -154,7 +59,7 @@ const EventDetailScreen = () => {
     };
 
     const finalizeRegistration = async (paymentDetails) => {
-        if (!isPaidEvent) setIsProcessing(true); // Only show spinner here for free events, modal handles it for paid
+        if (!isPaidEvent) setIsProcessing(true); 
         
         const success = await joinEvent(eventData?.id, paymentDetails);
         
@@ -162,22 +67,19 @@ const EventDetailScreen = () => {
         setShowPaymentModal(false);
 
         if (success) {
-        // --- FIXED: Replaced Alert.alert with the custom showAlert ---
-        showAlert({
-            type: 'success',
-            title: "Success!",
-            message: "You have secured your ticket for the event.",
-            btnText: "View My Ticket",
-            // The onClose callback is triggered when the main button is pressed
-            onClose: () => setActiveTab('Ticket') 
-        });
+            showAlert({
+                type: 'success',
+                title: "Success!",
+                message: "You have secured your ticket for the event.",
+                btnText: "View My Ticket",
+                onClose: () => setActiveTab('Ticket') 
+            });
         } else {
-        // Optionally handle the failure case with another alert
-        showAlert({
-            type: 'error',
-            title: "Registration Failed",
-            message: "We couldn't process your registration. Please try again."
-        });
+            showAlert({
+                type: 'error',
+                title: "Registration Failed",
+                message: "We couldn't process your registration. Please try again."
+            });
       }
     };
 
@@ -332,27 +234,6 @@ const styles = StyleSheet.create({
     ticketNote: { color: '#666', fontSize: 12, marginTop: 5 },
     emptyState: { alignItems: 'center', marginTop: 50 },
     emptyText: { color: Colors.textSecondary, marginTop: 10 },
-
-    // Modal
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-    modalContainer: { backgroundColor: '#fff', borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 25, minHeight: 450 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    modalTitle: { fontSize: 20, fontWeight: 'bold' },
-    summaryBox: { backgroundColor: '#f5f5f5', padding: 15, borderRadius: 10, marginBottom: 20 },
-    summaryTitle: { fontSize: 14, color: '#666' },
-    summaryPrice: { fontSize: 18, fontWeight: 'bold', color: Colors.primary, marginTop: 5 },
-    sectionLabel: { fontSize: 14, fontWeight: '600', marginBottom: 10, color: '#333' },
-    payMethod: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#eee', marginBottom: 10 },
-    payMethodActive: { borderColor: '#007AFF', backgroundColor: '#eff6ff' },
-    iconBox: { width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
-    payText: { fontWeight: '500' },
-    payBtnMain: { backgroundColor: Colors.primary, padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
-    payBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-    qrContainer: { padding: 10, borderWidth: 1, borderColor: '#ddd', borderRadius: 10, marginBottom: 10 },
-    qrNumber: { fontSize: 20, fontWeight: 'bold', letterSpacing: 1 },
-    qrNote: { fontSize: 12, color: '#999', marginTop: 5 },
-    cardForm: { width: '100%', padding: 20, backgroundColor: '#f0f0f0', borderRadius: 10, alignItems: 'center', marginBottom: 10 },
-    gatewayTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 15 }
 });
 
 export default EventDetailScreen;

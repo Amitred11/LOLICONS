@@ -1,5 +1,3 @@
-// screens/profile/HelpScreen.js
-
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, TextInput, Linking, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,82 +6,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useModal } from '@context/other/ModalContext';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, measure, runOnUI, interpolate, Extrapolate, useAnimatedScrollHandler, useAnimatedRef } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
-
-// NOTE: We import API directly here because FAQ/Help data is static 
-// and doesn't need to be managed by the User Profile Context.
+import Animated, { useSharedValue, useAnimatedStyle, interpolate, Extrapolate, useAnimatedScrollHandler } from 'react-native-reanimated';
 import { ProfileAPI } from '@api/MockProfileService';
+// IMPORTS
+import { FaqItem, TopicCard } from '../../components/settings/HelpComponents';
 
-// --- Animation Constants ---
 const HEADER_HEIGHT = 250;
 const COLLAPSED_HEADER_HEIGHT = 60;
 const SCROLL_DISTANCE = HEADER_HEIGHT - COLLAPSED_HEADER_HEIGHT;
-
-const FaqItem = ({ item }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
-    const answerHeight = useSharedValue(0);
-    const animatedRotation = useSharedValue(0);
-    const answerRef = useAnimatedRef();
-
-    const toggle = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        if (isExpanded) {
-            animatedRotation.value = withTiming(0);
-            answerHeight.value = withTiming(0);
-        } else {
-            animatedRotation.value = withTiming(180);
-            // Measure the absolute positioned view to get exact text height
-            runOnUI(() => { 
-                'worklet'; 
-                const measured = measure(answerRef);
-                if (measured) {
-                    answerHeight.value = withTiming(measured.height);
-                }
-            })();
-        }
-        setIsExpanded(!isExpanded);
-    };
-
-    const animatedAnswerStyle = useAnimatedStyle(() => ({ 
-        height: answerHeight.value, 
-        opacity: answerHeight.value > 0 ? 1 : 0 
-    }));
-    
-    const animatedIconStyle = useAnimatedStyle(() => ({ 
-        transform: [{ rotate: `${animatedRotation.value}deg` }] 
-    }));
-
-    return (
-        <View style={styles.rowBorder}>
-            <TouchableOpacity onPress={toggle} style={styles.row}>
-                <Text style={styles.rowLabel}>{item.q}</Text>
-                <Animated.View style={animatedIconStyle}>
-                    <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />
-                </Animated.View>
-            </TouchableOpacity>
-            <Animated.View style={[styles.answerContainer, animatedAnswerStyle]}>
-                <View ref={answerRef} style={{ position: 'absolute', width: '100%' }}>
-                    <Text style={styles.answerText}>{item.a}</Text>
-                </View>
-            </Animated.View>
-        </View>
-    );
-};
-
-const TopicCard = ({ item, onPress }) => (
-    <TouchableOpacity onPress={onPress} style={styles.topicCard}>
-        <BlurView intensity={25} tint="dark" style={styles.glassEffect} />
-        <Ionicons name={item.icon} size={28} color={Colors.secondary} />
-        <Text style={styles.topicLabel}>{item.label}</Text>
-    </TouchableOpacity>
-);
 
 const HelpScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
     const { show: showModal } = useModal(); 
     
-    // --- State Management ---
     const [isLoading, setIsLoading] = useState(true);
     const [faqs, setFaqs] = useState([]);
     const [filteredFaqs, setFilteredFaqs] = useState([]);
@@ -93,7 +28,6 @@ const HelpScreen = ({ navigation }) => {
     const scrollY = useSharedValue(0);
     const isSearching = searchQuery.length > 0;
 
-    // --- Data Fetching ---
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -102,58 +36,36 @@ const HelpScreen = ({ navigation }) => {
                     ProfileAPI.getContactTopics()
                 ]);
                 
-                if (faqRes.success) {
-                    setFaqs(faqRes.data);
-                    setFilteredFaqs(faqRes.data);
-                }
-                
-                if (topicsRes.success) {
-                    setContactTopics(topicsRes.data);
-                }
-
+                if (faqRes.success) { setFaqs(faqRes.data); setFilteredFaqs(faqRes.data); }
+                if (topicsRes.success) { setContactTopics(topicsRes.data); }
             } catch (error) {
                 console.error("HelpScreen fetch error:", error);
                 Alert.alert("Error", "An unexpected error occurred.");
-            } finally {
-                setIsLoading(false);
-            }
+            } finally { setIsLoading(false); }
         };
-
         fetchData();
     }, []);
 
-    // --- Search Logic ---
     useEffect(() => {
         if (isSearching) {
             setFilteredFaqs(faqs.filter(faq => 
                 faq.q.toLowerCase().includes(searchQuery.toLowerCase()) || 
                 faq.a.toLowerCase().includes(searchQuery.toLowerCase())
             ));
-        } else {
-            setFilteredFaqs(faqs);
-        }
+        } else { setFilteredFaqs(faqs); }
     }, [searchQuery, faqs]);
 
     const handleTopicAction = (action) => {
         if (!action) return;
-
         switch (action.type) {
-            case 'modal':
-                showModal(action.modalName, action.modalProps);
-                break;
-            case 'link':
-                Linking.openURL(action.url);
-                break;
-            case 'email':
-                 Linking.openURL(`mailto:${action.email}`);
-                 break;
-            default:
-                console.warn("Unknown action type:", action.type);
+            case 'modal': showModal(action.modalName, action.modalProps); break;
+            case 'link': Linking.openURL(action.url); break;
+            case 'email': Linking.openURL(`mailto:${action.email}`); break;
+            default: console.warn("Unknown action type:", action.type);
         }
     };
     
     const scrollHandler = useAnimatedScrollHandler((event) => { scrollY.value = event.contentOffset.y; });
-
     const animatedHeaderStyle = useAnimatedStyle(() => ({ height: interpolate(scrollY.value, [0, SCROLL_DISTANCE], [insets.top + HEADER_HEIGHT, insets.top + COLLAPSED_HEADER_HEIGHT], Extrapolate.CLAMP) }));
     const animatedLargeHeaderStyle = useAnimatedStyle(() => ({
         opacity: interpolate(scrollY.value, [0, SCROLL_DISTANCE / 2], [1, 0], Extrapolate.CLAMP),
@@ -180,18 +92,8 @@ const HelpScreen = ({ navigation }) => {
                         <Animated.View style={[styles.searchBarWrapper, animatedSearchBarStyle]}>
                             <View style={styles.searchBarContainer}>
                                 <Ionicons name="search" size={20} color={Colors.textSecondary} />
-                                <TextInput 
-                                    placeholder="Search help articles..." 
-                                    placeholderTextColor={Colors.textSecondary} 
-                                    style={styles.searchInput} 
-                                    value={searchQuery} 
-                                    onChangeText={setSearchQuery}
-                                />
-                                {isSearching && (
-                                    <TouchableOpacity style={styles.clearButton} onPress={() => setSearchQuery('')}>
-                                        <Ionicons name="close-circle" size={20} color={Colors.textSecondary} />
-                                    </TouchableOpacity>
-                                )}
+                                <TextInput placeholder="Search help articles..." placeholderTextColor={Colors.textSecondary} style={styles.searchInput} value={searchQuery} onChangeText={setSearchQuery} />
+                                {isSearching && <TouchableOpacity style={styles.clearButton} onPress={() => setSearchQuery('')}><Ionicons name="close-circle" size={20} color={Colors.textSecondary} /></TouchableOpacity>}
                             </View>
                         </Animated.View>
                     </View>
@@ -200,9 +102,7 @@ const HelpScreen = ({ navigation }) => {
 
             <Animated.ScrollView onScroll={scrollHandler} scrollEventThrottle={16} contentContainerStyle={{ paddingTop: insets.top + HEADER_HEIGHT, paddingBottom: insets.bottom + 20 }}>
                 {isLoading ? (
-                    <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color={Colors.secondary} />
-                    </View>
+                    <View style={styles.loadingContainer}><ActivityIndicator size="large" color={Colors.secondary} /></View>
                 ) : (
                     <View style={styles.content}>
                         <Text style={styles.sectionTitle}>{isSearching ? `Results for "${searchQuery}"` : "Frequently Asked Questions"}</Text>
@@ -210,10 +110,7 @@ const HelpScreen = ({ navigation }) => {
                             {filteredFaqs.length > 0 ? (
                                 filteredFaqs.map((item, index) => <FaqItem key={index} item={item} />)
                             ) : (
-                                <View style={styles.emptyStateContainer}>
-                                    <Ionicons name="sad-outline" size={40} color={Colors.textSecondary}/>
-                                    <Text style={styles.emptyStateText}>No results found.</Text>
-                                </View>
+                                <View style={styles.emptyStateContainer}><Ionicons name="sad-outline" size={40} color={Colors.textSecondary}/><Text style={styles.emptyStateText}>No results found.</Text></View>
                             )}
                         </View>
                         
@@ -249,17 +146,9 @@ const styles = StyleSheet.create({
     content: { padding: 20, gap: 20 },
     sectionTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.textSecondary, fontSize: 14, textTransform: 'uppercase', marginBottom: -5, marginLeft: 5 },
     card: { borderRadius: 16, overflow: 'hidden', backgroundColor: 'rgba(28,28,30,0.7)', borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },
-    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15 },
-    rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.1)' },
-    rowLabel: { fontFamily: 'Poppins_500Medium', color: Colors.text, fontSize: 16, flex: 1, marginRight: 10 },
-    answerContainer: { overflow: 'hidden' },
-    answerText: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 15, lineHeight: 22, paddingHorizontal: 15, paddingBottom: 15 },
     emptyStateContainer: { padding: 30, alignItems: 'center', gap: 10 },
     emptyStateText: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 16 },
     topicGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-    topicCard: { width: '48.5%', aspectRatio: 1, borderRadius: 16, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80', marginBottom: '3%', justifyContent: 'center', alignItems: 'center', padding: 15, gap: 10 },
-    glassEffect: { ...StyleSheet.absoluteFillObject },
-    topicLabel: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 15, textAlign: 'center' },
 });
 
 export default HelpScreen;

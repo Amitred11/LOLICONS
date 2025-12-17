@@ -10,68 +10,9 @@ import { useChat } from '@context/hub/ChatContext';
 
 const { width } = Dimensions.get('window');
 const CATEGORIES = ['All', 'Direct', 'Group', 'Community'];
-
-// --- Helper: Animated Item ---
-const AnimatedChatItem = ({ index, children }) => {
-  const animatedValue = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(animatedValue, {
-      toValue: 1,
-      duration: 500,
-      delay: index * 60,
-      useNativeDriver: true
-    }).start();
-  }, []);
-
-  const translateY = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [20, 0]
-  });
-
-  return (
-    <Animated.View style={{ opacity: animatedValue, transform: [{ translateY }] }}>
-      {children}
-    </Animated.View>
-  );
-};
-
-// --- Helper: Horizontal Favorites Component ---
-const FavoritesRail = ({ chats, onSelect }) => {
-  // Filter online or pinned chats for this rail
-  const favorites = chats.filter(c => c.pinned || c.isOnline).slice(0, 5);
-
-  if (favorites.length === 0) return null;
-
-  return (
-    <View style={styles.railContainer}>
-      <Text style={styles.sectionTitle}>Favorites</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
-        {favorites.map((item, index) => (
-          <TouchableOpacity 
-            key={item.id} 
-            style={styles.favItem} 
-            onPress={() => onSelect(item)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.favAvatarContainer}>
-              {item.avatar ? (
-                 <Image source={{ uri: item.avatar }} style={styles.favAvatar} />
-              ) : (
-                <LinearGradient colors={[Colors.primary, '#8E2DE2']} style={styles.favPlaceholder}>
-                    <Text style={styles.favInitials}>{item.name.charAt(0)}</Text>
-                </LinearGradient>
-              )}
-              {item.isOnline && <View style={styles.favOnlineBadge} />}
-            </View>
-            <Text style={styles.favName} numberOfLines={1}>{item.name.split(' ')[0]}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
-  );
-};
-
+import { 
+   AnimatedChatItem, FavoritesRail, 
+} from './components/ChatComponents';
 const ChatListScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();

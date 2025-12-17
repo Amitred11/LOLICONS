@@ -1,13 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Image, StatusBar, TouchableOpacity, Dimensions, ImageBackground, ActivityIndicator, ScrollView } from 'react-native';
 import { Colors } from '@config/Colors';
 import { useAuth } from '@context/main/AuthContext';
 import { useProfile } from '@context/main/ProfileContext';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { 
-    useSharedValue, useAnimatedStyle, withDelay, withSpring, withTiming, 
-    useAnimatedScrollHandler, interpolate, Extrapolate, useAnimatedReaction, runOnJS
-} from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withDelay, withSpring, withTiming, useAnimatedScrollHandler, interpolate, Extrapolate, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,90 +17,12 @@ import LogoutModal from '../components/modals/LogoutModal';
 import GlitchEffect from '../components/ui/GlitchEffect';
 import EmptyState from '../components/empty/EmptyState';
 
+// IMPORT COMPONENTS
+import { BadgeItem, StatItem, FavoriteItem, HistoryItem, ProfileRow, AnimatedSection } from '../components/ui/ProfileDashboardComponents';
+
 const { width } = Dimensions.get('window');
 const HEADER_BANNER_HEIGHT = 250;
 const AVATAR_SIZE = 110;
-
-// Memoized Components to prevent unnecessary re-renders
-const BadgeItem = React.memo(({ item, index, onPress }) => {
-    const entryProgress = useSharedValue(0);
-    useEffect(() => { entryProgress.value = withDelay(index * 100, withSpring(1)); }, []);
-    const animatedStyle = useAnimatedStyle(() => ({ opacity: entryProgress.value, transform: [{scale: entryProgress.value}] }));
-    return (
-        <Animated.View style={[styles.badgeContainer, animatedStyle]}>
-            <TouchableOpacity onPress={onPress}>
-                <LinearGradient colors={[Colors.surface + '99', 'rgba(0,0,0,0)']} style={styles.badgeIconContainer}>
-                    <Ionicons name={item.icon} size={32} color={Colors.secondary} />
-                </LinearGradient>
-                <Text style={styles.badgeName} numberOfLines={2}>{item.name}</Text>
-            </TouchableOpacity>
-        </Animated.View>
-    );
-});
-
-const StatItem = React.memo(({ label, value }) => ( 
-    <View style={styles.statItem}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View> 
-));
-
-const FavoriteItem = React.memo(({ item }) => {
-    // 1. Define variables inside the function block
-    const title = item.title || item.name || 'Untitled';
-    const imageUri = item.image?.uri || item.image || item.poster?.uri || item.poster;
-    // const type = item.type || 'Comic'; // Unused in small card, but available if needed
-
-    // 2. Explicit return
-    return ( 
-        <TouchableOpacity style={styles.favoriteItem}>
-            <Image 
-                source={typeof imageUri === 'string' ? { uri: imageUri } : imageUri} 
-                style={styles.favoriteImage} 
-                resizeMode="cover" 
-            />
-            
-            {/* 3. Title Overlay */}
-            <LinearGradient 
-                colors={['transparent', 'rgba(0,0,0,0.9)']} 
-                style={styles.favoriteOverlay}
-            >
-                <Text style={styles.favoriteTitle} numberOfLines={1}>
-                    {title}
-                </Text>
-            </LinearGradient>
-        </TouchableOpacity> 
-    );
-});
-
-const HistoryItem = React.memo(({ item }) => ( 
-    <TouchableOpacity style={styles.historyItem}>
-        <Image source={item.image} style={styles.historyImage} resizeMode="cover" />
-        <View style={styles.historyTextContainer}>
-            <Text style={styles.historyTitle} numberOfLines={1}>{item.title}</Text>
-            <Text style={styles.historySubtitle} numberOfLines={1}>{item.lastChapterRead}</Text>
-        </View>
-        <Ionicons name="chevron-forward-outline" size={22} color={Colors.textSecondary} />
-    </TouchableOpacity> 
-));
-
-const ProfileRow = React.memo(({ icon, label, onPress, color = Colors.text, isLast = false }) => ( 
-    <TouchableOpacity onPress={onPress} style={[styles.rowContainer, isLast && { borderBottomWidth: 0 }]}>
-        <View style={styles.rowLeft}>
-            <Ionicons name={icon} size={22} color={color} style={{ width: 25 }} />
-            <Text style={[styles.rowLabel, { color }]}>{label}</Text>
-        </View>
-        <Ionicons name="chevron-forward-outline" size={22} color={Colors.textSecondary} />
-    </TouchableOpacity> 
-));
-
-const AnimatedSection = ({ children, index }) => {
-    const opacity = useSharedValue(0);
-    const translateY = useSharedValue(20);
-    useEffect(() => { 
-        opacity.value = withDelay(index * 150, withTiming(1)); 
-        translateY.value = withDelay(index * 150, withSpring(0)); 
-    }, []);
-    const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ translateY: translateY.value }] }));
-    return <Animated.View style={animatedStyle}>{children}</Animated.View>;
-};
 
 const ProfileScreen = () => {
     const { profile, isLoading, fetchProfile, getRankProgress } = useProfile();
@@ -155,7 +74,6 @@ const ProfileScreen = () => {
         navigation.navigate('ViewAllHF', { type, title });
     }, [activeTab, profile, navigation]);
 
-    // Animated Styles
     const animatedXpFillStyle = useAnimatedStyle(() => ({ width: `${xpFill.value * 100}%` }));
     const animatedHeaderBannerStyle = useAnimatedStyle(() => ({ transform: [{ scale: interpolate(scrollY.value, [-HEADER_BANNER_HEIGHT, 0], [1.5, 1], Extrapolate.CLAMP) }] }));
     const animatedAvatarContainerStyle = useAnimatedStyle(() => ({ transform: [{ translateY: interpolate(scrollY.value, [0, 120], [0, -60], Extrapolate.CLAMP) }], opacity: interpolate(scrollY.value, [100, 150], [1, 0], Extrapolate.CLAMP) }));
@@ -171,46 +89,25 @@ const ProfileScreen = () => {
             <StatusBar barStyle="light-content" />
             {currentRank.name === '¿¿' && <GlitchEffect />}
             
-            <Animated.View 
-                pointerEvents={isHeaderInteractive ? 'auto' : 'none'}
-                style={[
-                    styles.compactHeader, 
-                    { height: insets.top + 60, paddingTop: insets.top }, // Added paddingTop for safe area
-                    animatedCompactHeaderStyle
-                ]}
-            >
-                {/* Background Blur */}
+            <Animated.View pointerEvents={isHeaderInteractive ? 'auto' : 'none'} style={[styles.compactHeader, { height: insets.top + 60, paddingTop: insets.top }, animatedCompactHeaderStyle]}>
                 <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
-                
-                {/* Left: Avatar + Rank + Name */}
                 <View style={styles.compactLeft}>
                     <View style={styles.compactAvatarWrapper}>
                         <Image source={{ uri: profile.avatarUrl }} style={styles.compactAvatar} />
-                        
-                        {/* Mini Rank Badge */}
                         <TouchableOpacity onPress={() => setIsRankModalVisible(true)} style={[styles.compactRankBadge, { borderColor: currentRank.color }]}>
                              <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-                             <Text style={[styles.compactRankText, { color: currentRank.color }]}>
-                                {currentRank.name}
-                             </Text>
+                             <Text style={[styles.compactRankText, { color: currentRank.color }]}>{currentRank.name}</Text>
                         </TouchableOpacity>
                     </View>
                     <Text style={styles.compactUserName} numberOfLines={1}>{profile.name}</Text>
                 </View>
-
-                {/* Right: Action Icons */}
                 <View style={styles.compactActions}>
-                    <TouchableOpacity style={styles.compactButton} onPress={() => navigation.navigate('Account')}>
-                        <Ionicons name="people-outline" size={20} color={Colors.text} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.compactButton} onPress={() => navigation.navigate('EditProfile')}>
-                        <Ionicons name="create-outline" size={20} color={Colors.text} />
-                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.compactButton} onPress={() => navigation.navigate('Account')}><Ionicons name="people-outline" size={20} color={Colors.text} /></TouchableOpacity>
+                    <TouchableOpacity style={styles.compactButton} onPress={() => navigation.navigate('EditProfile')}><Ionicons name="create-outline" size={20} color={Colors.text} /></TouchableOpacity>
                 </View>
             </Animated.View>
             
             <Animated.ScrollView onScroll={scrollHandler} scrollEventThrottle={16} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
-                {/* Header */}
                 <View style={styles.header}>
                     <Animated.View style={[styles.headerBannerWrapper, animatedHeaderBannerStyle]}>
                         <ImageBackground source={profile.favoriteComicBanner} style={styles.headerBanner} resizeMode="cover">
@@ -239,7 +136,6 @@ const ProfileScreen = () => {
                 </View>
 
                 <View style={styles.contentContainer}>
-                    {/* Rank Card */}
                     <AnimatedSection index={1}>
                         <View style={styles.rankCard}>
                             <BlurView intensity={25} tint="dark" style={styles.glassEffect} />
@@ -247,13 +143,10 @@ const ProfileScreen = () => {
                                 <Text style={styles.xpLabel}>Next Rank: {nextRank?.name || 'Max'}</Text>
                                 <Text style={styles.xpValue}>{`${profile.xp} / ${nextRank?.minXp || profile.xp}`}</Text>
                             </View>
-                            <View style={styles.xpBarTrack}>
-                                <Animated.View style={[styles.xpBarFill, animatedXpFillStyle, {backgroundColor: currentRank.color}]} />
-                            </View>
+                            <View style={styles.xpBarTrack}><Animated.View style={[styles.xpBarFill, animatedXpFillStyle, {backgroundColor: currentRank.color}]} /></View>
                         </View>
                     </AnimatedSection>
                     
-                    {/* Tabs */}
                     <AnimatedSection index={2}>
                         <View style={styles.section}>
                             <View style={styles.tabContainer}>
@@ -278,7 +171,6 @@ const ProfileScreen = () => {
                             
                             {activeTab === 0 ? ( 
                                 profile.favorites.length > 0 ? (
-                                    // OPTIMIZATION: Replaced nested FlatList with ScrollView map
                                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 15 }}>
                                         {profile.favorites.slice(0, 5).map((item) => <FavoriteItem key={item.id} item={item} />)}
                                     </ScrollView>
@@ -295,14 +187,12 @@ const ProfileScreen = () => {
                         </View>
                     </AnimatedSection>
                     
-                    {/* Trophies */}
                     <AnimatedSection index={3}>
                         <View style={styles.sectionHeader}>
                             <Text style={styles.sectionTitle}>Trophy Case</Text>
                             <TouchableOpacity onPress={() => navigation.navigate('TrophyCase')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
                         </View>
                         {profile.badges.length > 0 ? (
-                             // OPTIMIZATION: Replaced nested FlatList with ScrollView map
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingLeft: 10 }}>
                                 {profile.badges.map((item, index) => (
                                     <BadgeItem key={item.id} item={item} index={index} onPress={() => { setSelectedBadge(item); setModalVisible(true); }} />
@@ -313,7 +203,6 @@ const ProfileScreen = () => {
                         )}
                     </AnimatedSection>
 
-                    {/* Settings & Logout */}
                     <AnimatedSection index={4}><Text style={[styles.sectionTitle, {marginBottom: 12}]}>Settings & Support</Text><View style={styles.glassCard}><BlurView intensity={25} tint="dark" style={styles.glassEffect} /><ProfileRow icon="notifications-outline" label="Notifications" onPress={() => navigation.navigate('NotificationSettings')} /><ProfileRow icon="server-outline" label="Data & Storage" onPress={() => navigation.navigate('DataAndStorage')} /><ProfileRow icon="shield-checkmark-outline" label="Privacy" onPress={() => navigation.navigate('Privacy')} /><ProfileRow icon="help-circle-outline" label="Help & Support" onPress={() => navigation.navigate('Help')} isLast /></View></AnimatedSection>
                     <AnimatedSection index={5}>
                         <View style={[styles.glassCard, { marginBottom: insets.bottom + 90 }]}>
@@ -326,11 +215,7 @@ const ProfileScreen = () => {
 
             <AchievementModal badge={selectedBadge} visible={modalVisible} onClose={() => setModalVisible(false)} />
             <RankInfoModal isVisible={isRankModalVisible} onClose={() => setIsRankModalVisible(false)} rank={currentRank} />
-            <LogoutModal 
-                visible={isLogoutModalVisible} 
-                onClose={() => setIsLogoutModalVisible(false)} 
-                onLogout={logout} 
-            />
+            <LogoutModal visible={isLogoutModalVisible} onClose={() => setIsLogoutModalVisible(false)} onLogout={logout} />
         </View>
     );
 };
@@ -351,74 +236,15 @@ const styles = StyleSheet.create({
   crestText: { fontFamily: 'Poppins_700Bold', fontSize: 20 },
   userName: { fontFamily: 'Poppins_700Bold', color: Colors.text, fontSize: 28, marginTop: 12 },
   bioText: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 14, textAlign: 'center', marginTop: 10, lineHeight: 20 },
-  compactHeader: { 
-        position: 'absolute', 
-        top: 0, 
-        left: 0, 
-        right: 0, 
-        zIndex: 10, 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        justifyContent: 'space-between', // Pushes left and right groups apart
-        paddingHorizontal: 20, 
-        paddingBottom: 10, 
-        borderBottomWidth: StyleSheet.hairlineWidth, 
-        borderColor: 'rgba(255,255,255,0.1)', 
-        backgroundColor: 'rgba(0,0,0,0.5)', // Slight dark tint behind blur
-    },
-    compactLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1, // Takes up available space so name truncates before hitting buttons
-        marginRight: 10,
-    },
-    compactAvatarWrapper: {
-        position: 'relative',
-        marginRight: 12,
-    },
-    compactAvatar: { 
-        width: 36, 
-        height: 36, 
-        borderRadius: 18,
-        backgroundColor: Colors.surface,
-    },
-    // The small Rank Circle overlay
-    compactRankBadge: {
-        position: 'absolute',
-        bottom: -2,
-        right: -4,
-        width: 18,
-        height: 18,
-        borderRadius: 9,
-        borderWidth: 1.5,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: Colors.background, // Solid bg behind blur to hide avatar corner
-        overflow: 'hidden',
-    },
-    compactRankText: {
-        fontSize: 10,
-        fontFamily: 'Poppins_700Bold',
-        lineHeight: 12, // Centers text vertically in small circle
-    },
-    compactUserName: { 
-        fontFamily: 'Poppins_600SemiBold', 
-        color: Colors.text, 
-        fontSize: 16, // Slightly smaller than before to fit better
-    },
-    compactActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8, // Space between the two buttons
-    },
-    compactButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+  compactHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.5)' },
+  compactLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 },
+  compactAvatarWrapper: { position: 'relative', marginRight: 12 },
+  compactAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.surface },
+  compactRankBadge: { position: 'absolute', bottom: -2, right: -4, width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background, overflow: 'hidden' },
+  compactRankText: { fontSize: 10, fontFamily: 'Poppins_700Bold', lineHeight: 12 },
+  compactUserName: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 16 },
+  compactActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  compactButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
   contentContainer: { paddingHorizontal: 20, gap: 25, paddingTop: 20 },
   glassCard: { borderRadius: 20, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },
   glassEffect: { ...StyleSheet.absoluteFillObject },
@@ -436,56 +262,11 @@ const styles = StyleSheet.create({
   xpBarTrack: { height: 10, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 5, overflow: 'hidden' },
   xpBarFill: { height: '100%', borderRadius: 5 },
   statsContainer: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginTop: 20, paddingVertical: 15, borderRadius: 16, overflow: 'hidden' },
-  statItem: { alignItems: 'center', flex: 1 },
-  statValue: { fontFamily: 'Poppins_700Bold', color: Colors.text, fontSize: 20 },
-  statLabel: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 12, marginTop: 4 },
   tabContainer: { flexDirection: 'row', borderRadius: 16, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80', padding: 5, gap: 10 },
   tabButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 12, zIndex: 2, gap: 8 },
   tabLabel: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 16 },
   tabLabelActive: { color: Colors.text },
   tabIndicator: { height: '100%', width: (width - 40 - 10) / 2, backgroundColor: Colors.surface, borderRadius: 12, position: 'absolute', top: 5, left: 5 },
-  favoriteItem: { 
-        width: 110, 
-        height: 165, 
-        marginRight: 15, 
-        borderRadius: 12, 
-        overflow: 'hidden',
-        backgroundColor: Colors.surface // Fallback color
-    },
-    favoriteImage: { 
-        width: '100%', 
-        height: '100%', 
-        backgroundColor: Colors.surface 
-    },
-    favoriteOverlay: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: 60,
-        justifyContent: 'flex-end',
-        paddingHorizontal: 8,
-        paddingBottom: 8,
-    },
-    favoriteTitle: {
-        fontFamily: 'Poppins_600SemiBold',
-        color: '#FFF',
-        fontSize: 11,
-        textShadowColor: 'rgba(0,0,0,0.7)',
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 2,
-    },
-  historyItem: { flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.surface + '80' },
-  historyImage: { width: 50, height: 75, borderRadius: 8, backgroundColor: Colors.surface },
-  historyTextContainer: { marginLeft: 15, flex: 1 },
-  historyTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 16 },
-  historySubtitle: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 13, marginTop: 2 },
-  badgeContainer: { alignItems: 'center', width: 100 },
-  badgeIconContainer: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: 8, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },
-  badgeName: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 12, textAlign: 'center' },
-  rowContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, paddingHorizontal: 15, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.surface + '80' },
-  rowLeft: { flexDirection: 'row', alignItems: 'center' },
-  rowLabel: { fontFamily: 'Poppins_500Medium', fontSize: 16, marginLeft: 15 },
 });
 
 export default ProfileScreen;

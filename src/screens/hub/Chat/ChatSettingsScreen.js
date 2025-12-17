@@ -11,34 +11,9 @@ import { useAlert } from '@context/other/AlertContext';
 import { useChat } from '@context/hub/ChatContext';
 import { ChatAPI } from '@api/hub/MockChatService';
 import CustomPrompt from '@components/alerts/CustomPrompt'; // Ensure this path matches your file structure
-
-// --- Components ---
-
-const MemberPreview = ({ members, onManage }) => (
-  <View style={styles.memberListContainer}>
-    <View style={styles.memberListHeader}>
-        <Text style={styles.memberCount}>{members?.length || 0} Members</Text>
-        <TouchableOpacity onPress={onManage}>
-            <Text style={styles.seeAllText}>Manage</Text>
-        </TouchableOpacity>
-    </View>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 15, paddingRight: 20 }}>
-      {members && members.slice(0, 5).map((member, index) => {
-        const name = member.nickname || member.name || member;
-        const uri = member.avatar || `https://i.pravatar.cc/150?u=${member.id || index}`;
-        return (
-          <View key={index} style={styles.memberItem}>
-            <Image source={{ uri: uri }} style={styles.memberAvatar} />
-            <Text style={styles.memberName} numberOfLines={1}>{name}</Text>
-          </View>
-        );
-      })}
-      <TouchableOpacity style={[styles.memberItem, styles.addMemberBtn]} onPress={onManage}>
-        <Text style={styles.moreMembersText}>+{members?.length > 5 ? members.length - 5 : ''}</Text>
-      </TouchableOpacity>
-    </ScrollView>
-  </View>
-);
+import { 
+    MemberPreview
+} from './components/ChatComponents';
 
 const ChatSettingsScreen = () => {
   const insets = useSafeAreaInsets();

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Switch, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@config/Colors';
 import { useModal } from '@context/other/ModalContext';
@@ -7,37 +7,8 @@ import { useProfile } from '@context/main/ProfileContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-
-const NotificationRow = ({ label, description, value, onValueChange, isLast, disabled }) => (
-    <View style={[styles.row, !isLast && styles.rowBorder, disabled && { opacity: 0.5 }]}>
-        <View style={styles.textContainer}>
-            <Text style={styles.rowLabel}>{label}</Text>
-            {description && <Text style={styles.rowDescription}>{description}</Text>}
-        </View>
-        <Switch
-            value={value}
-            onValueChange={onValueChange}
-            trackColor={{ false: Colors.surface, true: Colors.secondary }}
-            thumbColor={value ? Colors.text : '#f4f3f4'}
-            disabled={disabled}
-        />
-    </View>
-);
-
-const QuietHoursRow = ({ onPress, currentSettings }) => (
-    <TouchableOpacity onPress={onPress} style={styles.row}>
-        <View style={styles.textContainer}>
-            <Text style={styles.rowLabel}>Quiet Hours</Text>
-            <Text style={styles.rowDescription}>Mute notifications during specific times.</Text>
-        </View>
-        <View style={styles.rowRight}>
-            <Text style={styles.quietHoursValue}>
-                {currentSettings?.enabled ? `${currentSettings.start} - ${currentSettings.end}` : 'Off'}
-            </Text>
-            <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
-        </View>
-    </TouchableOpacity>
-);
+// IMPORTS
+import { NotificationRow, QuietHoursRow } from '../../components/settings/NotificationComponents';
 
 const NotificationsScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
@@ -109,10 +80,9 @@ const NotificationsScreen = ({ navigation }) => {
         </LinearGradient>
     );
 };
-// ... styles (same as provided)
+
 const styles = StyleSheet.create({
     container: { flex: 1, paddingBottom: 5 },
-    loadingContainer: { justifyContent: 'center', alignItems: 'center' },
     header: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 15, alignItems: 'center', paddingHorizontal: 15, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },
     headerTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 18 },
     headerButton: { padding: 10, minWidth: 40, alignItems: 'center' },
@@ -123,14 +93,7 @@ const styles = StyleSheet.create({
     introSubtitle: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 16, textAlign: 'center', marginTop: 10, maxWidth: '90%' },
     sectionTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.textSecondary, fontSize: 14, textTransform: 'uppercase', marginBottom: -10, marginLeft: 5 },
     card: { borderRadius: 16, overflow: 'hidden', backgroundColor: 'rgba(28,28,30,0.5)', borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },
-    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 15 },
-    rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.1)' },
-    textContainer: { flex: 1, marginRight: 15 },
-    rowLabel: { fontFamily: 'Poppins_500Medium', color: Colors.text, fontSize: 16 },
-    rowDescription: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 13, marginTop: 3 },
     divider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 5 },
-    rowRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    quietHoursValue: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 16 },
 });
 
 export default NotificationsScreen;
