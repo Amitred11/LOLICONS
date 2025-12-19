@@ -28,7 +28,7 @@ export const ToggleOption = ({ label, subLabel, value, onToggle }) => (
     <View style={styles.toggleRow}>
         <View style={{ flex: 1, paddingRight: 10 }}>
             <Text style={[styles.optionLabel, value && styles.optionLabelActive]}>{label}</Text>
-            {subLabel && <Text style={styles.subLabel}>{subLabel}</Text>}
+            {!!subLabel && <Text style={styles.subLabel}>{subLabel}</Text>}
         </View>
         <Switch
             value={value}
@@ -72,7 +72,7 @@ export const ChapterEndFooter = ({
         <View style={styles.footerContainer}>
             <View style={styles.footerTopRow}>
                 <TouchableOpacity style={styles.navSquareBtn} onPress={onPrevPage} activeOpacity={0.7}>
-                    {coverUri && <Image source={{ uri: coverUri }} style={styles.navSquareImage} />}
+                    {!!coverUri && <Image source={{ uri: coverUri }} style={styles.navSquareImage} />}
                     <View style={styles.navSquareOverlay} />
                 </TouchableOpacity>
 
@@ -93,7 +93,7 @@ export const ChapterEndFooter = ({
                 </TouchableOpacity>
                 <View style={styles.splitSeparator} />
                 <TouchableOpacity style={styles.splitBtn} onPress={onNextChapter} activeOpacity={0.7}>
-                    <Text style={[styles.splitBtnText, { color: '#FFF' }]}>NEXT</Text>
+                    <Text style={[styles.splitBtnText, { color: '#2e1e1eff' }]}>NEXT</Text>
                     <Ionicons name="chevron-forward" size={20} color="#FFF" />
                 </TouchableOpacity>
             </View>

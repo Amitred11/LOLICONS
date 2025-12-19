@@ -83,16 +83,14 @@ const CustomPrompt = ({
     <Modal transparent visible={visible} animationType="none" onRequestClose={onCancel}>
       <View style={styles.fullScreenContainer}>
         
-        {/* 1. BACKDROP: Outside KAV so it stays full screen & stationary */}
         <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
             <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onCancel} activeOpacity={1} />
         </Animated.View>
 
-        {/* 2. KEYBOARD AVOIDANCE: Only wraps the actual card content */}
         <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
           style={styles.keyboardView}
-          pointerEvents="box-none" // Allows touches to pass through empty space to the backdrop
+          pointerEvents="box-none"
         >
           <Animated.View
             style={[
@@ -103,18 +101,13 @@ const CustomPrompt = ({
               },
             ]}
           >
-            {/* Header Icon */}
             <View style={styles.iconContainer}>
               <Ionicons name={icon} size={28} color={Colors.primary} />
             </View>
-
-            {/* Text Content */}
             <View style={styles.textContainer}>
               <Text style={styles.title}>{title}</Text>
-              {message && <Text style={styles.message}>{message}</Text>}
+              {message ? <Text style={styles.message}>{message}</Text> : null}
             </View>
-
-            {/* Input Area */}
             <View style={[
               styles.inputWrapper, 
               isFocused && { borderColor: Colors.primary, backgroundColor: 'rgba(255,255,255,0.08)' }
@@ -132,11 +125,11 @@ const CustomPrompt = ({
                 onBlur={() => setIsFocused(false)}
                 selectionColor={Colors.primary}
               />
-              {inputValue.length > 0 && (
+              {inputValue.length ? 
                 <TouchableOpacity onPress={() => setInputValue('')} style={styles.clearBtn}>
                   <Ionicons name="close-circle" size={16} color="rgba(255,255,255,0.3)" />
                 </TouchableOpacity>
-              )}
+              : null}
             </View>
 
             {/* Action Buttons */}

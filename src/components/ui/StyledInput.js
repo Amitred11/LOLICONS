@@ -36,11 +36,11 @@ const StyledInput = ({ label, icon, rightIcon, onRightIconPress, error, ...props
         />
 
         {/* Right Icon (Optional) */}
-        {rightIcon && (
+        {rightIcon ? 
           <TouchableOpacity onPress={onRightIconPress} style={styles.rightIconBtn}>
             <Ionicons name={rightIcon} size={22} color={Colors.textSecondary} />
           </TouchableOpacity>
-        )}
+        : null}
       </View>
       
       {/* Conditionally render the error message if it exists. */}

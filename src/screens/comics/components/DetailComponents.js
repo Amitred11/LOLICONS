@@ -38,9 +38,11 @@ const StarRating = ({ rating, size = 16 }) => {
     const fullStars = Math.floor(rating);
     const halfStar = rating % 1 >= 0.5;
     return (
-        <View style={styles.starRatingContainer}>
-            {[...Array(fullStars)].map((_, i) => <Ionicons key={`full_${i}`} name="star" size={size} color={Colors.secondary} />)}
-            {halfStar && <Ionicons name="star-half-sharp" size={size} color={Colors.secondary} />}
+        <View style={styles.starRatingContainer}> 
+           {Array.from({ length: fullStars || 0 }).map((_, i) => (
+               <Ionicons key={`full_${i}`} name="star" size={size} color={Colors.secondary} />
+            ))}
+               {halfStar ? <Ionicons name="star-half-sharp" size={size} color={Colors.secondary} /> : null}
             <Text style={styles.statText}>{rating}</Text>
         </View>
     );
@@ -106,11 +108,11 @@ export const ChapterList = React.memo(({ comic, sortedChapters, onChapterPress, 
                     <TouchableOpacity style={styles.headerActionButton} onPress={onSortToggle}><Ionicons name="swap-vertical" size={22} color={Colors.textSecondary} /></TouchableOpacity>
                 </View>
             </View>
-            {downloadedCount > 0 && (
+            {!!downloadedCount && (
                 <View style={styles.downloadProgressContainer}>
                     <View style={styles.progressBarTrack}><Animated.View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} /></View>
                     <Text style={styles.downloadCountText}>{`${downloadedCount} / ${comic.chapters.length}`} Downloaded</Text>
-                </View>
+                </View> 
             )}
             {sortedChapters.map((chapter) => {
               const { status, progress } = getChapterStatus(comic.id, chapter.id);

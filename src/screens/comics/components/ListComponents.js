@@ -114,12 +114,12 @@ export const LibraryCard = ({ item, index, cardStyle, imageStyle }) => {
                     <LinearGradient colors={['transparent', 'rgba(0,0,0,0.9)']} style={styles.cardOverlay}>
                         <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
                     </LinearGradient>
-                    {downloadedCount > 0 && (
-                        <View style={styles.downloadProgressContainer}>
-                            <ProgressRing progress={progress} />
-                            <Text style={styles.downloadProgressText}>{downloadedCount}</Text>
-                        </View>
-                    )}
+                    {downloadedCount > 0 ? (
+                      <View style={styles.downloadProgressContainer}>
+                        <ProgressRing progress={progress} />
+                        <Text style={styles.downloadProgressText}>{downloadedCount}</Text>
+                      </View>
+                    ) : null}
                 </ImageBackground>
             </Pressable>
         </Animated.View>

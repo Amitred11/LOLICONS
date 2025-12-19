@@ -239,7 +239,7 @@ const ThreadScreen = ({ route, navigation }) => {
         <View style={styles.subReplyHeader}>
           <Text style={styles.subReplyUser}>{subItem.user}</Text>
           <Text style={styles.subReplyTime}>{subItem.time}</Text>
-          {isEdited && <Text style={styles.editedText}>(edited)</Text>}
+          {!!isEdited && <Text style={styles.editedText}>(edited)</Text>}
         </View>
         <Text style={styles.subReplyText}>{subItem.content}</Text>
       </TouchableOpacity>

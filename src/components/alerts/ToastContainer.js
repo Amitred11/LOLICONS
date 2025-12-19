@@ -12,10 +12,6 @@ const ToastContainer = ({ toasts, onHide }) => {
       style={[styles.wrapper, { paddingTop: insets.top }]} 
       pointerEvents="box-none" // Allows clicks to pass through empty spaces
     >
-      {/* 
-        FIX: Added pointerEvents="none" 
-        This prevents the transparent gradient from blocking clicks on your Header 
-      */}
       <LinearGradient
         colors={['rgba(0,0,0,0.25)', 'transparent']}
         style={styles.background}

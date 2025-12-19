@@ -1,7 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import CustomTabBar from '@components/navigation/CustomTabBar'; 
-// import { useAlert } from '@context/AlertContext'; // No longer needed for this tab
 
 // Core Tab Screens
 import HomeScreen from '@features/home/HomeScreen';
@@ -13,7 +12,6 @@ import CommunityScreen from '@features/community/screens/CommunityScreen';
 const Tab = createBottomTabNavigator();
 
 const BottomTabNavigator = () => {
-  // const { showAlert } = useAlert(); 
 
   return (
     <Tab.Navigator
@@ -32,7 +30,6 @@ const BottomTabNavigator = () => {
           options={{ customProps: { label: "Comics", activeIcon: "book", inactiveIcon: "book-outline" }}} 
       />
       
-      {/* UPDATED: Connected the real screen */}
       <Tab.Screen 
           name="Community" 
           component={CommunityScreen} 

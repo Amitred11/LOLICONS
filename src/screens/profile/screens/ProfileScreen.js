@@ -130,7 +130,7 @@ const ProfileScreen = () => {
                             </TouchableOpacity>
                         </View>
                         <Text style={styles.userName}>{profile.name}</Text>
-                        {profile.bio && <Text style={styles.bioText}>{profile.bio}</Text>}
+                        {!!profile.bio && <Text style={styles.bioText}>{profile.bio}</Text>}
                         <View style={styles.statsContainer}>{profile.stats.map(stat => <StatItem key={stat.label} {...stat} />)}</View>
                     </Animated.View>
                 </View>

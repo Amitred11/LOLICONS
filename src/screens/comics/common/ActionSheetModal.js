@@ -82,7 +82,7 @@ const ActionSheetModal = ({ onClose, title, options = [] }) => {
       <Animated.View style={[styles.container, { paddingBottom: insets.bottom || 10 }, animatedContainerStyle]}>
         {/* The sheet containing the title and regular options */}
         <View style={styles.sheet}>
-            {title && <Text style={styles.title}>{title}</Text>}
+            {!!title && <Text style={styles.title}>{title}</Text>}
             {regularOptions.map((option, index) => (
                 <TouchableOpacity 
                     key={index} 
@@ -90,7 +90,7 @@ const ActionSheetModal = ({ onClose, title, options = [] }) => {
                     onPress={() => handleOptionPress(option.onPress)}
                 >
                     <Text style={[styles.optionText, option.isDestructive && styles.destructiveText]}>{option.label}</Text>
-                    {option.icon && <Ionicons name={option.icon} size={22} color={option.isDestructive ? Colors.danger : Colors.text} />}
+                    {!!option.icon && <Ionicons name={option.icon} size={22} color={option.isDestructive ? Colors.danger : Colors.text} />}
                 </TouchableOpacity>
             ))}
         </View>

@@ -68,8 +68,8 @@ export const AlertProvider = ({ children }) => {
     message,
     defaultValue = '',
     placeholder = 'Enter value',
-    onConfirm, // Callback when "Create" is pressed, receives input value
-    onCancel,  // Callback when "Cancel" is pressed
+    onConfirm,
+    onCancel, 
   }) => {
     setPromptState({
       visible: true,
@@ -77,11 +77,11 @@ export const AlertProvider = ({ children }) => {
       message,
       defaultValue,
       placeholder,
-      onConfirm: (text) => { // Wrap to hide and then call original
+      onConfirm: (text) => {
         hideAlertPrompt();
         if (onConfirm) onConfirm(text);
       },
-      onCancel: () => { // Wrap to hide and then call original
+      onCancel: () => {
         hideAlertPrompt();
         if (onCancel) onCancel();
       },
@@ -101,18 +101,15 @@ export const AlertProvider = ({ children }) => {
     let message = '';
     let type = 'info';
 
-    // Signature 1: showToast(title, message, type)
     if (arg1 && arg2 && arg3) {
       title = arg1;
       message = arg2;
       type = arg3;
     }
-    // Signature 2: showToast(message, type)
     else if (arg1 && arg2) {
       message = arg1;
       type = arg2;
     }
-    // Signature 3: showToast(message) - Fallback
     else {
       message = arg1 || "Unknown";
     }
@@ -128,7 +125,7 @@ export const AlertProvider = ({ children }) => {
     <AlertContext.Provider value={{ showAlert, hideAlert, showToast, showAlertPrompt, toasts, removeToast: handleHideToast  }}> {/* Add showAlertPrompt to context */}
       {children}
       <CustomAlert {...alertState} />
-      <CustomPrompt {...promptState} /> {/* Render the CustomPrompt */}
+      <CustomPrompt {...promptState} />
       <ToastContainer toasts={toasts} onHide={handleHideToast} />
     </AlertContext.Provider>
   );

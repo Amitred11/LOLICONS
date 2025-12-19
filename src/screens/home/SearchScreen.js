@@ -136,12 +136,12 @@ const SearchScreen = () => {
                                 onPress={() => navigation.navigate('ComicDetail', { comicId: item.id })} 
                             />
                         )}
-                        ListEmptyComponent={!isLoading && (
+                        ListEmptyComponent={!isLoading ? (
                             <View style={styles.emptyContainer}>
                                 <Ionicons name="sad-outline" size={60} color={Colors.textSecondary} />
                                 <Text style={styles.emptyText}>No matches for "{searchQuery}"</Text>
                             </View>
-                        )}
+                        ) : null}
                     />
                 )}
             </View>

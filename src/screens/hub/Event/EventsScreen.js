@@ -1,157 +1,160 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
     View, Text, StyleSheet, FlatList, TouchableOpacity, 
-    TextInput, ActivityIndicator, RefreshControl 
+    TextInput, ScrollView, StatusBar
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@config/Colors';
 import { useEvents } from '@context/hub/EventsContext';
-import { FeaturedEvent, EventRow } from './components/EventComponents'; // IMPORT HERE
+import { FeaturedEvent, EventRow } from './components/EventComponents';
 
 const categories = ['All', 'Releases', 'Meetups', 'Contests', 'Conventions'];
 
 const EventsScreen = () => {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
-    const { events, isLoading, loadEvents } = useEvents();
-    const [refreshing, setRefreshing] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState('All');
+    const { events } = useEvents();
+    const [search, setSearch] = useState('');
+    const [activeCat, setActiveCat] = useState('All');
 
-    const handleRefresh = useCallback(async () => {
-        setRefreshing(true);
-        await loadEvents(true);
-        setRefreshing(false);
-    }, [loadEvents]);
-
-    const { mainEvent, listEvents } = useMemo(() => {
-        let filtered = events.filter(event => {
-            const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesCategory = selectedCategory === 'All' || (event.category === selectedCategory);
-            return matchesSearch && matchesCategory;
+    const { featured, others } = useMemo(() => {
+        let filtered = events.filter(e => {
+            const mS = e.title.toLowerCase().includes(search.toLowerCase());
+            const mC = activeCat === 'All' || e.category === activeCat;
+            return mS && mC;
         });
-
-        const main = filtered.find(e => e.isMainEvent);
-        const list = filtered.filter(e => e.id !== main?.id);
-
-        return { mainEvent: main, listEvents: list };
-    }, [searchQuery, selectedCategory, events]);
+        return { 
+            featured: filtered.find(e => e.isMainEvent), 
+            others: filtered.filter(e => !e.isMainEvent) 
+        };
+    }, [search, activeCat, events]);
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
-            {/* Header */}
-            <View style={styles.headerContainer}>
-                <View style={styles.headerTop}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                        <Ionicons name="arrow-back" size={24} color={Colors.text} />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Events Hub</Text>
-                    <TouchableOpacity 
-                        style={styles.iconButton}
-                        onPress={() => navigation.navigate('Notifications')}
-                    >
-                        <Ionicons name="notifications-outline" size={24} color={Colors.text} />
-                        <View style={styles.badge} /> 
-                    </TouchableOpacity>
+        <View style={[styles.container, { paddingTop: insets.top + 15 }]}>
+            <StatusBar barStyle="light-content" />
+            
+            {/* Header Section */}
+            <View style={styles.header}>
+                <TouchableOpacity 
+                    style={styles.headerBtn} 
+                    onPress={() => navigation.goBack()} 
+                    activeOpacity={0.7}
+                >
+                    <Ionicons name="chevron-back" size={24} color="#fff" />
+                </TouchableOpacity>
+                <View>
+                    <Text style={styles.greet}>Good evening, Explorer</Text>
+                    <Text style={styles.brand}>Events Hub</Text>
                 </View>
-                <View style={styles.searchBarContainer}>
-                    <Ionicons name="search" size={20} color={Colors.textSecondary} style={{ marginRight: 10 }} />
+                <TouchableOpacity style={styles.notifBtn} onPress={() => navigation.navigate('Notifications')}>
+                    <Ionicons name="notifications-outline" size={24} color="#fff" />
+                    <View style={styles.pulseDot} />
+                </TouchableOpacity>
+            </View>
+
+            {/* Premium Search */}
+            <View style={styles.searchContainer}>
+                <View style={styles.searchBar}>
+                    <Ionicons name="search-outline" size={20} color="#555" />
                     <TextInput 
-                        placeholder="Search events..." 
-                        placeholderTextColor={Colors.textSecondary}
+                        placeholder="Search festivals or tournaments..." 
+                        placeholderTextColor="#444" 
                         style={styles.searchInput}
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
+                        value={search}
+                        onChangeText={setSearch}
                     />
                 </View>
             </View>
 
-            {/* Categories */}
-            <View style={styles.categoryContainer}>
-                <FlatList 
-                    horizontal
-                    data={categories}
-                    showsHorizontalScrollIndicator={false}
-                    keyExtractor={item => item}
-                    contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}
-                    renderItem={({ item }) => (
+            {/* Horizontal Categories */}
+            <View style={styles.catScroll}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{paddingHorizontal: 20}}>
+                    {categories.map(c => (
                         <TouchableOpacity 
-                            onPress={() => setSelectedCategory(item)}
-                            style={[
-                                styles.categoryChip, 
-                                selectedCategory === item && styles.categoryChipActive
-                            ]}
+                            key={c} 
+                            style={[styles.chip, activeCat === c && styles.chipActive]}
+                            onPress={() => setActiveCat(c)}
                         >
-                            <Text style={[
-                                styles.categoryText, 
-                                selectedCategory === item && styles.categoryTextActive
-                            ]}>
-                                {item}
-                            </Text>
+                            <Text style={[styles.chipText, activeCat === c && {color: '#fff'}]}>{c}</Text>
                         </TouchableOpacity>
-                    )}
-                />
+                    ))}
+                </ScrollView>
             </View>
 
-            {isLoading && !refreshing ? (
-                <View style={styles.loadingContainer}><ActivityIndicator size="large" color={Colors.primary} /></View>
-            ) : (
-                <FlatList
-                    data={listEvents}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContent}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.primary} />}
-                    ListHeaderComponent={
-                        <View style={{ marginBottom: 15 }}>
-                            {mainEvent && (
-                                <View style={{ marginBottom: 20 }}>
-                                    <Text style={styles.sectionTitle}>Featured Event</Text>
-                                    <FeaturedEvent 
-                                        item={mainEvent} 
-                                        onPress={() => navigation.navigate('EventDetail', { eventData: mainEvent })} 
-                                    />
-                                </View>
-                            )}
-                            <Text style={styles.sectionTitle}>Upcoming</Text>
-                        </View>
-                    }
-                    renderItem={({ item, index }) => (
-                        <EventRow item={item} index={index} onPress={() => navigation.navigate('EventDetail', { eventData: item })} />
-                    )}
-                    ListEmptyComponent={<Text style={styles.emptyText}>No events found</Text>}
-                />
-            )}
+            {/* Main Content List */}
+            <FlatList
+                data={others}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.listPadding}
+                showsVerticalScrollIndicator={false}
+                ListHeaderComponent={
+                    <View style={{ marginBottom: 15 }}>
+                        {featured && (
+                            <View style={{ marginBottom: 30 }}>
+                                <Text style={styles.listLabel}>Featured Event</Text>
+                                <FeaturedEvent 
+                                    item={featured} 
+                                    onPress={() => navigation.navigate('EventDetail', { eventData: featured })} 
+                                />
+                            </View>
+                        )}
+                        <Text style={styles.listLabel}>Discover More</Text>
+                    </View>
+                }
+                renderItem={({ item, index }) => (
+                    <EventRow item={item} index={index} onPress={() => navigation.navigate('EventDetail', { eventData: item })} />
+                )}
+                ListEmptyComponent={<Text style={styles.emptyTxt}>No events match your criteria.</Text>}
+            />
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background },
-    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    
-    // Header
-    headerContainer: { paddingHorizontal: 20, paddingBottom: 15 },
-    headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
-    headerTitle: { fontFamily: 'Poppins_700Bold', color: '#fff', fontSize: 20 },
-    backButton: { padding: 5 },
-    iconButton: { padding: 8, backgroundColor: Colors.surface, borderRadius: 12 },
-    badge: { position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary, borderWidth:1, borderColor: Colors.surface },
-    searchBarContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, paddingHorizontal: 15, paddingVertical: 12, borderRadius: 12 },
-    searchInput: { flex: 1, color: '#fff', fontFamily: 'Poppins_400Regular' },
-    
-    // Category Styles
-    categoryContainer: { marginBottom: 15, height: 40 },
-    categoryChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: Colors.surface, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-    categoryChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-    categoryText: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 13 },
-    categoryTextActive: { color: '#FFF' },
+    container: { flex: 1, backgroundColor: '#07070C' },
+    header: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        paddingHorizontal: 20, 
+        marginBottom: 25 
+    },
+    headerTitleArea: {
+        flex: 1,
+        marginHorizontal: 15,
+    },
+    headerBtn: { 
+        width: 48, 
+        height: 48, 
+        borderRadius: 16, 
+        backgroundColor: '#11111A', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        borderWidth: 1, 
+        borderColor: '#1E1E2E' 
+    },
+    greet: { color: '#666', fontSize: 13, fontWeight: '500' },
+    brand: { color: '#fff', fontSize: 24, fontWeight: '900', letterSpacing: -1 },
+    notifBtn: { width: 52, height: 52, borderRadius: 18, backgroundColor: '#11111A', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#1E1E2E' },
+    pulseDot: { position: 'absolute', top: 16, right: 16, width: 8, height: 8, borderRadius: 4, backgroundColor: '#6366F1', borderWidth: 2, borderColor: '#11111A' },
+    back: {
+      width: 30,
+      height: 30,
+      marginRight: -50,
+    },
+    searchContainer: { paddingHorizontal: 22, marginBottom: 22 },
+    searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#11111A', paddingHorizontal: 18, paddingVertical: 14, borderRadius: 20, borderWidth: 1, borderColor: '#1E1E2E' },
+    searchInput: { flex: 1, marginLeft: 12, color: '#fff', fontSize: 15, fontWeight: '500' },
 
-    // List
-    listContent: { paddingHorizontal: 20, paddingBottom: 40 },
-    sectionTitle: { fontFamily: 'Poppins_700Bold', color: '#fff', fontSize: 18, marginBottom: 10 },
-    emptyText: { textAlign: 'center', color: '#666', marginTop: 50 }
+    catScroll: { marginBottom: 25 },
+    chip: { paddingHorizontal: 22, paddingVertical: 12, borderRadius: 16, backgroundColor: '#11111A', marginRight: 12, borderWidth: 1, borderColor: '#1E1E2E' },
+    chipActive: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
+    chipText: { color: '#555', fontWeight: '800', fontSize: 13 },
+
+    listPadding: { paddingHorizontal: 22, paddingBottom: 100 },
+    listLabel: { color: '#fff', fontSize: 19, fontWeight: '900', marginBottom: 18, letterSpacing: 0.2 },
+    emptyTxt: { color: '#333', textAlign: 'center', marginTop: 60, fontWeight: '700' }
 });
 
 export default EventsScreen;

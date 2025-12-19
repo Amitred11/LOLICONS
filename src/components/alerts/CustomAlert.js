@@ -13,7 +13,6 @@ const CustomAlert = ({
   type = 'info', 
   onClose, 
   btnText = 'Got it',
-  // New Props for Cancel/Secondary action
   secondaryBtnText,
   onSecondaryPress 
 }) => {
@@ -60,7 +59,7 @@ const CustomAlert = ({
 
           <View style={styles.buttonContainer}>
             {/* Secondary Button (Cancel) */}
-            {secondaryBtnText && (
+            {secondaryBtnText ?
               <TouchableOpacity 
                 style={[styles.button, styles.secondaryButton]} 
                 onPress={onSecondaryPress}
@@ -68,13 +67,12 @@ const CustomAlert = ({
               >
                 <Text style={styles.secondaryButtonText}>{secondaryBtnText}</Text>
               </TouchableOpacity>
-            )}
+            : null}
 
             {/* Primary Button */}
             <TouchableOpacity 
               style={[
                 styles.button, 
-                // If there are two buttons, make them flex: 1, otherwise 100% width
                 secondaryBtnText ? { flex: 1, marginLeft: 10 } : { width: '100%' },
                 { backgroundColor: Colors.primary || '#6200EE' }
               ]} 

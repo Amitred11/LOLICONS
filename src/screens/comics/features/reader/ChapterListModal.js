@@ -256,7 +256,6 @@ const ChapterListModal = ({
                     {/* --- CONTENT AREA --- */}
                     <View style={{ flex: 1 }}>
                         {viewMode === 'list' ? (
-                            // CHAPTER LIST VIEW
                             <FlatList
                                 ref={listRef}
                                 data={chapters}
@@ -267,7 +266,6 @@ const ChapterListModal = ({
                                 style={styles.listContainer}
                             />
                         ) : (
-                            // COMMENTS VIEW
                             <View style={{ flex: 1 }}>
                                 <View style={styles.metaRow}>
                                     <View style={styles.likeBox}>

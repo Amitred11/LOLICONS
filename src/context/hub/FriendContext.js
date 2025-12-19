@@ -115,11 +115,9 @@ export const FriendProvider = ({ children }) => {
         suggestions,
         onlineFriends,
         isLoading,
-        // Export Search Stuff
         searchResults, 
         isSearching,
         searchDirectory,
-        // ------------------
         loadFriends,
         loadSuggestions,
         createEntity,

@@ -75,9 +75,7 @@ export const ModalProvider = ({ children }) => {
 
   return (
     <ModalContext.Provider value={{ show, hide }}>
-      {/* Render the rest of the application */}
       {children}
-      {/* Render the active modal on top of the application content */}
       {renderModal()}
     </ModalContext.Provider>
   );

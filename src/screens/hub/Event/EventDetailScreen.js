@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { 
     View, Text, StyleSheet, ImageBackground, TouchableOpacity, ScrollView, 
-    ActivityIndicator, Alert, Share, Linking, Platform 
+    ActivityIndicator, Share, Linking, Platform 
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '@config/Colors';
 import { useEvents } from '@context/hub/EventsContext';
 import { useAlert } from '@context/other/AlertContext';
-import { PaymentModal } from './components/EventComponents'; // IMPORT HERE
+import { PaymentModal } from './components/EventComponents';
+import { Colors } from '@config/Colors';
 
 const EventDetailScreen = () => {
     const navigation = useNavigation();
@@ -22,218 +22,259 @@ const EventDetailScreen = () => {
     
     const [activeTab, setActiveTab] = useState('Overview');
     const [isProcessing, setIsProcessing] = useState(false);
-    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [showModal, setShowModal] = useState(false);
+    const [registrationData, setRegistrationData] = useState(null);
 
-    const userHasTicket = hasTicket(eventData?.id);
-    const isPaidEvent = eventData?.price && eventData?.price > 0;
+    const ticketOwned = hasTicket(eventData?.id);
 
-    const handleShare = async () => {
-        try {
-            await Share.share({
-                message: `Join me at ${eventData.title}! It's happening on ${eventData.date} at ${eventData.location}.`,
-                title: eventData.title
-            });
-        } catch (error) {
-            console.error(error);
-        }
-    };
-
-    const handleOpenMap = () => {
-        const query = eventData.coordinates 
-            ? `${eventData.coordinates.lat},${eventData.coordinates.lng}` 
-            : eventData.location;
+    const openMaps = () => {
+        const scheme = Platform.select({ ios: 'maps:0,0?q=', android: 'geo:0,0?q=' });
         const url = Platform.select({
-            ios: `maps:0,0?q=${eventData.title}@${eventData.coordinates.lat},${eventData.coordinates.lng}`,
-            android: `geo:${eventData.coordinates.lat},${eventData.coordinates.lng}?q=${eventData.coordinates.lat},${eventData.coordinates.lng}(${eventData.title})`
+            ios: `${scheme}${eventData.location}`,
+            android: `${scheme}${eventData.location}`
         });
-
-        Linking.openURL(url).catch(err => Alert.alert("Error", "Could not open maps."));
+        Linking.openURL(url);
     };
 
-    const initiateRegister = () => {
-        if (isPaidEvent) {
-            setShowPaymentModal(true);
+    const handleJoinPress = () => {
+        if (eventData.price === 0) {
+            // If Free, skip modal and join directly
+            handleFinalize({ type: 'free', method: 'Free Admission', label: 'FREE PASS' });
         } else {
-            finalizeRegistration(null);
+            setShowModal(true);
         }
     };
 
-    const finalizeRegistration = async (paymentDetails) => {
-        if (!isPaidEvent) setIsProcessing(true); 
-        
+    const handleFinalize = async (paymentDetails) => {
+        setIsProcessing(true);
         const success = await joinEvent(eventData?.id, paymentDetails);
-        
         setIsProcessing(false);
-        setShowPaymentModal(false);
-
+        
         if (success) {
+            setRegistrationData(paymentDetails);
+            setShowModal(false);
             showAlert({
                 type: 'success',
-                title: "Success!",
-                message: "You have secured your ticket for the event.",
-                btnText: "View My Ticket",
-                onClose: () => setActiveTab('Ticket') 
+                title: eventData.price === 0 ? "Registered!" : "Ticket Purchased!",
+                message: eventData.price === 0 
+                    ? "Your free spot is reserved. See you there!" 
+                    : "Confirmation sent to your email. Check your Entry tab.",
+                btnText: "View My Entry",
+                onClose: () => setActiveTab('Entry') 
             });
-        } else {
-            showAlert({
-                type: 'error',
-                title: "Registration Failed",
-                message: "We couldn't process your registration. Please try again."
-            });
-      }
+        }
     };
 
     return (
         <View style={styles.container}>
-            {/* Header Image */}
-            <ImageBackground source={eventData?.image} style={styles.headerImage}>
-                <LinearGradient colors={['rgba(0,0,0,0.3)', Colors.darkBackground]} style={styles.headerGradient} />
-                <View style={[styles.navbar, { marginTop: insets.top }]}>
+            {/* HERO SECTION */}
+            <ImageBackground source={eventData?.image} style={styles.hero}>
+                <LinearGradient colors={['rgba(7,7,12,0.1)', 'rgba(7,7,12,0.6)', '#07070C']} style={styles.grad} />
+                
+                <View style={[styles.nav, { marginTop: insets.top + 10 }]}>
                     <TouchableOpacity style={styles.glassBtn} onPress={() => navigation.goBack()}>
-                        <Ionicons name="arrow-back" size={24} color="#fff" />
+                        <Ionicons name="chevron-back" size={22} color="#fff" />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.glassBtn} onPress={handleShare}>
-                        <Ionicons name="share-social-outline" size={24} color="#fff" />
+                    <TouchableOpacity style={styles.glassBtn} onPress={() => Share.share({message: `Join me at ${eventData?.title}!`})}>
+                        <Feather name="share" size={20} color="#fff" />
                     </TouchableOpacity>
                 </View>
-                <View style={styles.titleContainer}>
-                    {eventData?.isMainEvent && <View style={styles.mainBadge}><Text style={styles.mainBadgeText}>MAIN EVENT</Text></View>}
-                    <Text style={styles.mainTitle}>{eventData?.title}</Text>
-                    <Text style={styles.subtitleText}><Ionicons name="location" size={14} /> {eventData?.location}</Text>
+
+                <View style={styles.titleWrap}>
+                    <View style={styles.categoryBadge}>
+                        <Text style={styles.categoryText}>{eventData?.category?.toUpperCase()}</Text>
+                    </View>
+                    <Text style={styles.title}>{eventData?.title}</Text>
                 </View>
             </ImageBackground>
 
-            {/* Tab Bar */}
+            {/* TABS NAVIGATION */}
             <View style={styles.tabContainer}>
-                {['Overview', 'Ticket'].map((tab) => (
-                    <TouchableOpacity key={tab} style={[styles.tabItem, activeTab === tab && styles.activeTabItem]} onPress={() => setActiveTab(tab)}>
+                {['Overview', 'Entry'].map((tab) => (
+                    <TouchableOpacity 
+                        key={tab} 
+                        style={[styles.tabItem, activeTab === tab && styles.activeTabItem]} 
+                        onPress={() => setActiveTab(tab)}
+                    >
                         <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab}</Text>
-                        {activeTab === tab && <View style={styles.activeIndicator} />}
                     </TouchableOpacity>
                 ))}
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                {activeTab === 'Overview' && (
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                {activeTab === 'Overview' ? (
                     <View>
-                        <View style={styles.infoRow}>
-                            <View style={styles.infoBox}>
-                                <Ionicons name="calendar" size={24} color={Colors.primary} />
+                        {/* PREMIUM INFO BAR */}
+                        <View style={styles.infoBar}>
+                            <View style={styles.infoItem}>
+                                <Text style={styles.infoLabel}>DATE</Text>
                                 <Text style={styles.infoValue}>{eventData?.date}</Text>
-                                <Text style={styles.infoLabel}>{eventData?.time}</Text>
                             </View>
-                            <TouchableOpacity style={styles.infoBox} onPress={handleOpenMap}>
-                                <Ionicons name="map" size={24} color="#4FACFE" />
-                                <Text style={styles.infoValue}>Map</Text>
-                                <Text style={styles.infoLabel}>Directions</Text>
-                            </TouchableOpacity>
-                            <View style={styles.infoBox}>
-                                <Ionicons name="pricetag" size={24} color="#FFD700" />
-                                <Text style={styles.infoValue}>{isPaidEvent ? `₱${eventData.price}` : 'Free'}</Text>
-                                <Text style={styles.infoLabel}>Entry</Text>
+                            <View style={styles.infoDivider} />
+                            <View style={styles.infoItem}>
+                                <Text style={styles.infoLabel}>TIME</Text>
+                                <Text style={styles.infoValue}>{eventData?.time}</Text>
+                            </View>
+                            <View style={styles.infoDivider} />
+                            <View style={styles.infoItem}>
+                                <Text style={styles.infoLabel}>ADMISSION</Text>
+                                <Text style={[styles.infoValue, {color: eventData?.price > 0 ? Colors.primary : '#00E676'}]}>
+                                    {eventData?.price > 0 ? `₱${eventData.price.toLocaleString()}` : 'FREE'}
+                                </Text>
                             </View>
                         </View>
 
-                        <Text style={styles.sectionHeader}>About Event</Text>
-                        <Text style={styles.description}>{eventData?.description}</Text>
+                        {/* EXPERIENCE SECTION */}
+                        <Text style={styles.sectionHeader}>The Experience</Text>
+                        <Text style={styles.desc}>{eventData?.description}</Text>
 
-                        {!userHasTicket ? (
-                            <TouchableOpacity style={styles.registerButton} onPress={initiateRegister} disabled={isProcessing}>
-                                <LinearGradient colors={[Colors.primary, '#8A2387']} style={styles.gradientBtn}>
-                                    {isProcessing ? <ActivityIndicator color="#fff" /> : (
-                                        <Text style={styles.registerText}>
-                                            {isPaidEvent ? `Get Ticket • ₱${eventData.price}` : 'Get Ticket • Free'}
-                                        </Text>
-                                    )}
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        ) : (
-                            <View style={styles.registeredBox}>
-                                <Ionicons name="ticket" size={24} color="#4CAF50" />
-                                <Text style={styles.registeredText}>You have a ticket!</Text>
+                        {/* VENUE CARD */}
+                        <Text style={styles.sectionHeader}>Venue & Location</Text>
+                        <TouchableOpacity style={styles.venueCard} onPress={openMaps}>
+                            <View style={styles.venueIconContainer}>
+                                <MaterialCommunityIcons name="map-marker-radius" size={28} color={Colors.primary} />
                             </View>
-                        )}
-                    </View>
-                )}
+                            <View style={styles.venueInfo}>
+                                <Text style={styles.venueName}>{eventData?.location}</Text>
+                                <Text style={styles.venueSub}>Tap to open in Maps</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color="#333" />
+                        </TouchableOpacity>
 
-                {activeTab === 'Ticket' && (
-                    userHasTicket ? (
-                        <View style={styles.ticketContainer}>
-                            <View style={styles.ticketCard}>
-                                <LinearGradient colors={[Colors.primary, '#8A2387']} style={styles.ticketHeader}>
-                                    <Text style={styles.ticketTitle}>{eventData.title}</Text>
-                                    <Text style={styles.ticketType}>{isPaidEvent ? 'VIP ACCESS' : 'GENERAL ADMISSION'}</Text>
-                                </LinearGradient>
-                                <View style={styles.ticketBody}>
-                                    <View style={styles.qrArea}><Ionicons name="qr-code" size={120} color="#000" /></View>
-                                    <Text style={styles.ticketId}>ID: #{Math.random().toString().slice(2,10)}</Text>
-                                    <Text style={styles.ticketNote}>Present this QR code at the entrance.</Text>
+                        {/* CTA BUTTON */}
+                        <View style={styles.ctaContainer}>
+                            {!ticketOwned ? (
+                                <TouchableOpacity 
+                                    style={styles.mainBtn} 
+                                    onPress={handleJoinPress}
+                                    disabled={isProcessing}
+                                >
+                                    <LinearGradient 
+                                        colors={eventData.price > 0 ? [Colors.primary, '#4F46E5'] : ['#00E676', '#00A354']} 
+                                        style={styles.btnGrad}
+                                    >
+                                        {isProcessing ? (
+                                            <ActivityIndicator color="#fff" />
+                                        ) : (
+                                            <View style={styles.btnContent}>
+                                                <Text style={styles.btnTxt}>
+                                                    {eventData.price > 0 ? 'SECURE ENTRY PASS' : 'GET FREE TICKET'}
+                                                </Text>
+                                                <Ionicons name="arrow-forward" size={18} color="#fff" style={{marginLeft: 8}} />
+                                            </View>
+                                        )}
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            ) : (
+                                <View style={styles.ownedBox}>
+                                    <View style={styles.checkCircle}>
+                                        <Ionicons name="checkmark" size={16} color="#fff" />
+                                    </View>
+                                    <Text style={styles.ownedTxt}>YOU ARE REGISTERED</Text>
                                 </View>
+                            )}
+                        </View>
+                    </View>
+                ) : (
+                   /* ENTRY TAB - FIXED QR CONTRAST */
+                   <View style={styles.entrySection}>
+                       {ticketOwned ? (
+                            <View style={styles.ticketStub}>
+                                <Text style={styles.stubType}>
+                                    {eventData.price === 0 ? 'FREE ENTRY PASS' : registrationData?.label || 'OFFICIAL TICKET'}
+                                </Text>
+                                {/* QR Code fixed with high contrast: Black icon on White Background */}
+                                <View style={styles.qrContainer}>
+                                    <Ionicons name="qr-code" size={180} color="#000" />
+                                </View>
+                                <Text style={styles.stubId}>REF: EV-{eventData?.id?.toUpperCase()}</Text>
+                                <Text style={styles.scanInst}>Please present this QR code to the usher</Text>
+                            </View> 
+                       ) : (
+                            <View style={styles.emptyEntry}>
+                                <MaterialCommunityIcons name="ticket-outline" size={80} color="#161621" />
+                                <Text style={styles.noTicket}>Register in the Overview tab to get your QR code.</Text>
                             </View>
-                        </View>
-                    ) : (
-                        <View style={styles.emptyState}>
-                            <Ionicons name="lock-closed-outline" size={50} color={Colors.textSecondary} />
-                            <Text style={styles.emptyText}>Register to view your ticket</Text>
-                        </View>
-                    )
+                       )}
+                   </View>
                 )}
             </ScrollView>
 
             <PaymentModal 
-                visible={showPaymentModal} 
-                onClose={() => setShowPaymentModal(false)}
-                event={eventData}
-                onConfirm={finalizeRegistration}
+                visible={showModal} 
+                onClose={() => setShowModal(false)} 
+                event={eventData} 
+                onConfirm={handleFinalize} 
             />
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.darkBackground },
-    headerImage: { height: 300, justifyContent: 'space-between' },
-    headerGradient: { ...StyleSheet.absoluteFillObject },
-    navbar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20 },
-    glassBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
-    titleContainer: { padding: 20 },
-    mainBadge: { backgroundColor: Colors.primary, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, marginBottom: 8 },
-    mainBadgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
-    mainTitle: { fontFamily: 'Poppins_700Bold', fontSize: 26, color: '#fff' },
-    subtitleText: { fontFamily: 'Poppins_400Regular', color: 'rgba(255,255,255,0.9)', fontSize: 14 },
-    tabContainer: { flexDirection: 'row', paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
-    tabItem: { marginRight: 30, paddingVertical: 15 },
-    tabText: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 15 },
-    activeTabText: { color: '#fff', fontFamily: 'Poppins_600SemiBold' },
-    activeIndicator: { height: 3, backgroundColor: Colors.primary, marginTop: 4 },
-    scrollContent: { padding: 20 },
+    container: { flex: 1, backgroundColor: '#07070C' },
+    hero: { height: 380, justifyContent: 'space-between' },
+    grad: { ...StyleSheet.absoluteFillObject },
+    nav: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20 },
+    glassBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+    
+    titleWrap: { padding: 24, paddingBottom: 30 },
+    categoryBadge: { backgroundColor: Colors.primary, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, marginBottom: 12 },
+    categoryText: { color: '#fff', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+    title: { color: '#fff', fontSize: 32, fontWeight: '900', lineHeight: 38 },
+    qrContainer: { 
+        padding: 20, 
+        backgroundColor: '#FFFFFF', // Pure white for scanners
+        borderRadius: 24,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 5
+    },
+    tabContainer: { flexDirection: 'row', paddingHorizontal: 24, backgroundColor: '#07070C' },
+    tabItem: { marginRight: 30, paddingVertical: 15, opacity: 0.5 },
+    activeTabItem: { opacity: 1, borderBottomWidth: 3, borderBottomColor: Colors.primary },
+    tabText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+    activeTabText: { color: '#fff' },
 
-    // Info Grid
-    infoRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
-    infoBox: { backgroundColor: Colors.surface, flex: 1, marginHorizontal: 4, borderRadius: 12, padding: 12, alignItems: 'center' },
-    infoValue: { color: '#fff', fontWeight: 'bold', fontSize: 14, marginTop: 5 },
-    infoLabel: { color: Colors.textSecondary, fontSize: 10 },
+    content: { padding: 24, paddingBottom: 100 },
+    
+    // NEW INFO BAR
+    infoBar: { flexDirection: 'row', backgroundColor: '#11111A', borderRadius: 24, padding: 20, marginBottom: 32, borderWidth: 1, borderColor: '#1E1E2E', alignItems: 'center' },
+    infoItem: { flex: 1, alignItems: 'center' },
+    infoDivider: { width: 1, height: 30, backgroundColor: '#1E1E2E' },
+    infoLabel: { color: '#555', fontSize: 10, fontWeight: '800', marginBottom: 6, letterSpacing: 0.5 },
+    infoValue: { color: '#fff', fontSize: 14, fontWeight: '700' },
 
-    sectionHeader: { fontFamily: 'Poppins_600SemiBold', color: '#fff', fontSize: 18, marginBottom: 10 },
-    description: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, lineHeight: 22, marginBottom: 20 },
-    registerButton: { borderRadius: 16, overflow: 'hidden', marginTop: 10 },
-    gradientBtn: { paddingVertical: 18, alignItems: 'center', justifyContent: 'center' },
-    registerText: { color: '#fff', fontFamily: 'Poppins_600SemiBold', fontSize: 16 },
-    registeredBox: { backgroundColor: 'rgba(76, 175, 80, 0.15)', borderColor: '#4CAF50', borderWidth: 1, borderRadius: 12, padding: 20, alignItems: 'center', marginTop: 10 },
-    registeredText: { color: '#4CAF50', fontWeight: 'bold', marginTop: 5 },
+    sectionHeader: { color: '#fff', fontSize: 18, fontWeight: '900', marginBottom: 16, letterSpacing: -0.5 },
+    desc: { color: '#999', lineHeight: 26, fontSize: 15, marginBottom: 32 },
+    
+    // VENUE CARD
+    venueCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#11111A', padding: 16, borderRadius: 20, borderWidth: 1, borderColor: '#1E1E2E' },
+    venueIconContainer: { width: 50, height: 50, backgroundColor: '#161621', borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+    venueInfo: { flex: 1 },
+    venueName: { color: '#fff', fontSize: 15, fontWeight: '700', marginBottom: 4 },
+    venueSub: { color: '#555', fontSize: 12, fontWeight: '600' },
 
-    // Ticket
-    ticketContainer: { alignItems: 'center', marginTop: 10 },
-    ticketCard: { backgroundColor: '#fff', width: '100%', borderRadius: 20, overflow: 'hidden' },
-    ticketHeader: { padding: 15, alignItems: 'center' },
-    ticketTitle: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-    ticketType: { color: 'rgba(255,255,255,0.8)', fontSize: 10, letterSpacing: 1, marginTop: 2 },
-    ticketBody: { padding: 30, alignItems: 'center' },
-    qrArea: { padding: 10, borderWidth: 2, borderColor: '#000', borderRadius: 10, marginBottom: 15 },
-    ticketId: { fontWeight: 'bold', fontSize: 16, color: '#333' },
-    ticketNote: { color: '#666', fontSize: 12, marginTop: 5 },
-    emptyState: { alignItems: 'center', marginTop: 50 },
-    emptyText: { color: Colors.textSecondary, marginTop: 10 },
+    ctaContainer: { marginTop: 40 },
+    mainBtn: { borderRadius: 20, overflow: 'hidden', elevation: 8, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20 },
+    btnGrad: { paddingVertical: 20, alignItems: 'center' },
+    btnContent: { flexDirection: 'row', alignItems: 'center' },
+    btnTxt: { color: '#fff', fontSize: 16, fontWeight: '900', letterSpacing: 1 },
+    
+    ownedBox: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: 'rgba(16,185,129,0.05)', borderRadius: 20, borderWidth: 1, borderColor: '#10B981' },
+    checkCircle: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#10B981', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    ownedTxt: { color: '#10B981', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
+    
+    // ENTRY TAB POLISH
+    entrySection: { alignItems: 'center' },
+    ticketStub: { width: '100%', backgroundColor: '#11111A', borderRadius: 32, padding: 32, alignItems: 'center', borderStyle: 'dashed', borderWidth: 1, borderColor: '#333' },
+    stubType: { color: '#555', fontWeight: '900', fontSize: 11, letterSpacing: 2, marginBottom: 30 },
+    qrContainer: { padding: 20, backgroundColor: '#fff', borderRadius: 24 }, // High contrast for scanning
+    stubId: { color: '#fff', marginTop: 30, fontWeight: '900', fontSize: 18, letterSpacing: 1 },
+    scanInst: { color: '#555', fontSize: 12, marginTop: 10, textAlign: 'center' },
+    emptyEntry: { alignItems: 'center', marginTop: 80 },
+    noTicket: { color: '#333', textAlign: 'center', marginTop: 20, fontWeight: '700', fontSize: 16, width: '80%' }
 });
 
 export default EventDetailScreen;

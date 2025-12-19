@@ -24,7 +24,7 @@ const OptionItem = ({ icon, title, subtitle, color, onPress, isMaterial }) => (
 
 const WatchSelectionModal = ({ visible, onClose, onSelectOption }) => {
     return (
-        <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
+        <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
             <TouchableWithoutFeedback onPress={onClose}>
                 <View style={styles.overlay}>
                     <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />

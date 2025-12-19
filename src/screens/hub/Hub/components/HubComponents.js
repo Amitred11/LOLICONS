@@ -3,56 +3,34 @@ import { View, Text, StyleSheet, TouchableOpacity, ImageBackground, Dimensions }
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@config/Colors';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur'; // Ensure expo-blur is installed
 
 const { width } = Dimensions.get('window');
 
-// --- HELPER: Glass Button ---
-const GlassButton = ({ text, icon, onPress }) => (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-        <View style={styles.glassButton}>
-            <Text style={styles.glassButtonText}>{text}</Text>
-            {icon && <Ionicons name={icon} size={16} color="#fff" style={{ marginLeft: 6 }} />}
-        </View>
-    </TouchableOpacity>
-);
-
-// --- COMPONENT 1: Media Poster Card (Portrait - For Horizontal Scroll) ---
-export const MediaPosterCard = ({ title, category, image, onPress }) => {
+// --- Refactored Media Card (with Rank Number) ---
+export const MediaPosterCard = ({ title, category, image, onPress, rank }) => {
     const scale = useSharedValue(1);
-
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scale.value }],
-    }));
-
-    const onPressIn = () => { scale.value = withSpring(0.95); };
-    const onPressOut = () => { scale.value = withSpring(1); };
+    const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
     return (
         <Animated.View style={[styles.posterContainer, animatedStyle]}>
             <TouchableOpacity 
                 onPress={onPress} 
-                onPressIn={onPressIn} 
-                onPressOut={onPressOut} 
+                onPressIn={() => (scale.value = withSpring(0.96))}
+                onPressOut={() => (scale.value = withSpring(1))}
                 activeOpacity={1}
             >
-                <ImageBackground 
-                    source={image} 
-                    style={styles.posterImage} 
-                    imageStyle={{ borderRadius: 16 }}
-                >
-                    <LinearGradient 
-                        colors={['transparent', 'rgba(0,0,0,0.8)']} 
-                        style={styles.posterGradient} 
-                    />
+                {/* Ranking Number Overlay */}
+                {rank && (
+                    <Text style={styles.rankNumber}>{rank}</Text>
+                )}
+                
+                <ImageBackground source={image} style={styles.posterImage} imageStyle={{ borderRadius: 12 }}>
+                    <LinearGradient colors={['transparent', 'rgba(0,0,0,0.9)']} style={styles.posterGradient} />
                     <View style={styles.posterContent}>
+                        <Text style={styles.posterTitle} numberOfLines={1}>{title}</Text>
                         <Text style={styles.posterCategory}>{category}</Text>
-                        <Text style={styles.posterTitle} numberOfLines={2}>{title}</Text>
-                    </View>
-                    
-                    {/* Play Icon Overlay */}
-                    <View style={styles.playIconContainer}>
-                        <Ionicons name="play" size={12} color="#fff" style={{ marginLeft: 2 }} />
                     </View>
                 </ImageBackground>
             </TouchableOpacity>
@@ -60,219 +38,76 @@ export const MediaPosterCard = ({ title, category, image, onPress }) => {
     );
 };
 
-// --- COMPONENT 2: Event Hero Card (Landscape - Premium Look) ---
+// --- Refactored Event Hero (Spotlight Style) ---
 export const EventHeroCard = ({ title, description, image, date, onPress }) => {
-    const scale = useSharedValue(1);
-
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scale.value }],
-    }));
-
     return (
-        <Animated.View style={[styles.heroCardWrapper, animatedStyle]}>
-            <TouchableOpacity 
-                onPress={onPress} 
-                activeOpacity={0.9}
-                onPressIn={() => scale.value = withSpring(0.98)}
-                onPressOut={() => scale.value = withSpring(1)}
-            >
-                <ImageBackground 
-                    source={image} 
-                    style={styles.heroCardBg} 
-                    imageStyle={{ borderRadius: 24 }}
-                >
-                    {/* Darker gradient for better text readability */}
-                    <LinearGradient 
-                        colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.6)', '#000']} 
-                        style={styles.heroOverlay} 
-                    />
+        <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={styles.heroWrapper}>
+            <ImageBackground source={image} style={styles.heroImage} imageStyle={{ borderRadius: 28 }}>
+                <LinearGradient 
+                    colors={['rgba(0,0,0,0.2)', 'transparent', 'rgba(0,0,0,0.8)']} 
+                    style={StyleSheet.absoluteFill} 
+                />
+                
+                {/* Modern Date Badge */}
+                <View style={styles.modernBadge}>
+                    <Text style={styles.modernBadgeDay}>{date?.day}</Text>
+                    <Text style={styles.modernBadgeMonth}>{date?.month}</Text>
+                </View>
 
-                    {/* Hanging Date Badge (Top Right) */}
-                    <View style={styles.floatingBadge}>
-                        <View style={styles.badgeTop}>
-                            <Text style={styles.badgeMonth}>{date?.month || 'DEC'}</Text>
+                {/* Glassmorphic Info Panel */}
+                <BlurView intensity={40} tint="dark" style={styles.glassInfoPanel}>
+                    <View style={styles.infoRow}>
+                        <View style={{ flex: 1 }}>
+                            <View style={styles.liveIndicator}>
+                                <View style={styles.liveDot} />
+                                <Text style={styles.liveText}>FEATURED EVENT</Text>
+                            </View>
+                            <Text style={styles.heroTitle} numberOfLines={1}>{title}</Text>
+                            <Text style={styles.heroDesc} numberOfLines={1}>{description}</Text>
                         </View>
-                        <View style={styles.badgeBottom}>
-                            <Text style={styles.badgeDay}>{date?.day || '24'}</Text>
+                        <View style={styles.heroGoButton}>
+                            <Ionicons name="arrow-forward" size={24} color="#fff" />
                         </View>
                     </View>
-
-                    {/* Bottom Content Area */}
-                    <View style={styles.heroContent}>
-                        <View style={styles.liveTagRow}>
-                            <View style={styles.liveDot} />
-                            <Text style={styles.liveText}>UPCOMING</Text>
-                        </View>
-                        
-                        <Text style={styles.heroTitle} numberOfLines={2}>{title}</Text>
-                        <Text style={styles.heroDesc} numberOfLines={1}>{description}</Text>
-                        
-                        <View style={{ marginTop: 16 }}>
-                            <GlassButton text="Event Details" icon="arrow-forward" onPress={onPress} />
-                        </View>
-                    </View>
-                </ImageBackground>
-            </TouchableOpacity>
-        </Animated.View>
+                </BlurView>
+            </ImageBackground>
+        </TouchableOpacity>
     );
 };
 
 const styles = StyleSheet.create({
-    // --- Glass Button Styles ---
-    glassButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.15)', // Glassy effect
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 30,
-        alignSelf: 'flex-start',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.2)',
-    },
-    glassButtonText: {
-        fontFamily: 'Poppins_600SemiBold',
-        color: '#fff',
-        fontSize: 13,
+    // --- Media Card Styles ---
+    posterContainer: { width: 150, marginRight: 20, height: 230, justifyContent: 'flex-end' },
+    posterImage: { width: 150, height: 210, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 10 },
+    posterGradient: { ...StyleSheet.absoluteFillObject },
+    posterContent: { padding: 10, backgroundColor: '#00000083' },
+    posterTitle: { fontFamily: 'Poppins_600SemiBold', color: '#fff', fontSize: 13 },
+    posterCategory: { fontFamily: 'Poppins_400Regular', color: Colors.primary, fontSize: 10, textTransform: 'uppercase' },
+    rankNumber: {
+        position: 'absolute', left: -15, bottom: -10, zIndex: 2,
+        fontSize: 80, fontFamily: 'Poppins_900Black', color: 'rgba(250, 250, 250, 1)',
+        textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 1,
     },
 
-    // --- Media Poster Styles ---
-    posterContainer: {
-        width: 140,
-        marginRight: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 5 },
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
-        elevation: 5,
+    // --- Hero Card Styles ---
+    heroWrapper: { marginHorizontal: 20, height: 320, borderRadius: 28, elevation: 10, shadowColor: Colors.primary, shadowOpacity: 0.3, shadowRadius: 20 },
+    heroImage: { flex: 1, justifyContent: 'flex-end', padding: 15 },
+    modernBadge: {
+        position: 'absolute', top: 20, left: 20,
+        backgroundColor: Colors.primary, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 15, alignItems: 'center'
     },
-    posterImage: {
-        width: 140,
-        height: 210, // Tall aspect ratio
-        justifyContent: 'flex-end',
-        borderRadius: 16,
-        overflow: 'hidden',
+    modernBadgeDay: { fontFamily: 'Poppins_700Bold', color: '#fff', fontSize: 18, lineHeight: 20 },
+    modernBadgeMonth: { fontFamily: 'Poppins_700Bold', color: '#fff', fontSize: 10, marginTop: -2 },
+    
+    glassInfoPanel: {
+        borderRadius: 20, padding: 16, overflow: 'hidden',
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
     },
-    posterGradient: {
-        ...StyleSheet.absoluteFillObject,
-        borderRadius: 16,
-    },
-    posterContent: {
-        padding: 12,
-    },
-    posterCategory: {
-        fontFamily: 'Poppins_500Medium',
-        color: Colors.primary,
-        fontSize: 10,
-        textTransform: 'uppercase',
-        marginBottom: 2,
-    },
-    posterTitle: {
-        fontFamily: 'Poppins_600SemiBold',
-        color: '#fff',
-        fontSize: 14,
-        lineHeight: 18,
-    },
-    playIconContainer: {
-        position: 'absolute',
-        top: 10,
-        right: 10,
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.3)',
-    },
-
-    // --- Event Hero Styles ---
-    heroCardWrapper: {
-        width: '100%',
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
-        elevation: 8,
-    },
-    heroCardBg: {
-        height: 280, // Very tall, immersive card
-        justifyContent: 'flex-end',
-        borderRadius: 24,
-        overflow: 'hidden', // Keeps the gradient inside
-    },
-    heroOverlay: {
-        ...StyleSheet.absoluteFillObject,
-    },
-    heroContent: {
-        padding: 24,
-    },
-    liveTagRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    liveDot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: Colors.primary,
-        marginRight: 6,
-    },
-    liveText: {
-        fontFamily: 'Poppins_700Bold',
-        color: Colors.primary,
-        fontSize: 10,
-        letterSpacing: 1,
-    },
-    heroTitle: {
-        fontFamily: 'Poppins_700Bold',
-        color: '#fff',
-        fontSize: 26,
-        lineHeight: 32,
-        marginBottom: 6,
-    },
-    heroDesc: {
-        fontFamily: 'Poppins_400Regular',
-        color: 'rgba(255,255,255,0.7)',
-        fontSize: 14,
-    },
-
-    // --- Badge Styles ---
-    floatingBadge: {
-        position: 'absolute',
-        top: 20,
-        right: 20,
-        width: 50,
-        borderRadius: 12,
-        overflow: 'hidden',
-        backgroundColor: '#fff',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 6,
-    },
-    badgeTop: {
-        backgroundColor: Colors.primary,
-        alignItems: 'center',
-        paddingVertical: 4,
-    },
-    badgeMonth: {
-        fontFamily: 'Poppins_700Bold',
-        color: '#fff',
-        fontSize: 10,
-        textTransform: 'uppercase',
-    },
-    badgeBottom: {
-        backgroundColor: '#fff',
-        alignItems: 'center',
-        paddingVertical: 6,
-    },
-    badgeDay: {
-        fontFamily: 'Poppins_700Bold',
-        color: '#000',
-        fontSize: 18,
-    },
+    infoRow: { flexDirection: 'row', alignItems: 'center' },
+    liveIndicator: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+    liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.primary, marginRight: 6 },
+    liveText: { fontFamily: 'Poppins_700Bold', color: Colors.primary, fontSize: 10, letterSpacing: 1 },
+    heroTitle: { fontFamily: 'Poppins_700Bold', color: '#fff', fontSize: 20 },
+    heroDesc: { fontFamily: 'Poppins_400Regular', color: 'rgba(255,255,255,0.7)', fontSize: 12 },
+    heroGoButton: { width: 45, height: 45, borderRadius: 22.5, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', marginLeft: 15 },
 });

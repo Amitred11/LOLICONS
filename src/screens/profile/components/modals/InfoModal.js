@@ -59,7 +59,7 @@ const InfoModal = ({ isVisible, onClose, icon, title, message }) => {
         <Animated.View style={[styles.modalContainer, animatedModalStyle]}>
           <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill} />
           
-          {icon && (
+          {!!icon &&(
             <View style={styles.iconContainer}>
                 <Ionicons name={icon} size={40} color={Colors.secondary} />
             </View>

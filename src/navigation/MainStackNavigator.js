@@ -59,7 +59,7 @@ const MainStackNavigator = () => {
     >
       {/* The Main Tabs */}
       <AppStack.Screen name="Main" component={BottomTabNavigator} />
-      <AppStack.Screen name="Notifications" component={NotificationScreen} options={{ headerShown: false }} />
+      <AppStack.Screen name="Notifications" component={NotificationScreen} options={{ headerShown: false,  animation: 'fade'  }} />
 
       {/* SETTINGS */}
       <AppStack.Screen name="EditProfile" component={EditProfileScreen} options={{ presentation: 'modal' }} />

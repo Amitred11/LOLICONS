@@ -148,7 +148,10 @@ const WelcomeScreen = ({ navigation }) => {
               </Animated.View>
               <Animated.View style={titleWord2AnimatedStyle}>
                   {/* The last part of the title has a different color. */}
-                  <Text style={styles.title}>Next <Text style={{color: Colors.secondary}}>LOLI HUNTER</Text></Text>
+                  <Text style={styles.title}>
+                    Next{' '}
+                    <Text style={{color: Colors.secondary}}>LOLI HUNTER</Text>
+                  </Text>              
               </Animated.View>
           </View>
 

@@ -168,7 +168,7 @@ const ListCard = ({ item, onPress }) => (
         <View style={styles.listContent}>
             <View style={styles.listHeader}>
                 <Text style={styles.listTitle} numberOfLines={1}>{item.title}</Text>
-                {item.isFavorite && <Ionicons name="bookmark" size={16} color={Theme.primary} />}
+                {!!item.isFavorite && <Ionicons name="bookmark" size={16} color={Theme.primary} />}
             </View>
             <Text style={styles.listMeta}>{item.year} • {item.type} • <Text style={{color: Theme.accent}}>{item.match || '95%'} Match</Text></Text>
             <Text style={styles.listDesc} numberOfLines={2}>{item.description}</Text>

@@ -29,7 +29,7 @@ const PostCard = ({
            </TouchableOpacity>
            <View style={styles.metaRow}>
               <Text style={styles.time}>{item.time}</Text>
-              {item.guild && (
+              {!!item.guild && (
                 <>
                   <Text style={styles.dot}>•</Text>
                   <Text style={styles.guildName}>#{item.guild}</Text>
@@ -55,7 +55,7 @@ const PostCard = ({
       </TouchableOpacity>
 
       {/* IMAGE CONTENT */}
-      {item.image && (
+      {!!item.image && (
         <TouchableOpacity activeOpacity={0.95} onPress={onPress} disabled={!onPress} style={styles.imageContainer}>
           <Image source={{ uri: item.image }} style={styles.postImage} resizeMode="cover" />
         </TouchableOpacity>

@@ -1,8 +1,5 @@
-import { Platform } from 'react-native';
-
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Enhanced Mock Data
 const MOCK_EVENTS = [
     { 
         id: 'main-event-1', 
@@ -10,12 +7,10 @@ const MOCK_EVENTS = [
         date: 'DEC 30', 
         time: '16:00',
         location: 'Philippine Arena, Bulacan',
-        coordinates: { lat: 14.7958, lng: 120.9388 }, 
         category: 'Conventions',
-        price: 2500, // Premium Main Event
-        isMainEvent: true, // <--- EXPLICIT MAIN EVENT FLAG
-        status: 'upcoming',
-        description: 'The absolute pinnacle of the competitive season. Watch the top 10 teams from around the world battle for the $5M prize pool. Featuring live performances by K/DA.',
+        price: 2500, 
+        isMainEvent: true,
+        description: 'Watch the top 10 teams battle for the $5M prize pool. Featuring live performances and exclusive tech demos.',
         image: { uri: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1200' }
     },
     { 
@@ -24,12 +19,10 @@ const MOCK_EVENTS = [
         date: 'DEC 12', 
         time: '18:00',
         location: 'Neon District Hall, Manila',
-        coordinates: { lat: 14.5995, lng: 120.9842 },
         category: 'Conventions',
-        price: 0, // Explicitly Free
+        price: 0, 
         isMainEvent: false,
-        status: 'upcoming',
-        description: 'The biggest cyberpunk gathering of the year. Cosplay, tech demos, and synthwave concerts.',
+        description: 'The biggest cyberpunk gathering. Cosplay, tech demos, and synthwave concerts.',
         image: { uri: 'https://images.unsplash.com/photo-1535295972055-1c762f4483e5?w=800' }
     },
     { 
@@ -38,12 +31,10 @@ const MOCK_EVENTS = [
         date: 'JAN 05', 
         time: '14:00',
         location: 'BGC High Street',
-        coordinates: { lat: 14.5502, lng: 121.0509 },
         category: 'Releases', 
-        price: 150, // Cheap Ticket
+        price: 150, 
         isMainEvent: false,
-        status: 'upcoming',
-        description: 'Join the community watch party on the big screen.',
+        description: 'Join the community watch party on the big screen with exclusive loot drops.',
         image: { uri: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800' }
     },
     { 
@@ -54,7 +45,7 @@ const MOCK_EVENTS = [
         location: 'Innovation Hub',
         coordinates: { lat: 14.5489, lng: 121.0503 },
         category: 'Meetups',
-        price: 0,
+        price: 4123120,
         isMainEvent: false,
         status: 'upcoming',
         description: 'Networking for game developers.',

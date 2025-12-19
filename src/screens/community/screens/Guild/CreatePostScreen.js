@@ -170,7 +170,7 @@ const CreatePostScreen = ({ navigation, route }) => {
             editable={!isSubmitting}
           />
 
-          {selectedImage && (
+          {!!selectedImage && (
             <View style={styles.imagePreview}>
               <Image 
                 source={{ uri: selectedImage }} 

@@ -54,12 +54,10 @@ const AppProviders = ({ children }) => (
           <AuthProvider>
             <RewardProvider>
             <ProfileProvider>
-              {/* Hub Contexts */}
               <ChatProvider>
                 <EventsProvider>
                   <FriendProvider>
                     <MediaProvider>
-                      {/* Feature Contexts */}
                       <NotificationProvider>
                         <ComicProvider>
                           <HomeProvider>
@@ -103,12 +101,6 @@ export default function App() {
             <AppNavigator />
           </NavigationContainer>
         </AppProviders>
-        
-        {/* VISUAL PRIVACY: 
-            pointerEvents="box-none" allows the PrivacyOverlay to block touches 
-            only when it is visible/active, while letting clicks pass through to the 
-            App when it is hidden. 
-        */}
         <View style={styles.privacyContainer} pointerEvents="box-none">
            <PrivacyOverlay />
         </View>
