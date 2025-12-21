@@ -4,8 +4,18 @@ import {
   LayoutAnimation, Keyboard, Platform 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@config/Colors'; // Adjust path as needed
-import { useNotifications } from '@context/main/NotificationContext'; // Adjust path as needed
+import { BlurView } from 'expo-blur';
+import { Colors } from '@config/Colors'; 
+import { useNotifications } from '@context/main/NotificationContext'; 
+
+const THEME = {
+    background: '#050505',
+    surface: 'rgba(255,255,255,0.04)',
+    surfaceFocused: 'rgba(255,255,255,0.08)',
+    border: 'rgba(255,255,255,0.08)',
+    textSecondary: '#94a3b8',
+    rimLight: 'rgba(255,255,255,0.12)'
+};
 
 const CommunitySearchHeader = ({ 
   searchText, 
@@ -17,12 +27,12 @@ const CommunitySearchHeader = ({
   const inputRef = useRef(null);
   const { unreadCount } = useNotifications();
 
-  // Handle Animation when focus state changes
+  // Handle Animation when focus state changes (UNCHANGED)
   useEffect(() => {
     LayoutAnimation.configureNext({
-      duration: 250,
+      duration: 300,
       create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
-      update: { type: LayoutAnimation.Types.easeInEaseOut },
+      update: { type: LayoutAnimation.Types.spring, springDamping: 0.7 },
       delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
     });
   }, [isFocused]);
@@ -35,12 +45,11 @@ const CommunitySearchHeader = ({
 
   const handleFocus = () => setIsFocused(true);
 
-  // Determine if we show the title/welcome text
   const showTitle = !isFocused && !searchText;
 
   return (
     <View style={styles.container}>
-      {/* Top Header: Title & Notification (Collapses on Search) */}
+      {/* Top Header: Title & Notification */}
       {showTitle && (
         <View style={styles.headerTop}>
           <View>
@@ -48,38 +57,54 @@ const CommunitySearchHeader = ({
             <Text style={styles.titleText}>Community Hub</Text>
           </View>
           <TouchableOpacity 
+            activeOpacity={0.7}
             style={styles.notifButton}
             onPress={() => navigation.navigate('Notifications')}
           >
-            <Ionicons name="notifications-outline" size={24} color={Colors.text} />
-            {unreadCount > 0 && <View style={styles.notificationBadge} />} 
+            <View style={styles.iconCircle}>
+                <Ionicons name="notifications-outline" size={22} color={Colors.text} />
+                {unreadCount > 0 && (
+                    <View style={styles.glowContainer}>
+                        <View style={styles.notifBadge} />
+                        <View style={styles.notifPulse} />
+                    </View>
+                )} 
+            </View>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Search Bar */}
+      {/* Search Bar - Modern Glass style */}
       <View style={[styles.searchWrapper, !showTitle && styles.searchWrapperActive]}>
-        <View style={[styles.searchContainer, isFocused && styles.searchContainerFocused]}>
+        <View style={[
+            styles.searchContainer, 
+            isFocused && styles.searchContainerFocused,
+            !showTitle && styles.searchContainerFull
+        ]}>
           <Ionicons 
-            name={isFocused ? "search" : "search-outline"} 
-            size={20} 
-            color={isFocused ? Colors.primary : Colors.textSecondary} 
+            name="search-outline" 
+            size={18} 
+            color={isFocused ? Colors.primary : THEME.textSecondary} 
           />
           <TextInput 
             ref={inputRef}
-            placeholder="Find a Realm by name..." 
-            placeholderTextColor={Colors.textSecondary}
+            placeholder="Search realms, guilds, items..." 
+            placeholderTextColor="#475569"
             style={styles.searchInput}
             selectionColor={Colors.primary}
             value={searchText}
             onChangeText={setSearchText}
             onFocus={handleFocus}
-            // We don't auto-blur on false to keep the keyboard up until user hits cancel or done
             returnKeyType="search"
             autoCorrect={false}
           />
+          
           {(searchText.length > 0 || isFocused) && (
-            <TouchableOpacity onPress={handleCancel} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+            <TouchableOpacity 
+                onPress={handleCancel} 
+                style={styles.cancelBtn}
+                hitSlop={{top: 15, bottom: 15, left: 15, right: 15}}
+            >
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
           )}
@@ -92,34 +117,112 @@ const CommunitySearchHeader = ({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 20,
-    backgroundColor: Colors.background,
-    zIndex: 10,
-    paddingBottom: 10,
+    backgroundColor: 'transparent',
+    zIndex: 100,
+    paddingBottom: 12,
   },
   headerTop: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
-    marginBottom: 20,
-    height: 50, // Fixed height for smoother collapse
+    marginBottom: 24,
+    height: 60,
   },
-  welcomeText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '600', textTransform: 'uppercase' },
-  titleText: { color: Colors.text, fontSize: 32, fontWeight: '800', letterSpacing: -0.5 },
-  notifButton: { padding: 5 },
-  notificationBadge: { position: 'absolute', top: 6, right: 6, width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.danger },
+  welcomeText: { 
+    color: THEME.textSecondary, 
+    fontSize: 11, 
+    fontWeight: '800', 
+    textTransform: 'uppercase', 
+    letterSpacing: 1.5,
+    marginBottom: 2
+  },
+  titleText: { 
+    color: '#FFF', 
+    fontSize: 34, 
+    fontWeight: '900', 
+    letterSpacing: -1 
+  },
   
+  // Notification Icon Styling
+  notifButton: { position: 'relative' },
+  iconCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: THEME.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: THEME.border
+  },
+  glowContainer: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notifBadge: { 
+    width: 8, 
+    height: 8, 
+    borderRadius: 4, 
+    backgroundColor: Colors.primary,
+    zIndex: 2
+  },
+  notifPulse: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: Colors.primary,
+    opacity: 0.3,
+  },
+  
+  // Search Bar Styling
   searchWrapper: { width: '100%' },
-  searchWrapperActive: { marginTop: 10 }, 
+  searchWrapperActive: { marginTop: Platform.OS === 'ios' ? 0 : 10 }, 
   searchContainer: { 
-    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 16, 
-    paddingHorizontal: 16, height: 52, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: THEME.surface, 
+    borderRadius: 20, 
+    paddingHorizontal: 16, 
+    height: 54, 
+    borderWidth: 1, 
+    borderColor: THEME.border,
   },
   searchContainerFocused: {
     borderColor: Colors.primary,
-    backgroundColor: Platform.OS === 'ios' ? 'rgba(30, 41, 59, 1)' : Colors.surface,
+    backgroundColor: THEME.surfaceFocused,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
   },
-  searchInput: { flex: 1, marginLeft: 12, color: Colors.text, fontSize: 16, height: '100%' },
-  cancelText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '500', marginLeft: 8 },
+  searchContainerFull: {
+      height: 50,
+      borderRadius: 25,
+  },
+  searchInput: { 
+    flex: 1, 
+    marginLeft: 10, 
+    color: '#FFF', 
+    fontSize: 15, 
+    fontWeight: '600',
+    height: '100%' 
+  },
+  cancelBtn: {
+      paddingLeft: 10,
+      borderLeftWidth: 1,
+      borderLeftColor: THEME.border,
+      marginLeft: 10,
+  },
+  cancelText: { 
+    color: Colors.primary, 
+    fontSize: 13, 
+    fontWeight: '800', 
+    textTransform: 'uppercase'
+  },
 });
 
 export default CommunitySearchHeader;

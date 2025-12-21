@@ -10,14 +10,24 @@ import {
   StatusBar,
   ActivityIndicator,
   SectionList,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { Colors } from '@config/Colors';
+import { BlurView } from 'expo-blur';
+import { Colors } from '@config/Colors'; // Assuming Colors.background is #050505 or similar
 import { useNotifications } from '@context/main/NotificationContext';
 import { useAlert } from '@context/other/AlertContext';
 
-// Helper function to group notifications by date
+const THEME = {
+    background: '#050505',
+    surface: '#121214',
+    surfaceLight: '#1e1e21',
+    border: 'rgba(255,255,255,0.06)',
+    glass: 'rgba(255,255,255,0.03)',
+};
+
+// Helper function to group notifications by date (UNCHANGED)
 const groupNotificationsByDate = (notifications) => {
   const groups = { Today: [], Yesterday: [], Earlier: [] };
   const today = new Date();
@@ -65,6 +75,7 @@ const NotificationScreen = ({ navigation }) => {
 
   const groupedNotifications = useMemo(() => groupNotificationsByDate(notifications), [notifications]);
 
+  // --- LOGIC HANDLERS (UNCHANGED) ---
   const handleLongPress = (id) => {
     if (!isSelectionMode) {
         setSelectedIds([id]);
@@ -91,62 +102,71 @@ const NotificationScreen = ({ navigation }) => {
     }
   };
 
-  // --- MODIFIED: Uses the new AlertContext structure ---
   const handleDeleteSelected = () => {
     showAlert({
-        title: 'Confirm Deletion',
-        message: `Are you sure you want to delete ${selectedIds.length} notification(s)? This action cannot be undone.`,
-        type: 'error', // Use 'error' for the red icon
+        title: 'Delete Notifications',
+        message: `Are you sure you want to remove ${selectedIds.length} item(s)?`,
+        type: 'error',
         btnText: 'Delete',
-        onClose: () => { // Primary action
+        onClose: () => {
             deleteMultipleNotifications(selectedIds);
             setSelectedIds([]);
         },
-        secondaryBtnText: 'Cancel', // Secondary action
-        onSecondaryPress: () => {}, // Closes the alert by default
+        secondaryBtnText: 'Cancel',
     });
   };
 
   const getNotificationIcon = (type) => {
     switch (type) {
-        case 'guild': return { name: 'shield-checkmark-outline', color: Colors.primary };
-        case 'market': return { name: 'cart-outline', color: Colors.secondary };
-        case 'system': return { name: 'information-circle-outline', color: Colors.textSecondary };
-        case 'social': return { name: 'chatbubble-ellipses-outline', color: Colors.primary };
-        case 'alert': return { name: 'alert-circle-outline', color: Colors.danger };
-        default: return { name: 'notifications-outline', color: Colors.textSecondary };
+        case 'guild': return { name: 'shield-outline', color: '#818cf8' };
+        case 'market': return { name: 'bag-handle-outline', color: '#fbbf24' };
+        case 'system': return { name: 'cog-outline', color: '#94a3b8' };
+        case 'social': return { name: 'chatbubbles-outline', color: Colors.primary };
+        case 'alert': return { name: 'warning-outline', color: '#ef4444' };
+        default: return { name: 'notifications-outline', color: '#94a3b8' };
     }
   };
 
+  // --- RENDER COMPONENTS ---
+
   const renderDefaultHeader = () => (
-    <View style={styles.headerContainer}>
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <Ionicons name="arrow-back" size={24} color={Colors.text} />
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>Notifications</Text>
-      <TouchableOpacity onPress={markAllAsRead} disabled={unreadCount === 0}>
-        <Text style={[styles.markReadText, unreadCount === 0 && styles.disabledText]}>
-          Read All
-        </Text>
-      </TouchableOpacity>
+    <View style={styles.headerOuter}>
+        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+        <View style={styles.headerInner}>
+            <TouchableOpacity style={styles.circleBtn} onPress={() => navigation.goBack()}>
+                <Ionicons name="chevron-back" size={22} color={Colors.text} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Notif</Text>
+            <TouchableOpacity 
+                onPress={markAllAsRead} 
+                disabled={unreadCount === 0}
+                style={styles.actionBtn}
+            >
+                <Text style={[styles.markReadText, unreadCount === 0 && styles.disabledText]}>
+                    Clear
+                </Text>
+            </TouchableOpacity>
+        </View>
     </View>
   );
 
   const renderSelectionHeader = () => (
-    <View style={styles.headerContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={() => setSelectedIds([])}>
-            <Ionicons name="close" size={24} color={Colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{selectedIds.length} selected</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center'}}>
-            <TouchableOpacity onPress={handleSelectAll}>
-                <Text style={styles.markReadText}>
-                {selectedIds.length === notifications.length ? 'Deselect All' : 'Select All'}
-                </Text>
+    <View style={[styles.headerOuter, { backgroundColor: Colors.primary + '15' }]}>
+        <View style={styles.headerInner}>
+            <TouchableOpacity style={styles.circleBtn} onPress={() => setSelectedIds([])}>
+                <Ionicons name="close" size={22} color={Colors.text} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleDeleteSelected} style={{ marginLeft: 20 }}>
-                <Ionicons name="trash-outline" size={24} color={Colors.danger} />
-            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{selectedIds.length} selected</Text>
+            <View style={styles.selectionActions}>
+                <TouchableOpacity onPress={handleSelectAll} style={{ marginRight: 15 }}>
+                    <Text style={styles.markReadText}>
+                        {selectedIds.length === notifications.length ? 'None' : 'All'}
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleDeleteSelected} style={styles.trashBtn}>
+                    <Ionicons name="trash-outline" size={20} color="#ef4444" />
+                </TouchableOpacity>
+            </View>
         </View>
     </View>
   );
@@ -154,10 +174,10 @@ const NotificationScreen = ({ navigation }) => {
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <View style={styles.emptyIconCircle}>
-        <Ionicons name="notifications-off-outline" size={40} color={Colors.textSecondary} />
+        <Ionicons name="mail-open-outline" size={42} color={THEME.surfaceLight} />
       </View>
-      <Text style={styles.emptyTitle}>All Clear!</Text>
-      <Text style={styles.emptySubtitle}>You have no new notifications.</Text>
+      <Text style={styles.emptyTitle}>No Notifications</Text>
+      <Text style={styles.emptySubtitle}>We'll let you know when something important happens.</Text>
     </View>
   );
 
@@ -166,41 +186,50 @@ const NotificationScreen = ({ navigation }) => {
     const isSelected = selectedIds.includes(item.id);
 
     return (
-      // --- REMOVED Animated.View and style ---
-      <View>
         <TouchableOpacity
-          activeOpacity={0.8}
-          style={[styles.card, isSelected && styles.cardSelected]}
+          activeOpacity={0.9}
+          style={[
+              styles.card, 
+              isSelected && styles.cardSelected,
+              item.unread && styles.cardUnread
+          ]}
           onLongPress={() => handleLongPress(item.id)}
           onPress={() => handlePress(item)}
         >
-          {item.unread && <View style={styles.unreadIndicator} />}
-          <View style={[styles.iconContainer, { backgroundColor: `${iconData.color}20` }]}>
-            <Ionicons name={iconData.name} size={24} color={iconData.color} />
+          {item.unread && <View style={styles.unreadBar} />}
+          
+          <View style={[styles.iconBox, { backgroundColor: `${iconData.color}15` }]}>
+            <Ionicons name={iconData.name} size={22} color={iconData.color} />
           </View>
-          <View style={styles.textContainer}>
-            <View style={styles.cardHeader}>
-              <Text style={[styles.cardTitle, item.unread ? styles.titleUnread : styles.titleRead]} numberOfLines={1}>
+
+          <View style={styles.content}>
+            <View style={styles.row}>
+              <Text style={[styles.title, item.unread ? styles.bold : styles.regular]} numberOfLines={1}>
                 {item.title}
               </Text>
-              <Text style={styles.timeText}>{item.time}</Text>
+              <Text style={styles.time}>{item.time}</Text>
             </View>
-            <Text style={styles.messageText} numberOfLines={2}>{item.message}</Text>
+            <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
           </View>
+
+          {isSelectionMode && (
+              <View style={[styles.checkCircle, isSelected && styles.checkCircleActive]}>
+                  {isSelected && <Ionicons name="checkmark" size={12} color="white" />}
+              </View>
+          )}
         </TouchableOpacity>
-      </View>
     );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
-      {isSelectionMode ? renderSelectionHeader() : renderDefaultHeader()}
-
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      
+      {/* List Content */}
       <View style={{ flex: 1 }}>
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+            <ActivityIndicator size="small" color={Colors.primary} />
           </View>
         ) : (
           <SectionList
@@ -208,112 +237,143 @@ const NotificationScreen = ({ navigation }) => {
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
             renderSectionHeader={({ section: { title } }) => (
-              <Text style={styles.sectionHeader}>{title}</Text>
+              <View style={styles.sectionHeaderBox}>
+                 <Text style={styles.sectionHeaderText}>{title}</Text>
+              </View>
             )}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={renderEmptyState}
+            stickySectionHeadersEnabled={false}
           />
         )}
       </View>
-    </SafeAreaView>
+
+      {/* Floating Header */}
+      {isSelectionMode ? renderSelectionHeader() : renderDefaultHeader()}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: THEME.background },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 45,
+  
+  // HEADER
+  headerOuter: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10,
     paddingBottom: 15,
+    zIndex: 100,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surface,
+    borderBottomColor: THEME.border,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    justifyContent: 'center',
+  headerInner: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
   },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.text },
-  markReadText: { fontSize: 14, color: Colors.primary, fontWeight: '600' },
-  disabledText: { color: Colors.textSecondary, opacity: 0.7 },
-  listContent: { paddingHorizontal: 20, paddingBottom: 40, flexGrow: 1 },
-  sectionHeader: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    paddingVertical: 12,
-    marginTop: 10,
+  circleBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: THEME.glass,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: THEME.border
+  },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: Colors.text, letterSpacing: -0.5 },
+  selectionActions: { flexDirection: 'row', alignItems: 'center' },
+  actionBtn: { paddingVertical: 6, paddingHorizontal: 12 },
+  markReadText: { fontSize: 13, color: Colors.primary, fontWeight: '700' },
+  disabledText: { color: Colors.textSecondary, opacity: 0.5 },
+  trashBtn: { 
+      width: 34, height: 34, borderRadius: 17, 
+      backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+      alignItems: 'center', justifyContent: 'center' 
+  },
+
+  // LIST
+  listContent: { paddingHorizontal: 16, paddingTop: 130, paddingBottom: 40 },
+  sectionHeaderBox: { paddingVertical: 15, paddingLeft: 4 },
+  sectionHeaderText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#475569',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
+
+  // CARD
   card: {
     flexDirection: 'row',
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    backgroundColor: THEME.surface,
+    borderRadius: 20,
+    padding: 14,
     marginBottom: 12,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    overflow: 'hidden'
+  },
+  cardUnread: {
+    backgroundColor: '#16161a',
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   cardSelected: {
-    backgroundColor: Colors.primary + '20',
-    borderWidth: 1,
     borderColor: Colors.primary,
+    backgroundColor: Colors.primary + '08',
   },
-  unreadIndicator: {
+  unreadBar: {
     position: 'absolute',
-    top: 18,
-    left: 6,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    left: 0, top: '25%', bottom: '25%',
+    width: 3,
     backgroundColor: Colors.primary,
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
   },
-  iconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+  iconBox: {
+    width: 48, height: 48,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 14,
   },
-  textContainer: { flex: 1 },
-  cardHeader: {
+  content: { flex: 1 },
+  row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 4,
   },
-  cardTitle: { fontSize: 16, flex: 1, marginRight: 10 },
-  titleUnread: { fontWeight: 'bold', color: Colors.text },
-  titleRead: { fontWeight: '500', color: Colors.textSecondary },
-  timeText: { fontSize: 12, color: Colors.textSecondary },
-  messageText: { fontSize: 13, color: Colors.textSecondary, lineHeight: 18 },
-  emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 50 },
+  title: { fontSize: 15, flex: 1, marginRight: 8 },
+  bold: { fontWeight: '800', color: Colors.text },
+  regular: { fontWeight: '600', color: Colors.textSecondary },
+  time: { fontSize: 11, color: '#64748b', fontWeight: '600' },
+  message: { fontSize: 13, color: '#94a3b8', lineHeight: 18, fontWeight: '500' },
+  
+  checkCircle: {
+      width: 20, height: 20, borderRadius: 10,
+      borderWidth: 2, borderColor: THEME.border,
+      marginLeft: 10, alignItems: 'center', justifyContent: 'center'
+  },
+  checkCircleActive: {
+      backgroundColor: Colors.primary,
+      borderColor: Colors.primary,
+  },
+
+  // EMPTY
+  emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 100 },
   emptyIconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.surface,
+    width: 90, height: 90,
+    borderRadius: 45,
+    backgroundColor: THEME.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    borderWidth: 1, borderColor: THEME.border
   },
-  emptyTitle: { fontSize: 18, fontWeight: '600', color: Colors.text, marginBottom: 8 },
-  emptySubtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
+  emptyTitle: { fontSize: 20, fontWeight: '900', color: Colors.text, marginBottom: 8 },
+  emptySubtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', paddingHorizontal: 40, lineHeight: 20 },
 });
 
 export default NotificationScreen;

@@ -38,9 +38,16 @@ const SectionHeader = ({ title, subtitle, onPress }) => (
             {!!subtitle && <Text style={styles.sectionSubtitle}>{subtitle}</Text>}
         </View>
         {onPress && (
-            <View style={styles.headerActionCircle}>
-                <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
-            </View>
+            <TouchableOpacity 
+                onPress={onPress} 
+                style={styles.seeAllButton}
+                activeOpacity={0.7}
+            >
+                <Text style={styles.seeAllText}>See All</Text>
+                <View style={styles.headerActionCircle}>
+                    <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+                </View>
+            </TouchableOpacity>
         )}
     </TouchableOpacity>
 );
@@ -116,7 +123,7 @@ const HubScreen = () => {
                 <SectionHeader 
                     title="Trending Now" 
                     subtitle="Most watched this week" 
-                    onPressSeeAll={() => navigation.navigate('Media')} 
+                    onPress={() => navigation.navigate('Media')}
                 />
             </View>
             
@@ -197,12 +204,57 @@ const styles = StyleSheet.create({
       fontSize: 12,
       marginRight: 8
   },
+  sectionHeaderContainer: { 
+      flexDirection: 'row', 
+      justifyContent: 'space-between', 
+      alignItems: 'flex-end', // Aligns "See All" with the bottom of the title/subtitle stack
+      marginBottom: 15 
+  },
+  
+  seeAllButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255,255,255,0.03)', // Subtle background
+      paddingLeft: 12,
+      paddingRight: 6,
+      paddingVertical: 6,
+      borderRadius: 20,
+      bottom: 15,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.05)',
+  },
+
+  seeAllText: { 
+      fontFamily: 'Poppins_600SemiBold', 
+      color: 'rgba(255,255,255,0.6)', // Slightly dimmed for hierarchy
+      fontSize: 12, 
+      marginRight: 4 
+  },
+
+  headerActionCircle: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: 'rgba(255,255,255,0.05)',
+      justifyContent: 'center',
+      alignItems: 'center'
+  },
+
+  sectionTitle: { 
+      fontFamily: 'Poppins_700Bold', 
+      color: '#fff', 
+      fontSize: 24, 
+      letterSpacing: -0.5 
+  },
+
+  sectionSubtitle: { 
+      fontFamily: 'Poppins_400Regular', 
+      color: 'rgba(255,255,255,0.5)', 
+      fontSize: 13, 
+      marginTop: -2 
+  },
 
   // Existing Header Styles...
-  sectionTitle: { fontFamily: 'Poppins_700Bold', color: '#fff', fontSize: 24, letterSpacing: -0.5 },
-  sectionSubtitle: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 13, marginTop: -4 },
-  seeAllButton: { flexDirection: 'row', alignItems: 'center' },
-  seeAllText: { fontFamily: 'Poppins_600SemiBold', color: Colors.primary, fontSize: 12, marginRight: 4 },
   quickNavScrollContainer: {
       marginBottom: 30,
       marginTop: 10,
@@ -223,24 +275,7 @@ const styles = StyleSheet.create({
       fontFamily: 'Poppins_500Medium',
       fontSize: 13,
       marginLeft: 8
-  },
-
-  // Interactive Header Styles
-  sectionHeaderContainer: { 
-      flexDirection: 'row', 
-      justifyContent: 'space-between', 
-      alignItems: 'center', 
-      marginBottom: 15 
-  },
-  headerActionCircle: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: 'rgba(255,255,255,0.05)',
-      justifyContent: 'center',
-      alignItems: 'center'
-  },
-  
+  }, 
 });
 
 export default HubScreen;

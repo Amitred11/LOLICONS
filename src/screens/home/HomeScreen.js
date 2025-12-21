@@ -14,7 +14,7 @@ import AnimatedSection from './components/AnimatedSection';
 import FeaturedCard from './components/FeaturedCard';
 import ContinueReadingCard from './components/ContinueReadingCard';
 import DailyGoalsWidget from './components/DailyGoalsWidget';
-import QuickActions from './components/QuickActions';
+import ShortcutGrid from './components/ShortcutGrid'; 
 import EventCard from './components/EventCard';
 import EmptyState from './components/empty/EmptyState';
 
@@ -186,13 +186,16 @@ const HomeScreen = () => {
             
             <AnimatedSection index={3}>
                 <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { paddingHorizontal: 20 }]}>Explore</Text>
-                    <QuickActions actions={[
-                        { title: 'My Bookshelf', subtitle: 'Saved Comics', icon: 'bookmarks-outline', color: '#4A90E2', target: 'Comics' },
-                        { title: 'Discussions', subtitle: 'Join the talk', icon: 'chatbubbles-outline', color: '#8E44AD', target: 'Community' },
-                        { title: 'Inbox', subtitle: 'Messages', icon: 'mail-outline', color: '#FF5A5F', target: 'ChatList' },
-                        { title: 'Account', subtitle: 'Settings', icon: 'settings-outline', color: '#27AE60', target: 'Profile' },
-                    ]} onActionPress={(item) => navigation.navigate(item.target)} />
+                    <Text style={[styles.sectionTitle, { paddingHorizontal: 20 }]}>Quick Access</Text>
+                    <ShortcutGrid 
+                        actions={[
+                            { title: 'Bookshelf', subtitle: 'Saved stories', icon: 'bookmarks', color: '#4A90E2', target: 'Comics' },
+                            { title: 'Community', subtitle: 'Join the talk', icon: 'chatbubbles', color: '#8E44AD', target: 'Community' },
+                            { title: 'Inbox', subtitle: 'Messages', icon: 'mail', color: '#FF5A5F', target: 'ChatList' },
+                            { title: 'Settings', subtitle: 'Preferences', icon: 'settings', color: '#27AE60', target: 'Profile' },
+                        ]} 
+                        onActionPress={(item) => navigation.navigate(item.target)} 
+                    />
                 </View>
             </AnimatedSection>
 

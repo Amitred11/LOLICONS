@@ -277,6 +277,7 @@ const styles = StyleSheet.create({
     },
     headerButton: {
         width: 40, height: 40, borderRadius: 20,
+        top:15,
         alignItems: 'center', justifyContent: 'center',
         backgroundColor: 'rgba(24, 24, 27, 0.5)',
     },

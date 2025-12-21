@@ -51,7 +51,6 @@ export const ModalProvider = ({ children }) => {
   const renderModal = () => {
     const { type, props } = modalState;
 
-    // Use a switch statement to map the modal type to its component.
     switch (type) {
       case 'filter':
         return <FilterModal isVisible={true} onClose={hide} {...props} />;
@@ -67,7 +66,6 @@ export const ModalProvider = ({ children }) => {
         return <QuietHoursModal isVisible={true} onClose={hide} {...props} />;
       case 'rating':
         return <RatingModal isVisible={true} onClose={hide} {...props} />;
-      // If the type doesn't match any case, render nothing.
       default:
         return null;
     }

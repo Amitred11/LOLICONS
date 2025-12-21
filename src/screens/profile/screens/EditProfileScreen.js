@@ -199,7 +199,7 @@ const EditProfileScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, paddingBottom: 15, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    header: { flexDirection: 'row', justifyContent: 'space-between', height: 100, alignItems: 'center', paddingHorizontal: 15, paddingBottom: 15, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     headerTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 16 },
     headerButton: { minWidth: 60, alignItems: 'center', justifyContent: 'center' },
     cancelText: { color: Colors.text, fontFamily: 'Poppins_400Regular', fontSize: 14 },

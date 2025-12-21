@@ -1,55 +1,87 @@
-// Import necessary modules from React and React Native.
-import React from 'react';
-import { View, StyleSheet, Dimensions, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, Platform, Keyboard, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // Essential for modern screens
 import AnimatedTabButton from './AnimatedTabButton';
 import { Colors } from '@config/Colors';
 
-// Get the screen width to calculate the tab bar width dynamically.
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const TAB_BAR_WIDTH = SCREEN_WIDTH * 0.9;
-// Define the height of the tab bar for a sleek look.
-const TAB_BAR_HEIGHT = 65;
-
 /**
  * A custom tab bar component that displays and manages navigation tabs.
- * It's designed to be used with React Navigation's bottom tabs navigator.
  */
 const CustomTabBar = ({ state, descriptors, navigation }) => {
-  return (
-    // Main container that positions the tab bar at the bottom of the screen.
-    <View style={styles.container}>
-      {/* The styled background view for the tab bar, creating the "pill" shape. */}
-      <View style={styles.backgroundPill}>
-        {/* Map through the navigation routes to create a button for each tab. */}
-        {state.routes.map((route, index) => {
-          // Determine if the current tab is the focused one.
-          const isFocused = state.index === index;
-          // Get the options for the current route, including custom props.
-          const { options } = descriptors[route.key];
-          const item = options.customProps;
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  const { width: SCREEN_WIDTH } = useWindowDimensions(); // Updates on orientation change
+  const insets = useSafeAreaInsets(); // Handles notches/home indicators
 
-          // Define the press handler
+  const TAB_BAR_WIDTH = SCREEN_WIDTH * 0.9;
+  const TAB_BAR_HEIGHT = 65;
+
+  // --- KEYBOARD AVOIDANCE LOGIC ---
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onKeyboardShow = () => setKeyboardVisible(true);
+    const onKeyboardHide = () => setKeyboardVisible(false);
+
+    const showSubscription = Keyboard.addListener(showEvent, onKeyboardShow);
+    const hideSubscription = Keyboard.addListener(hideEvent, onKeyboardHide);
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
+  // Hide the tab bar when the keyboard is open (cleaner UI)
+  if (isKeyboardVisible) return null;
+
+  return (
+    <View 
+      style={[
+        styles.container, 
+        { 
+          width: TAB_BAR_WIDTH, 
+          height: TAB_BAR_HEIGHT,
+          // Dynamically calculate bottom spacing based on safe area
+          bottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 20) : 20 
+        }
+      ]}
+      accessibilityRole="tablist"
+    >
+      <View style={styles.backgroundPill}>
+        {state.routes.map((route, index) => {
+          const isFocused = state.index === index;
+          const { options } = descriptors[route.key];
+          
+          // Fallback to label if customProps isn't defined
+          const item = options.customProps || { label: route.name };
+
           const onPress = () => {
-            // 1. Emit the 'tabPress' event. This allows listeners (like in AppNavigator) to run.
             const event = navigation.emit({
               type: 'tabPress',
               target: route.key,
               canPreventDefault: true,
             });
 
-            // 2. Only navigate if the event was NOT prevented (i.e., no Alert showed up)
             if (!isFocused && !event.defaultPrevented) {
               navigation.navigate(route.name);
             }
           };
 
-          // Render an animated tab button for each route.
+          const onLongPress = () => {
+            navigation.emit({
+              type: 'tabLongPress',
+              target: route.key,
+            });
+          };
+
           return (
             <AnimatedTabButton
-              key={index}
+              key={route.key} // Using route.key is more performant than index
               item={item}
               isFocused={isFocused}
-              onPress={onPress} // Use our new handler logic
+              onPress={onPress}
+              onLongPress={onLongPress}
             />
           );
         })}
@@ -58,25 +90,26 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
   );
 };
 
-// Define the styles for the component.
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute', // Position the tab bar over other content.
-    bottom: Platform.OS === 'ios' ? 30 : 20, // Adjust bottom spacing based on OS.
-    width: TAB_BAR_WIDTH,
-    height: TAB_BAR_HEIGHT,
-    alignSelf: 'center', // Center the tab bar horizontally.
+    position: 'absolute',
+    alignSelf: 'center',
+    // Elevation/Shadow container
+    zIndex: 1000,
   },
   backgroundPill: {
     flex: 1, 
     flexDirection: 'row', 
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.surface || '#FFFFFF',
     borderRadius: 40, 
+    // Shadow for iOS
     shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 10, 
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    // Shadow for Android
+    elevation: 8, 
+    overflow: 'hidden', // Ensures ripple effects don't bleed out
   },
 });
 
