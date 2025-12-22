@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, 
   Image, TextInput, KeyboardAvoidingView, Platform, Keyboard, StatusBar, 
-  ActivityIndicator, Share, Clipboard, LayoutAnimation, UIManager, 
+  ActivityIndicator, Share, Clipboard, LayoutAnimation, UIManager, Modal,
   Alert, Vibration 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ import OptionsModal from '../../components/OptionsModal'; // IMPORT HERE
 import { Colors } from '@config/Colors';
 import { useCommunity } from '@context/main/CommunityContext'; 
 import { useAlert } from '@context/other/AlertContext';
+import { useProfile } from '@context/main/ProfileContext';
 
 const CURRENT_USER_NAME = 'CurrentUser'; 
 
@@ -28,7 +29,7 @@ const ThreadScreen = ({ route, navigation }) => {
   const { post } = route.params; 
   const { showAlert, showToast } = useAlert();
   const { fetchReplies, submitReply, currentReplies, isLoadingReplies, togglePostLike } = useCommunity();
-  
+  const { profile } = useProfile(); 
   // --- STATE ---
   const [replyText, setReplyText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -36,6 +37,7 @@ const ThreadScreen = ({ route, navigation }) => {
   // Interaction State
   const [replyingTo, setReplyingTo] = useState(null); 
   const [editingComment, setEditingComment] = useState(null); 
+  const [fullScreenImage, setFullScreenImage] = useState(null);
   
   // Menu State
   const [selectedItem, setSelectedItem] = useState(null); // Can be Post or Comment
@@ -120,8 +122,8 @@ const ThreadScreen = ({ route, navigation }) => {
     const newReplyObj = {
       id: `local_${Date.now()}`,
       postId: post.id,
-      user: CURRENT_USER_NAME,
-      avatar: 'https://ui-avatars.com/api/?name=Current+User&background=random',
+      user: profile?.name || 'User',
+      avatar: profile?.avatarUrl || 'https://ui-avatars.com/api/?name=User',
       content: replyText,
       time: 'Just now',
       isEdited: false
@@ -156,7 +158,7 @@ const ThreadScreen = ({ route, navigation }) => {
   const getMenuOptions = () => {
     if (!selectedItem) return [];
 
-    const isOwner = selectedItem.user === CURRENT_USER_NAME;
+    const isOwner = selectedItem.user === profile?.name;
     const options = [];
 
     // 1. Reply Option
@@ -362,6 +364,7 @@ const ThreadScreen = ({ route, navigation }) => {
                 onReply={() => inputRef.current?.focus()} 
                 onShare={() => Share.share({ message: post.content })}
                 onOptions={() => openMenu(post, true)} 
+                onImagePress={() => setFullScreenImage(post.image)}
               />
               {currentReplies.length > 0 && <View style={styles.parentConnector} />}
             </View>
@@ -414,6 +417,28 @@ const ThreadScreen = ({ route, navigation }) => {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      <Modal 
+        visible={!!fullScreenImage} 
+        transparent={true} 
+        animationType="fade"
+        onRequestClose={() => setFullScreenImage(null)}
+      >
+        <View style={styles.fullScreenOverlay}>
+          <TouchableOpacity 
+            style={styles.closeImageBtn} 
+            onPress={() => setFullScreenImage(null)}
+          >
+            <Ionicons name="close" size={30} color="#FFF" />
+          </TouchableOpacity>
+          
+          <Image 
+            source={{ uri: fullScreenImage }} 
+            style={styles.fullScreenImage} 
+            resizeMode="contain" 
+          />
+        </View>
+      </Modal>
 
       {/* NEW SHARED OPTIONS MODAL */}
       <OptionsModal
@@ -484,6 +509,25 @@ const styles = StyleSheet.create({
   optionLabel: { color: '#F1F5F9', fontSize: 16, fontWeight: '500', marginLeft: 15 },
   modalDivider: { height: 1, backgroundColor: '#334155', marginVertical: 10 },
   cancelLabel: { color: '#94A3B8', fontSize: 16, fontWeight: '600', textAlign: 'center', width: '100%' },
+  fullScreenOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: '100%',
+    height: '100%',
+  },
+  closeImageBtn: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 40,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    padding: 5,
+  },
 });
 
 export default ThreadScreen;

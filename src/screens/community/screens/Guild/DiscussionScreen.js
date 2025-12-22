@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, 
   StatusBar, Image, Platform, ActivityIndicator, Modal, RefreshControl,
-  Share, Clipboard 
+  Share, Clipboard, ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -12,6 +12,7 @@ import OptionsModal from '../../components/OptionsModal'; // IMPORT HERE
 import { useCommunity } from '@context/main/CommunityContext';
 import { useAlert } from '@context/other/AlertContext'; 
 import { Colors } from '@config/Colors'; 
+import { useProfile } from '@context/main/ProfileContext';
 
 const DiscussionScreen = ({ route, navigation }) => {
   const { guildName, guildId } = route.params;
@@ -20,6 +21,7 @@ const DiscussionScreen = ({ route, navigation }) => {
     fetchGuildDetails, currentGuild 
   } = useCommunity();
   const { showAlert, showToast } = useAlert();
+  const { profile } = useProfile();
 
   const [refreshing, setRefreshing] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -101,7 +103,6 @@ const DiscussionScreen = ({ route, navigation }) => {
     }
   ];
 
-  // ... (Keep renderHeader and renderEmptyState same as your code) ...
   const renderHeader = () => (
     <View style={styles.headerContainer}>
       <View style={styles.headerTop}>
@@ -121,7 +122,7 @@ const DiscussionScreen = ({ route, navigation }) => {
 
       <View style={styles.inputWrapper}>
         <Image 
-          source={{ uri: 'https://ui-avatars.com/api/?name=Current+User&background=random' }} 
+          source={{ uri: profile?.avatarUrl || 'https://ui-avatars.com/api/?name=User' }}
           style={styles.inputAvatar} 
         />
         <TouchableOpacity style={styles.inputBox} activeOpacity={0.9} onPress={navigateToCreate}>
@@ -192,16 +193,63 @@ const DiscussionScreen = ({ route, navigation }) => {
         </LinearGradient>
       </TouchableOpacity>
 
-      {/* Info Modal (Kept as is for now, or you can refactor this too if needed) */}
-      <Modal visible={showInfoModal} transparent={true} animationType="fade" onRequestClose={() => setShowInfoModal(false)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowInfoModal(false)}>
-          <View style={styles.modalContent}>
-            {/* ... Modal Content ... */}
-             <Text style={styles.modalTitle}>{currentGuild?.name || guildName}</Text>
-             <Text style={styles.modalDesc}>{currentGuild?.desc || "Welcome!"}</Text>
-             {/* ... Close Btn ... */}
+      <Modal visible={showInfoModal} transparent={true} animationType="slide" onRequestClose={() => setShowInfoModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.infoModalContainer}>
+            <View style={styles.modalHandle} />
+            
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+              <View style={styles.modalHeaderHero}>
+                <LinearGradient colors={['rgba(99, 102, 241, 0.2)', 'transparent']} style={styles.heroGradient} />
+                <View style={styles.guildIconLarge}>
+                  <Text style={styles.guildInitial}>{guildName.charAt(0).toUpperCase()}</Text>
+                </View>
+                <Text style={styles.modalTitle}>#{guildName}</Text>
+                <View style={styles.statsRow}>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>1.2k</Text>
+                    <Text style={styles.statLabel}>Members</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>{posts.length}</Text>
+                    <Text style={styles.statLabel}>Discussions</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.modalSection}>
+                <Text style={styles.sectionTitle}>About this Guild</Text>
+                <Text style={styles.modalDesc}>
+                  {currentGuild?.desc || "Welcome to the official community channel. Connect, share, and discuss with fellow members of this guild."}
+                </Text>
+              </View>
+
+              <View style={styles.modalSection}>
+                <Text style={styles.sectionTitle}>Community Rules</Text>
+                {[
+                  { icon: 'shield-checkmark', title: 'Respectful behavior', desc: 'Treat everyone with kindness.' },
+                  { icon: 'chatbox-ellipses', title: 'Stay on topic', desc: 'Keep content relevant to this guild.' },
+                  { icon: 'hand-left', title: 'No Spam', desc: 'Avoid excessive self-promotion.' },
+                ].map((rule, idx) => (
+                  <View key={idx} style={styles.ruleItem}>
+                    <View style={styles.ruleIconBox}>
+                      <Ionicons name={rule.icon} size={18} color={Colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.ruleTitle}>{rule.title}</Text>
+                      <Text style={styles.ruleDesc}>{rule.desc}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              <TouchableOpacity style={styles.closeModalBtn} onPress={() => setShowInfoModal(false)}>
+                <Text style={styles.closeModalText}>Got it, thanks!</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
       {/* NEW SHARED OPTIONS MODAL */}
@@ -258,23 +306,156 @@ const styles = StyleSheet.create({
 
   fab: { position: 'absolute', bottom: 30, right: 20, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, elevation: 8, zIndex: 999 },
   fabGradient: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#1E293B', borderRadius: 24, padding: 24, alignItems: 'center' },
-  modalHeader: { alignItems: 'center', marginBottom: 20 },
-  modalIconBox: { width: 64, height: 64, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
-  modalTitle: { color: '#FFF', fontSize: 22, fontWeight: 'bold' },
-  modalSubTitle: { color: Colors.textSecondary, fontSize: 14, marginTop: 4 },
-  modalBody: { width: '100%' },
-  sectionLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 8 },
-  modalDesc: { color: '#E2E8F0', fontSize: 15, lineHeight: 22, textAlign: 'center', marginBottom: 20 },
-  closeModalBtn: { paddingVertical: 12, width: '100%', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 16 },
-  closeModalText: { color: '#FFF', fontWeight: 'bold' },
-  optionsOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  optionsContainer: { backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40 },
-  optionsHandle: { width: 40, height: 4, backgroundColor: '#334155', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  optionsTitle: { color: Colors.textSecondary, fontSize: 13, fontWeight: 'bold', marginBottom: 15, textTransform: 'uppercase', letterSpacing: 1 },
-  optionRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15 },
-  optionText: { color: '#FFF', fontSize: 16, marginLeft: 15, fontWeight: '500' }
+  
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'flex-end',
+  },
+  infoModalContainer: {
+    backgroundColor: Colors.surface, // Ensure this is a dark shade like #1E293B
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    maxHeight: '85%',
+    paddingTop: 12,
+  },
+  modalHandle: {
+    width: 40,
+    height: 5,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 3,
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
+
+  // --- HERO SECTION ---
+  modalHeaderHero: {
+    alignItems: 'center',
+    paddingVertical: 30,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  heroGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  guildIconLarge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  guildInitial: {
+    color: '#FFF',
+    fontSize: 32,
+    fontWeight: 'bold',
+  },
+  modalTitle: {
+    color: '#FFF',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+
+  // --- STATS ROW ---
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  statItem: {
+    alignItems: 'center',
+    paddingHorizontal: 25,
+  },
+  statValue: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  statLabel: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+
+  // --- SECTIONS & RULES ---
+  modalSection: {
+    paddingHorizontal: 24,
+    marginTop: 24,
+  },
+  sectionTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  modalDesc: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  ruleItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    padding: 12,
+    borderRadius: 16,
+  },
+  ruleIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  ruleTitle: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  ruleDesc: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
+  // --- FOOTER BUTTON ---
+  closeModalBtn: {
+    marginHorizontal: 24,
+    marginTop: 20,
+    backgroundColor: Colors.primary,
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  closeModalText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });
 
 export default DiscussionScreen;

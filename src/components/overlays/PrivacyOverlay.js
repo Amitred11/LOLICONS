@@ -29,7 +29,6 @@ const PrivacyOverlay = () => {
 
         return () => {
             subscription.remove();
-            // Cleanup: ensure we reset permission when component unmounts
             ScreenCapture.allowScreenCaptureAsync();
         };
     }, []);
@@ -39,17 +38,11 @@ const PrivacyOverlay = () => {
 
     return (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            {/* 
-              iOS: The BlurView looks nice and updates instantly.
-              Android: The screen capture prevention above makes the screen black 
-                       in the switcher, so this BlurView is a fallback 
-                       if the JS thread catches up.
-            */}
             <BlurView 
                 intensity={90} 
                 style={StyleSheet.absoluteFill} 
                 tint="dark" 
-                experimentalBlurMethod='dimezisBlurView' // Better performance on Android if available
+                experimentalBlurMethod='dimezisBlurView'
             />
         </View>
     );

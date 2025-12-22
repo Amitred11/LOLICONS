@@ -9,13 +9,14 @@ import * as ImagePicker from 'expo-image-picker'; // Import Image Picker
 import { useCommunity } from '@context/main/CommunityContext'; 
 import { useAlert } from '@context/other/AlertContext';
 import { Colors } from '@config/Colors';
+import { useProfile } from '@context/main/ProfileContext';
 
 const CreatePostScreen = ({ navigation, route }) => {
   const { showAlert, showToast } = useAlert();
   const { createPost } = useCommunity();
   
   const { guildName, guildId } = route.params || { guildName: 'Community', guildId: null };
-  
+  const { profile } = useProfile(); 
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null); // Changed to store URI string
@@ -92,13 +93,13 @@ const CreatePostScreen = ({ navigation, route }) => {
     // For now, we pass the local URI.
     
     const newPostData = {
-      user: 'CurrentUser',
-      avatar: 'https://ui-avatars.com/api/?name=Current+User&background=random',
-      content: content,
-      time: 'Just now',
-      guild: guildName,
-      guildId: guildId, 
-      image: selectedImage || null 
+      user: profile?.name || 'User', 
+      avatar: profile?.avatarUrl || 'https://ui-avatars.com/api/?name=User', 
+      content, 
+      time: 'Just now', 
+      guild: guildName, 
+      guildId, 
+      image: selectedImage 
     };
 
     const success = await createPost(newPostData);
@@ -146,11 +147,11 @@ const CreatePostScreen = ({ navigation, route }) => {
         >
           <View style={styles.userInfo}>
             <Image 
-              source={{ uri: 'https://ui-avatars.com/api/?name=Current+User&background=random' }} 
+              source={{ uri: profile?.avatarUrl || 'https://ui-avatars.com/api/?name=User' }}
               style={styles.avatar} 
             />
             <View>
-              <Text style={styles.username}>CurrentUser</Text>
+              <Text style={styles.username}>{profile?.name || 'User'}</Text>
               <View style={styles.tagContainer}>
                 <Text style={styles.tagText}>Posting in #{guildName}</Text>
               </View>

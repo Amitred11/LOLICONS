@@ -9,11 +9,12 @@ const PostCard = ({
   item, 
   onLike, 
   onUserPress, 
-  onPress,        // Tap on body/image -> Go to Thread
-  onReply,        // Tap on Reply button -> Go to Thread
-  onShare,        // Tap on Share button
-  onOptions,      // Tap on Three Dots
-  hideOptions = false // Option to hide dots (optional)
+  onPress,        
+  onReply,        
+  onShare,      
+  onOptions,  
+  onImagePress,    
+  hideOptions = false 
 }) => { 
   return (
     <View style={styles.card}>
@@ -45,7 +46,7 @@ const PostCard = ({
         )}
       </View>
 
-      {/* TEXT CONTENT - Tapping text also goes to thread */}
+      {/* TEXT CONTENT */}
       <TouchableOpacity activeOpacity={0.9} onPress={onPress} disabled={!onPress}>
         {item.content ? (
           <View style={styles.contentContainer}>
@@ -56,7 +57,11 @@ const PostCard = ({
 
       {/* IMAGE CONTENT */}
       {!!item.image && (
-        <TouchableOpacity activeOpacity={0.95} onPress={onPress} disabled={!onPress} style={styles.imageContainer}>
+        <TouchableOpacity 
+          activeOpacity={0.95} 
+          onPress={onImagePress || onPress} 
+          style={styles.imageContainer}
+        >
           <Image source={{ uri: item.image }} style={styles.postImage} resizeMode="cover" />
         </TouchableOpacity>
       )}

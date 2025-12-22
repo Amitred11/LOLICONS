@@ -178,6 +178,8 @@ export const MOCK_ALL_USERS = {
     // NEW: Detailed User Info
     location: 'Manila, Philippines',
     website: 'https://amitred.dev',
+    followers: 1240,
+    following: 85,
 
     extendedStats: {
         reading: {
@@ -273,6 +275,8 @@ export const MOCK_ALL_USERS = {
     handle: 'test_user',
     avatarUrl: 'https://i.pravatar.cc/150?u=test',
     xp: 0,
+    followers: 1240,
+    following: 85,
     extendedStats: {
         reading: { comics: 0, chapters: 0, novels: 0, timeSpent: '0h' },
         entertainment: { movies: 0, kdrama: 0, anime: 0, series: 0 },
@@ -368,7 +372,6 @@ export const ProfileAPI = {
         }
         
         Object.assign(MOCK_ALL_USERS[currentUser.id], updateData);
-        
         return { success: true, message: "Profile updated successfully" };
     },
 
@@ -590,5 +593,14 @@ export const ProfileAPI = {
     getContactTopics: async () => {
         await delay(400);
         return { success: true, data: MOCK_CONTACT_TOPICS };
+    },
+    toggleFollow: async (userId) => {
+    await delay(300);
+    const user = MOCK_ALL_USERS[userId];
+    if (user) {
+      const isNowFollowing = true; // Mock toggle
+      return { success: true, isFollowing: isNowFollowing };
     }
+    return { success: false };
+  }
 };
