@@ -1,10 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Image, StatusBar, TouchableOpacity, Dimensions, ImageBackground, ActivityIndicator, ScrollView } from 'react-native';
 import { Colors } from '@config/Colors';
 import { useAuth } from '@context/main/AuthContext';
 import { useProfile } from '@context/main/ProfileContext';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { useSharedValue, useAnimatedStyle, withDelay, withSpring, withTiming, useAnimatedScrollHandler, interpolate, Extrapolate, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
+import Animated, { 
+    useSharedValue, 
+    useAnimatedStyle, 
+    withDelay, 
+    withSpring, 
+    withTiming, 
+    useAnimatedScrollHandler, 
+    interpolate, 
+    Extrapolate, 
+    useAnimatedReaction, 
+    runOnJS 
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,6 +41,7 @@ const ProfileScreen = () => {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
 
+    // -- STATE --
     const [activeTab, setActiveTab] = useState(0);
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedBadge, setSelectedBadge] = useState(null);
@@ -37,6 +49,7 @@ const ProfileScreen = () => {
     const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
     const [isHeaderInteractive, setIsHeaderInteractive] = useState(false);
 
+    // -- ANIMATION VALUES --
     const scrollY = useSharedValue(0);
     const tabIndicatorPos = useSharedValue(0);
     const xpFill = useSharedValue(0);
@@ -44,6 +57,15 @@ const ProfileScreen = () => {
     const currentRank = profile?.currentRank || { name: 'Loading', color: Colors.textSecondary, minXp: 0 };
     const nextRank = profile?.nextRank;
 
+    // -- DATA PROCESSING --
+    const headerStats = useMemo(() => [
+        { label: 'Comics', value: profile?.extendedStats?.reading?.comics ?? 0 },
+        { label: 'Chapters', value: profile?.extendedStats?.reading?.chapters ?? 0 },
+        { label: 'Anime', value: profile?.extendedStats?.entertainment?.anime ?? 0 },
+        { label: 'Likes', value: profile?.extendedStats?.community?.likesReceived ?? 0 },
+    ], [profile]);
+
+    // -- EFFECTS --
     useFocusEffect(useCallback(() => { fetchProfile(true); }, [fetchProfile]));
 
     useEffect(() => { 
@@ -58,6 +80,7 @@ const ProfileScreen = () => {
         (isInteractive, prev) => { if (isInteractive !== prev) runOnJS(setIsHeaderInteractive)(isInteractive); }
     );
 
+    // -- HANDLERS --
     const scrollHandler = useAnimatedScrollHandler((event) => { scrollY.value = event.contentOffset.y; });
 
     const handleTabPress = useCallback((index) => { 
@@ -74,14 +97,32 @@ const ProfileScreen = () => {
         navigation.navigate('ViewAllHF', { type, title });
     }, [activeTab, profile, navigation]);
 
+    // -- ANIMATED STYLES --
     const animatedXpFillStyle = useAnimatedStyle(() => ({ width: `${xpFill.value * 100}%` }));
-    const animatedHeaderBannerStyle = useAnimatedStyle(() => ({ transform: [{ scale: interpolate(scrollY.value, [-HEADER_BANNER_HEIGHT, 0], [1.5, 1], Extrapolate.CLAMP) }] }));
-    const animatedAvatarContainerStyle = useAnimatedStyle(() => ({ transform: [{ translateY: interpolate(scrollY.value, [0, 120], [0, -60], Extrapolate.CLAMP) }], opacity: interpolate(scrollY.value, [100, 150], [1, 0], Extrapolate.CLAMP) }));
-    const animatedCompactHeaderStyle = useAnimatedStyle(() => ({ opacity: interpolate(scrollY.value, [180, 210], [0, 1], Extrapolate.CLAMP) }));
-    const animatedTabIndicatorStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tabIndicatorPos.value }] }));
+    
+    const animatedHeaderBannerStyle = useAnimatedStyle(() => ({ 
+        transform: [{ scale: interpolate(scrollY.value, [-HEADER_BANNER_HEIGHT, 0], [1.5, 1], Extrapolate.CLAMP) }] 
+    }));
+    
+    const animatedAvatarContainerStyle = useAnimatedStyle(() => ({ 
+        transform: [{ translateY: interpolate(scrollY.value, [0, 120], [0, -60], Extrapolate.CLAMP) }], 
+        opacity: interpolate(scrollY.value, [100, 150], [1, 0], Extrapolate.CLAMP) 
+    }));
+    
+    const animatedCompactHeaderStyle = useAnimatedStyle(() => ({ 
+        opacity: interpolate(scrollY.value, [180, 210], [0, 1], Extrapolate.CLAMP) 
+    }));
+    
+    const animatedTabIndicatorStyle = useAnimatedStyle(() => ({ 
+        transform: [{ translateX: tabIndicatorPos.value }] 
+    }));
 
     if (isLoading || !profile) {
-        return <View style={[styles.container, styles.centered]}><ActivityIndicator size="large" color={Colors.secondary} /></View>;
+        return (
+            <View style={[styles.container, styles.centered]}>
+                <ActivityIndicator size="large" color={Colors.secondary} />
+            </View>
+        );
     }
 
     return (
@@ -89,7 +130,11 @@ const ProfileScreen = () => {
             <StatusBar barStyle="light-content" />
             {currentRank.name === '¿¿' && <GlitchEffect />}
             
-            <Animated.View pointerEvents={isHeaderInteractive ? 'auto' : 'none'} style={[styles.compactHeader, { height: insets.top + 60, paddingTop: insets.top }, animatedCompactHeaderStyle]}>
+            {/* -- STICKY COMPACT HEADER -- */}
+            <Animated.View 
+                pointerEvents={isHeaderInteractive ? 'auto' : 'none'} 
+                style={[styles.compactHeader, { height: insets.top + 60, paddingTop: insets.top }, animatedCompactHeaderStyle]}
+            >
                 <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
                 <View style={styles.compactLeft}>
                     <View style={styles.compactAvatarWrapper}>
@@ -107,20 +152,28 @@ const ProfileScreen = () => {
                 </View>
             </Animated.View>
             
-            <Animated.ScrollView onScroll={scrollHandler} scrollEventThrottle={16} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
+            <Animated.ScrollView 
+                onScroll={scrollHandler} 
+                scrollEventThrottle={16} 
+                showsVerticalScrollIndicator={false} 
+                contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+            >
+                {/* -- MAIN HEADER -- */}
                 <View style={styles.header}>
                     <Animated.View style={[styles.headerBannerWrapper, animatedHeaderBannerStyle]}>
-                        <ImageBackground source={profile.favoriteComicBanner} style={styles.headerBanner} resizeMode="cover">
+                        <ImageBackground source={profile.favoriteComicBanner?.uri ? profile.favoriteComicBanner : { uri: profile.favoriteComicBanner } } style={styles.headerBanner} resizeMode="cover">
                             <LinearGradient colors={['transparent', 'rgba(0,0,0,0.6)', Colors.background]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} />
                         </ImageBackground>
                     </Animated.View>
+
                     <View style={styles.headerActions}>
                         <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Account')}><Ionicons name="people-outline" size={22} color={Colors.text} /></TouchableOpacity>
                         <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('EditProfile')}><Ionicons name="create-outline" size={22} color={Colors.text} /></TouchableOpacity>
                     </View>
+
                     <Animated.View style={[styles.avatarContainer, animatedAvatarContainerStyle]}>
                         <View style={styles.avatarWrapper}>
-                            <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} />
+                            <Image source={profile.avatarUrl ? { uri: profile.avatarUrl } : require('@assets/dev-avatar.png')} style={styles.avatar} />
                             <TouchableOpacity style={styles.rankRealm} onPress={() => setIsRankModalVisible(true)}>
                                 <View style={styles.crestContainer}>
                                     <BlurView intensity={40} tint="dark" style={[styles.crestBlur, { borderColor: currentRank.color }]}>
@@ -131,11 +184,19 @@ const ProfileScreen = () => {
                         </View>
                         <Text style={styles.userName}>{profile.name}</Text>
                         {!!profile.bio && <Text style={styles.bioText}>{profile.bio}</Text>}
-                        <View style={styles.statsContainer}>{profile.stats.map(stat => <StatItem key={stat.label} {...stat} />)}</View>
+                        
+                        <View style={styles.statsContainer}>
+                            {headerStats.map((stat, idx) => (
+                                <StatItem key={idx} label={stat.label} value={stat.value.toLocaleString()} />
+                            ))}
+                        </View>
                     </Animated.View>
                 </View>
 
+                {/* -- CONTENT SECTIONS -- */}
                 <View style={styles.contentContainer}>
+                    
+                    {/* Progress Section */}
                     <AnimatedSection index={1}>
                         <View style={styles.rankCard}>
                             <BlurView intensity={25} tint="dark" style={styles.glassEffect} />
@@ -143,10 +204,37 @@ const ProfileScreen = () => {
                                 <Text style={styles.xpLabel}>Next Rank: {nextRank?.name || 'Max'}</Text>
                                 <Text style={styles.xpValue}>{`${profile.xp} / ${nextRank?.minXp || profile.xp}`}</Text>
                             </View>
-                            <View style={styles.xpBarTrack}><Animated.View style={[styles.xpBarFill, animatedXpFillStyle, {backgroundColor: currentRank.color}]} /></View>
+                            <View style={styles.xpBarTrack}>
+                                <Animated.View style={[styles.xpBarFill, animatedXpFillStyle, {backgroundColor: currentRank.color}]} />
+                            </View>
+                        </View>
+                    </AnimatedSection>
+
+                    {/* Detailed Stats Section */}
+                    <AnimatedSection index={1.5}>
+                         <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>Activity Overview</Text>
+                        </View>
+                        <View style={styles.glassCard}>
+                            <BlurView intensity={25} tint="dark" style={styles.glassEffect} />
+                            <View style={styles.detailedStatsGrid}>
+                                <View style={styles.statBox}>
+                                    <Text style={styles.statBoxValue}>{profile.extendedStats?.reading?.timeSpent}</Text>
+                                    <Text style={styles.statBoxLabel}>Time Spent</Text>
+                                </View>
+                                <View style={styles.statBox}>
+                                    <Text style={styles.statBoxValue}>{profile.extendedStats?.community?.comments}</Text>
+                                    <Text style={styles.statBoxLabel}>Comments</Text>
+                                </View>
+                                <View style={styles.statBox}>
+                                    <Text style={styles.statBoxValue}>{profile.extendedStats?.entertainment?.movies}</Text>
+                                    <Text style={styles.statBoxLabel}>Movies</Text>
+                                </View>
+                            </View>
                         </View>
                     </AnimatedSection>
                     
+                    {/* Collection Tabs Section */}
                     <AnimatedSection index={2}>
                         <View style={styles.section}>
                             <View style={styles.tabContainer}>
@@ -187,6 +275,7 @@ const ProfileScreen = () => {
                         </View>
                     </AnimatedSection>
                     
+                    {/* Trophies Section */}
                     <AnimatedSection index={3}>
                         <View style={styles.sectionHeader}>
                             <Text style={styles.sectionTitle}>Trophy Case</Text>
@@ -203,7 +292,19 @@ const ProfileScreen = () => {
                         )}
                     </AnimatedSection>
 
-                    <AnimatedSection index={4}><Text style={[styles.sectionTitle, {marginBottom: 12}]}>Settings & Support</Text><View style={styles.glassCard}><BlurView intensity={25} tint="dark" style={styles.glassEffect} /><ProfileRow icon="notifications-outline" label="Notifications" onPress={() => navigation.navigate('NotificationSettings')} /><ProfileRow icon="server-outline" label="Data & Storage" onPress={() => navigation.navigate('DataAndStorage')} /><ProfileRow icon="shield-checkmark-outline" label="Privacy" onPress={() => navigation.navigate('Privacy')} /><ProfileRow icon="help-circle-outline" label="Help & Support" onPress={() => navigation.navigate('Help')} isLast /></View></AnimatedSection>
+                    {/* Settings Section */}
+                    <AnimatedSection index={4}>
+                        <Text style={[styles.sectionTitle, {marginBottom: 12}]}>Settings & Support</Text>
+                        <View style={styles.glassCard}>
+                            <BlurView intensity={25} tint="dark" style={styles.glassEffect} />
+                            <ProfileRow icon="notifications-outline" label="Notifications" onPress={() => navigation.navigate('NotificationSettings')} />
+                            <ProfileRow icon="server-outline" label="Data & Storage" onPress={() => navigation.navigate('DataAndStorage')} />
+                            <ProfileRow icon="shield-checkmark-outline" label="Privacy" onPress={() => navigation.navigate('Privacy')} />
+                            <ProfileRow icon="help-circle-outline" label="Help & Support" onPress={() => navigation.navigate('Help')} isLast />
+                        </View>
+                    </AnimatedSection>
+
+                    {/* Logout Section */}
                     <AnimatedSection index={5}>
                         <View style={[styles.glassCard, { marginBottom: insets.bottom + 90 }]}>
                             <BlurView intensity={25} tint="dark" style={styles.glassEffect} />
@@ -213,6 +314,7 @@ const ProfileScreen = () => {
                 </View>
             </Animated.ScrollView>
 
+            {/* -- MODALS -- */}
             <AchievementModal badge={selectedBadge} visible={modalVisible} onClose={() => setModalVisible(false)} />
             <RankInfoModal isVisible={isRankModalVisible} onClose={() => setIsRankModalVisible(false)} rank={currentRank} />
             <LogoutModal visible={isLogoutModalVisible} onClose={() => setIsLogoutModalVisible(false)} onLogout={logout} />
@@ -221,21 +323,32 @@ const ProfileScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  // Layout
   container: { flex: 1, backgroundColor: Colors.background },
   centered: { justifyContent: 'center', alignItems: 'center' },
+  contentContainer: { paddingHorizontal: 20, gap: 25, paddingTop: 20 },
+  
+  // Header Banner & Actions
   header: { alignItems: 'center' },
   headerBannerWrapper: { width: '100%', height: HEADER_BANNER_HEIGHT, alignItems: 'center', overflow: 'hidden' },
   headerBanner: { width: '100%', height: '100%' },
   headerActions: { position: 'absolute', top: 50, right: 20, flexDirection: 'row', gap: 10, zIndex: 2 },
   headerButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
+  
+  // Avatar & Basic Info
   avatarContainer: { alignItems: 'center', marginTop: -HEADER_BANNER_HEIGHT/2, zIndex: 1, width: '100%', paddingHorizontal: 20 },
   avatarWrapper: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
   avatar: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, borderWidth: 4, borderColor: Colors.background, backgroundColor: Colors.surface },
+  userName: { fontFamily: 'Poppins_700Bold', color: Colors.text, fontSize: 28, marginTop: 12 },
+  bioText: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 14, textAlign: 'center', marginTop: 10, lineHeight: 20 },
+  
+  // Rank Crest
+  rankRealm: { left: 45 },
   crestContainer: { position: 'absolute', bottom: -5, right: -10, zIndex: 2 },
   crestBlur: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderWidth: 2 },
   crestText: { fontFamily: 'Poppins_700Bold', fontSize: 20 },
-  userName: { fontFamily: 'Poppins_700Bold', color: Colors.text, fontSize: 28, marginTop: 12 },
-  bioText: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 14, textAlign: 'center', marginTop: 10, lineHeight: 20 },
+  
+  // Compact Header
   compactHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.5)' },
   compactLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 },
   compactAvatarWrapper: { position: 'relative', marginRight: 12 },
@@ -245,23 +358,37 @@ const styles = StyleSheet.create({
   compactUserName: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 16 },
   compactActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   compactButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
-  contentContainer: { paddingHorizontal: 20, gap: 25, paddingTop: 20 },
+  
+  // Glass Cards
   glassCard: { borderRadius: 20, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80' },
   glassEffect: { ...StyleSheet.absoluteFillObject },
+  
+  // Rank Card
   rankCard: { borderRadius: 20, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80', padding: 15 },
-  rankRealm: { left: 45 },
+  xpHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  xpLabel: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 14 },
+  xpValue: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 14 },
+  xpBarTrack: { height: 10, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 5, overflow: 'hidden' },
+  xpBarFill: { height: '100%', borderRadius: 5 },
+  
+  // Extended Stats Grid
+  detailedStatsGrid: { flexDirection: 'row', padding: 20, justifyContent: 'space-between' },
+  statBox: { alignItems: 'center', flex: 1 },
+  statBoxValue: { fontFamily: 'Poppins_700Bold', color: Colors.text, fontSize: 16 },
+  statBoxLabel: { fontFamily: 'Poppins_400Regular', color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
+  
+  // Sections
   section: {},
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingHorizontal: 5 },
   sectionTitle: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 18 },
   subSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15, marginBottom: 10, paddingHorizontal: 5 },
   subSectionTitle: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 14 },
   seeAllText: { fontFamily: 'Poppins_500Medium', color: Colors.secondary, fontSize: 14 },
-  xpHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  xpLabel: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 14 },
-  xpValue: { fontFamily: 'Poppins_600SemiBold', color: Colors.text, fontSize: 14 },
-  xpBarTrack: { height: 10, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 5, overflow: 'hidden' },
-  xpBarFill: { height: '100%', borderRadius: 5 },
+  
+  // Header Stat Items
   statsContainer: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginTop: 20, paddingVertical: 15, borderRadius: 16, overflow: 'hidden' },
+  
+  // Tabs
   tabContainer: { flexDirection: 'row', borderRadius: 16, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.surface + '80', padding: 5, gap: 10 },
   tabButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 12, zIndex: 2, gap: 8 },
   tabLabel: { fontFamily: 'Poppins_500Medium', color: Colors.textSecondary, fontSize: 16 },

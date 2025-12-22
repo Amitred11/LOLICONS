@@ -70,6 +70,20 @@ export const ProfileProvider = ({ children }) => {
         }
     }, [fetchProfile]);
 
+    const uploadCoverPhoto = useCallback(async (uri) => {
+        try {
+            const bannerData = { favoriteComicBanner: { uri } };
+            setProfile(prev => ({ ...prev, ...bannerData }));
+            
+            const response = await ProfileAPI.updateProfile(bannerData);
+            if (response.success) return true;
+            throw new Error("Cover upload failed");
+        } catch (e) {
+            fetchProfile(true); // Revert
+            return false;
+        }
+    }, [fetchProfile]);
+
     const removeItem = useCallback(async (type, itemId) => {
         if (!profile) return;
         const previousList = profile[type];
@@ -162,10 +176,10 @@ export const ProfileProvider = ({ children }) => {
     const value = useMemo(() => ({
         profile, isLoading, error, fetchProfile, updateProfile, removeItem, clearProfile, getRankProgress,
         toggleTwoFactor, logoutAllSessions, blockUser, unblockUser, updateNotificationPreference,
-        updateQuietHours, clearCache, clearDownloads, changePassword, connectSocial, deleteAccount, uploadAvatar
+        updateQuietHours, clearCache, clearDownloads, changePassword, connectSocial, deleteAccount, uploadAvatar, uploadCoverPhoto
     }), [profile, isLoading, error, fetchProfile, updateProfile, removeItem, clearProfile, getRankProgress, 
          toggleTwoFactor, logoutAllSessions, blockUser, unblockUser, updateNotificationPreference, 
-         updateQuietHours, clearCache, clearDownloads, changePassword, connectSocial, deleteAccount]);
+         updateQuietHours, clearCache, clearDownloads, changePassword, connectSocial, deleteAccount, uploadCoverPhoto]);
 
     return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
 };

@@ -62,7 +62,7 @@ export const MOCK_RANKS = [
   { 
     name: '神', 
     minXp: 20000, 
-    color: '#00f3fcff',
+    color: '#00f3fc',
     title: 'Divine Monarch',
     description: 'True ascension to godhood. A divine being who can establish their own domain and create laws, wielding power that defies mortal comprehension.' 
   },
@@ -83,14 +83,14 @@ export const MOCK_RANKS = [
   { 
     name: '道', 
     minXp: 250000, 
-    color: '#F5F5F5',
+    color: '#ffffff',
     title: 'Embodiment of the Dao',
     description: 'No longer just a being, but an embodiment of a fundamental principle of the universe. They are the law, not merely a follower of it.' 
   },
   { 
     name: '源', 
     minXp: 500000, 
-    color: '#FFF8E1',
+    color: '#fcedbc',
     title: 'The Primeval Source',
     description: 'Becoming the origin point from which concepts and realities spring forth. The alpha from which all things begin.'
   },
@@ -173,13 +173,12 @@ export const MOCK_ALL_USERS = {
     name: 'AMITRED11',
     handle: 'pogiako',
     avatarUrl: 'https://i.pravatar.cc/150?u=a042581f4e29026704d',
-    xp: 100000002,
+    xp: 502000,
     
     // NEW: Detailed User Info
     location: 'Manila, Philippines',
     website: 'https://amitred.dev',
 
-    // NEW: Detailed Statistics
     extendedStats: {
         reading: {
             comics: 245,
@@ -200,13 +199,6 @@ export const MOCK_ALL_USERS = {
             reports: 0
         }
     },
-
-    // Legacy simple stats (kept for backward compatibility)
-    stats: [
-      { label: 'Comics Read', value: '2K' },
-      { label: 'Chapters', value: '1.2B' },
-      { label: 'Rank', value: '#1' },
-    ],
     
     favoriteComicBanner: { uri: 'https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?q=80&w=1000&auto=format&fit=crop' },
     status: { type: 'online', text: 'Online' },
@@ -333,9 +325,18 @@ export const ProfileAPI = {
             console.log("Mock ComicService not available or failed, using local user data.");
         }
 
-        let banner = currentUser.favoriteComicBanner;
-        if (currentUser.favorites && currentUser.favorites.length > 0 && currentUser.favorites[0].image) {
-            banner = currentUser.favorites[0].image;
+        let rawBanner = currentUser.favoriteComicBanner;
+        let finalBanner = null;
+
+        if (rawBanner) {
+        // Normalize to { uri: '...' } object
+           finalBanner = typeof rawBanner === 'string' ? { uri: rawBanner } : rawBanner;
+        } 
+        if (!finalBanner || !finalBanner.uri) {
+            if (currentUser.favorites?.length > 0 && currentUser.favorites[0].image) {
+                const favImg = currentUser.favorites[0].image;
+                finalBanner = typeof favImg === 'string' ? { uri: favImg } : favImg;
+            }
         }
 
         // Ensure stats exist for safety
@@ -351,7 +352,7 @@ export const ProfileAPI = {
                 ...currentUser,
                 currentRank,
                 nextRank,
-                favoriteComicBanner: banner,
+                favoriteComicBanner: finalBanner || { uri: 'https://via.placeholder.com/800x400' }, 
                 extendedStats: safeStats
             }
         };
