@@ -3,8 +3,7 @@ import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, 
   LayoutAnimation, Keyboard, Platform 
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'; // Added MaterialCommunityIcons
 import { Colors } from '@config/Colors'; 
 import { useNotifications } from '@context/main/NotificationContext'; 
 
@@ -27,7 +26,6 @@ const CommunitySearchHeader = ({
   const inputRef = useRef(null);
   const { unreadCount } = useNotifications();
 
-  // Handle Animation when focus state changes (UNCHANGED)
   useEffect(() => {
     LayoutAnimation.configureNext({
       duration: 300,
@@ -49,32 +47,47 @@ const CommunitySearchHeader = ({
 
   return (
     <View style={styles.container}>
-      {/* Top Header: Title & Notification */}
+      {/* Top Header: Title & Notification & Settings */}
       {showTitle && (
         <View style={styles.headerTop}>
           <View>
             <Text style={styles.welcomeText}>Welcome back</Text>
             <Text style={styles.titleText}>Community Hub</Text>
           </View>
-          <TouchableOpacity 
-            activeOpacity={0.7}
-            style={styles.notifButton}
-            onPress={() => navigation.navigate('Notifications')}
-          >
-            <View style={styles.iconCircle}>
-                <Ionicons name="notifications-outline" size={22} color={Colors.text} />
-                {unreadCount > 0 && (
-                    <View style={styles.glowContainer}>
-                        <View style={styles.notifBadge} />
-                        <View style={styles.notifPulse} />
-                    </View>
-                )} 
-            </View>
-          </TouchableOpacity>
+          
+          <View style={styles.actionButtons}>
+             {/* --- NEW: Settings / Realm Founding Link --- */}
+             <TouchableOpacity 
+                activeOpacity={0.7}
+                style={styles.headerIconButton}
+                onPress={() => navigation.navigate('CommunitySettings')}
+              >
+                <View style={styles.iconCircle}>
+                    <MaterialCommunityIcons name="sword-cross" size={22} color={Colors.text} />
+                </View>
+              </TouchableOpacity>
+
+              {/* Notification Button */}
+              <TouchableOpacity 
+                activeOpacity={0.7}
+                style={styles.headerIconButton}
+                onPress={() => navigation.navigate('Notifications')}
+              >
+                <View style={styles.iconCircle}>
+                    <Ionicons name="notifications-outline" size={22} color={Colors.text} />
+                    {unreadCount > 0 && (
+                        <View style={styles.glowContainer}>
+                            <View style={styles.notifBadge} />
+                            <View style={styles.notifPulse} />
+                        </View>
+                    )} 
+                </View>
+              </TouchableOpacity>
+          </View>
         </View>
       )}
 
-      {/* Search Bar - Modern Glass style */}
+      {/* Search Bar */}
       <View style={[styles.searchWrapper, !showTitle && styles.searchWrapperActive]}>
         <View style={[
             styles.searchContainer, 
@@ -103,7 +116,6 @@ const CommunitySearchHeader = ({
             <TouchableOpacity 
                 onPress={handleCancel} 
                 style={styles.cancelBtn}
-                hitSlop={{top: 15, bottom: 15, left: 15, right: 15}}
             >
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -128,6 +140,10 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     height: 60,
   },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12, // Space between settings and notifications
+  },
   welcomeText: { 
     color: THEME.textSecondary, 
     fontSize: 11, 
@@ -138,13 +154,12 @@ const styles = StyleSheet.create({
   },
   titleText: { 
     color: '#FFF', 
-    fontSize: 34, 
+    fontSize: 28, 
     fontWeight: '900', 
     letterSpacing: -1 
   },
   
-  // Notification Icon Styling
-  notifButton: { position: 'relative' },
+  headerIconButton: { position: 'relative' },
   iconCircle: {
       width: 44,
       height: 44,
@@ -178,7 +193,6 @@ const styles = StyleSheet.create({
     opacity: 0.3,
   },
   
-  // Search Bar Styling
   searchWrapper: { width: '100%' },
   searchWrapperActive: { marginTop: Platform.OS === 'ios' ? 0 : 10 }, 
   searchContainer: { 
@@ -194,10 +208,6 @@ const styles = StyleSheet.create({
   searchContainerFocused: {
     borderColor: Colors.primary,
     backgroundColor: THEME.surfaceFocused,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
   },
   searchContainerFull: {
       height: 50,
@@ -207,7 +217,7 @@ const styles = StyleSheet.create({
     flex: 1, 
     marginLeft: 10, 
     color: '#FFF', 
-    fontSize: 15, 
+    fontSize: 12, 
     fontWeight: '600',
     height: '100%' 
   },

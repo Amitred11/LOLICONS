@@ -50,7 +50,7 @@ const CommunityScreen = ({ navigation }) => {
       {!isSearchFocused && !searchText && (
         <TouchableOpacity 
           activeOpacity={0.9}
-          onPress={() => navigation.navigate('Marketplace')}
+          onPress={() => navigation.navigate('CommunitySettings')}
           style={styles.bannerWrapper}
         >
           <LinearGradient

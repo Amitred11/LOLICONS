@@ -86,8 +86,33 @@ let _comics = [
     views: 15000000, 
     rating: 4.9,
     chapters: Array.from({ length: 100 }, (_, i) => ({ id: `${100-i}`, title: `Chapter ${100-i}`, releaseDate: getDateString(i) })),
-  }
+  },
+  {
+    id: 'novel-1',
+    title: 'The Shadow Monarch’s Legacy',
+    author: 'V.H. Nightfall',
+    status: 'Ongoing',
+    type: 'Novel',
+    isNovel: true, // Flag to distinguish
+    genres: ['Fantasy', 'System', 'Adventure'],
+    synopsis: 'A world where text is power. After failing the entrance exam, Arthur finds an old book...',
+    image: { uri: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=800' },
+    cover: { uri: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=800' },
+    views: 1200000,
+    rating: 4.7,
+    chapters: [
+        { 
+            id: '1', 
+            title: 'Chapter 1: The Awakening', 
+            releaseDate: new Date().toISOString(),
+            content: `The air in the Great Library was thick with the scent of ancient parchment and ozone.\n\nArthur gripped the edge of the mahogany table, his knuckles white. Before him lay the "Lexicon of Void," a book that shouldn't exist. \n\n"System initialization..." a cold, mechanical voice echoed in his mind. \n\nHe gasped, falling back as blue holographic windows erupted in his vision. Unlike the Gold-tier mages, his interface was dark—pitch black with crimson text.\n\n[Title Acquired: The Last Reader]\n[Unique Skill Unlocked: Narrative Interference]\n\n"So it's true," he whispered, a manic grin spreading across his face. "The world really is just a story."`
+        },
+        { id: '2', title: 'Chapter 2: Narrative Interference', content: 'Continuing the story...' }
+    ]
+}
 ];
+
+
 
 let _history = [
   {
@@ -214,6 +239,12 @@ export const ComicService = {
         await delay(200);
         _library.delete(id);
         return { success: true };
+    },
+
+    getNovelChapter: async (comicId, chapterId) => {
+        await delay(500);
+        const novel = _comics.find(c => c.id === comicId);
+        return novel?.chapters.find(ch => ch.id === chapterId.toString());
     },
 
     // 5. Favorites Actions

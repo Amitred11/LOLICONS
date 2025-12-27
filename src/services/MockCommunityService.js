@@ -221,6 +221,8 @@ const MARKET_ITEMS_DATA = [
   }
 ];
 
+let MOCK_GUILD_PROPOSALS = [];
+
 export const CommunityAPI = {
   getGuilds: async () => {
     return new Promise((resolve) => {
@@ -432,5 +434,28 @@ export const CommunityAPI = {
           color: Colors.secondary || '#10B981' 
         };
     }
+  },
+  submitGuildProposal: async (userId, proposalData) => {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const newProposal = {
+          id: `prop_${Date.now()}`,
+          userId,
+          ...proposalData,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+        };
+        MOCK_GUILD_PROPOSALS.push(newProposal);
+        resolve({ success: true, data: newProposal });
+      }, 1000);
+    });
+  },
+
+  getUserProposals: async (userId) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(MOCK_GUILD_PROPOSALS.filter(p => p.userId === userId));
+      }, 500);
+    });
   }
-};
+};  

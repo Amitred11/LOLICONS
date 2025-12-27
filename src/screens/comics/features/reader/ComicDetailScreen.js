@@ -60,11 +60,21 @@ const ComicDetailScreen = ({ route, navigation }) => {
   }, [comic, getDownloadedCoverUri]);
 
   const handleReadPress = useCallback((chapter) => { 
-      const chapterToRead = chapter || sortedChapters[0];
-      if (chapterToRead) { 
-          updateHistory(comic.id, chapterToRead.title);
-          navigation.navigate('Reader', { comicId: comic.id, chapterId: chapterToRead.id }); 
-      } 
+    const chapterToRead = chapter || sortedChapters[0];
+    
+    if (chapterToRead && comic) { 
+        // 1. Log to history (works for both comics and novels)
+        updateHistory(comic.id, chapterToRead.title);
+        
+        // 2. Determine which screen to go to based on the isNovel flag
+        const targetRoute = comic.isNovel ? 'NovelReader' : 'Reader';
+        
+        // 3. Navigate with the same params
+        navigation.navigate(targetRoute, { 
+            comicId: comic.id, 
+            chapterId: chapterToRead.id 
+        }); 
+    } 
   }, [comic, sortedChapters, navigation, updateHistory]);
 
   const showRatingModal = useCallback(() => {
@@ -121,7 +131,7 @@ const ComicDetailScreen = ({ route, navigation }) => {
         <View style={{ paddingHorizontal: 20 }}>
             <ComicInfo comic={comic} imageSource={imageSource} userRating={userRating} onRatePress={showRatingModal} />
             <ActionButtons 
-                onRead={() => handleReadPress()}
+                onRead={() => handleReadPress(sortedChapters[sortedChapters.length - 1])}
                 onFavorite={() => toggleFavorite(comic)}
                 onLibrary={() => isComicInLibrary ? removeFromLibrary(comic.id) : addToLibrary(comic)}
                 isFavorite={isComicFavorite}

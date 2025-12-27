@@ -14,6 +14,7 @@ import NotificationScreen from '@features/notification/NotificationScreen';
 // COMICS
 import ComicDetailScreen from '@features/comics/features/reader/ComicDetailScreen';
 import ReaderScreen from '@features/comics/features/reader/ReaderScreen';
+import NovelReaderScreen from '@features/comics/features/reader/NovelReaderScreen';
 import SeeAllScreen from '@features/comics/features/discovery/SeeAllScreen';
 
 // COMMUNITY
@@ -23,6 +24,7 @@ import MarketDetailScreen from '@features/community/screens/Market/MarketDetailS
 import DiscussionScreen from '@features/community/screens/Guild/DiscussionScreen';
 import CreatePostScreen from '@features/community/screens/Guild/CreatePostScreen';
 import ThreadScreen from '@features/community/screens/Guild/ThreadScreen';
+import CommunitySettingsScreen from '@features/community/screens/CommunitySettingsScreen';
 // PROFILE SETTINGS
 import EditProfileScreen from '@features/profile/screens/EditProfileScreen';
 import AccountScreen from '@features/profile/screens/settings/AccountScreen';
@@ -75,6 +77,7 @@ const MainStackNavigator = () => {
       {/* COMICS */}
       <AppStack.Screen name="ComicDetail" component={ComicDetailScreen} />
       <AppStack.Screen name="Reader" component={ReaderScreen} />
+      <AppStack.Screen name="NovelReader" component={NovelReaderScreen} />
       <AppStack.Screen name="SeeAll" component={SeeAllScreen} />
 
       {/* MEDIA AND COMMUNITY */}
@@ -112,6 +115,7 @@ const MainStackNavigator = () => {
         component={ThreadScreen} 
         options={{ animation: 'slide_from_right' }}
       />
+      <AppStack.Screen name="CommunitySettings" component={CommunitySettingsScreen} options={{ animation: 'slide_from_right' }}/>
       {/* CHATS */}
       <AppStack.Screen name="Friends" component={FriendsScreen} />
       <AppStack.Screen name="ChatList" component={ChatListScreen} />

@@ -31,7 +31,7 @@ export const CommunityProvider = ({ children }) => {
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
   const [isLoadingMarket, setIsLoadingMarket] = useState(false);
   const [isLoadingReplies, setIsLoadingReplies] = useState(false); // New
-
+  const [userProposals, setUserProposals] = useState([]);
   // --- State: Errors ---
   const [error, setError] = useState(null);
 
@@ -102,18 +102,27 @@ export const CommunityProvider = ({ children }) => {
     }
   }, []);
 
-  const submitGuildProposal = useCallback(async (guildId, config, reason) => {
+  const submitGuildProposal = useCallback(async (userId, proposalData) => {
     setIsSubmitting(true);
     try {
-      await CommunityAPI.submitConfigProposal(guildId, config, reason);
-      return true;
+        const res = await CommunityAPI.submitGuildProposal(userId, proposalData);
+        if (res.success) {
+            setUserProposals(prev => [res.data, ...prev]);
+            return true;
+        }
+        return false;
     } catch (err) {
-      console.error("Context: Failed to submit proposal", err);
-      return false;
+        console.error(err);
+        return false;
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
-  }, []);
+}, []);
+
+const fetchUserProposals = useCallback(async (userId) => {
+    const data = await CommunityAPI.getUserProposals(userId);
+    setUserProposals(data);
+}, []);
 
   const fetchPendingProposals = useCallback(async () => {
     try {
@@ -260,6 +269,7 @@ export const CommunityProvider = ({ children }) => {
     posts,
     marketItems,
     currentGuild,
+    userProposals, 
     currentReplies, // Exported
     error,
 
@@ -272,6 +282,7 @@ export const CommunityProvider = ({ children }) => {
 
     fetchGuilds,
     submitGuildProposal,
+    fetchUserProposals,
     fetchPendingProposals,
     approveGuildProposal,
     rejectGuildProposal,
